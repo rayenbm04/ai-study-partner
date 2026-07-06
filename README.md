@@ -1,5 +1,12 @@
 # RAG Multimodal Assistant
 
+[![Backend tests](https://github.com/rayenbm04/rag-assistant-for-documents/actions/workflows/tests.yml/badge.svg)](https://github.com/rayenbm04/rag-assistant-for-documents/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/vector%20store-ChromaDB-orange)
+![Ollama](https://img.shields.io/badge/LLM-Ollama%20local-000000?logo=ollama&logoColor=white)
+
 A multimodal Retrieval-Augmented Generation (RAG) assistant that answers questions about your documents. Supports PDFs, Word files, PowerPoint presentations, spreadsheets, PlantUML diagrams, plain text, images, and web URLs.
 
 Runs fully locally via [Ollama](https://ollama.com) by default — no data leaves your machine. Optionally switch to **Groq** (free, Llama 3.3 70B) or **OpenAI** (GPT-4o) per session using the in-app toggle.

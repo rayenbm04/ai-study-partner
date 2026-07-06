@@ -306,7 +306,7 @@ class _CompatLLM:
                 if is_daily:
                     global _groq_daily_limit_hit
                     _groq_daily_limit_hit = True
-                    print(f"  [llm] daily token limit hit — failing immediately")
+                    print("  [llm] daily token limit hit — failing immediately")
                     raise RuntimeError("Rate limit reached — Groq daily token quota exhausted. Please try again tomorrow or switch to a different model.")
                 wait = 20 * (attempt + 1)
                 print(f"  [llm] rate limit (TPM/RPM) — waiting {wait}s (attempt {attempt+1}/6)")
@@ -339,7 +339,7 @@ class _CompatLLM:
                 if is_daily:
                     global _groq_daily_limit_hit
                     _groq_daily_limit_hit = True
-                    print(f"  [llm] daily token limit hit — failing immediately")
+                    print("  [llm] daily token limit hit — failing immediately")
                     raise RuntimeError("Rate limit reached — Groq daily token quota exhausted. Please try again tomorrow or switch to a different model.")
                 wait = 20 * (attempt + 1)
                 print(f"  [llm] rate limit (TPM/RPM) — waiting {wait}s (attempt {attempt+1}/6)")
@@ -792,7 +792,7 @@ Be exhaustive — your description will be the ONLY source of information about 
 
     effective_provider = provider if provider is not None else _active_provider
     if effective_provider == "cloud":
-        print(f"  [vision] using Groq Llama 4 Scout")
+        print("  [vision] using Groq Llama 4 Scout")
         return _analyze_image_cloud(image_b64, prompt, max_tokens=num_predict)
 
     response = ollama.chat(
@@ -871,7 +871,7 @@ def extract_pdf_content(file_path, filename, on_progress=None, provider: str = "
         for i, page in enumerate(pdf.pages):
             if filename in cancelled_files:
                 print(f"Indexing cancelled: {filename}")
-                raise InterruptedError(f"Cancelled by user")
+                raise InterruptedError("Cancelled by user")
 
             page_num = i + 1
             full_content += f"\n{'='*40}\nPage {page_num}/{total_pages}\n{'='*40}\n"
@@ -890,7 +890,7 @@ def extract_pdf_content(file_path, filename, on_progress=None, provider: str = "
 
             if needs_llava:
                 if filename in cancelled_files:
-                    raise InterruptedError(f"Cancelled by user")
+                    raise InterruptedError("Cancelled by user")
                 try:
                     # Local LLaVA has a 4096-token context window — low resolution keeps image tokens under the limit.
                     # Cloud vision has no such restriction.
@@ -923,7 +923,7 @@ def extract_image_content(file_path, filename, provider: str = "local"):
     image_b64 = image_to_base64(file_path)
     is_uml = _is_uml_image(filename)
     if is_uml:
-        print(f"  UML/diagram detected — using diagram extraction prompt")
+        print("  UML/diagram detected — using diagram extraction prompt")
     description = analyze_image_with_llava(
         image_b64,
         context_hint=f"Image file '{filename}'",
@@ -1028,7 +1028,7 @@ def extract_pptx_content(file_path, filename, provider: str = "local"):
         f"Presentation file: {filename}\n"
         f"Total slides: {total}\n"
         + (f"Cover slide content (project name, team, institution):\n{slide1_body_text}\n" if slide1_body_text else "")
-        + f"Slide index (what each slide represents):\n" + "\n".join(overview_lines) + "\n"
+        + "Slide index (what each slide represents):\n" + "\n".join(overview_lines) + "\n"
     )
     parts = [overview]
 
@@ -1967,7 +1967,7 @@ def _doc_to_pdf_cached(src: str, filename: str) -> str | None:
             )
             if result.returncode != 0:
                 return None
-            converted = os.path.join(tmpdir, f"input.pdf")
+            converted = os.path.join(tmpdir, "input.pdf")
             if not os.path.exists(converted):
                 return None
             shutil.move(converted, cached)

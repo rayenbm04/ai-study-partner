@@ -32,6 +32,7 @@ See the [root README](../README.md) for the full project architecture, retrieval
 | Icons | Lucide React, Remix Icon |
 | Markdown/math | `react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `rehype-highlight`, `react-syntax-highlighter` |
 | Charts | Recharts |
+| Testing | Vitest, Testing Library, jsdom |
 
 ---
 
@@ -43,6 +44,7 @@ rag-frontend/
 │   ├── App.jsx              # Main app — auth, sessions, chat, upload, dashboard (single-file SPA logic)
 │   ├── App.css / index.css  # Global styles
 │   ├── main.jsx              # Entry point
+│   ├── test/setup.js         # Vitest setup (jest-dom matchers)
 │   ├── components/
 │   │   ├── AnswerDisplay.jsx  # Renders streamed answers, citations, F/R eval badges
 │   │   ├── Composer.jsx       # Chat input bar (send/cancel)
@@ -94,6 +96,19 @@ Copy `.env.local.example` to `.env.local` — Vite loads `.env.local` automatica
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint |
+| `npm test` | Run the Vitest test suite |
+
+---
+
+## Testing
+
+Component tests live alongside their source files (`*.test.jsx` / `*.test.js`) and use Vitest + React Testing Library, running in a jsdom environment. Run them with:
+
+```bash
+npm test
+```
+
+CI runs this same command on every push/PR via `.github/workflows/tests.yml`.
 
 ---
 
