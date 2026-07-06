@@ -406,13 +406,16 @@ All endpoints except `/auth/register` and `/auth/login` require `Authorization: 
 | Tool | Description |
 |---|---|
 | `list_documents()` | Lists all indexed files ready to query |
-| `query_documents(question, files, provider)` | Runs the full RAG pipeline and returns the answer with citations |
+| `query_documents(question, files, provider)` | Runs the full RAG pipeline and returns the answer with citations. Pass `files=[]` to search across all indexed documents automatically |
 | `upload_document(file_path, provider)` | Uploads a file from a local path and starts indexing in the background |
+| `list_github_repos(username, per_page)` | Lists repos for any GitHub user or org via the REST API — more reliable than the GitHub connector's search for hyphenated usernames or users with few public repos |
+| `get_github_profile(username)` | Returns a full developer profile: bio, location, language breakdown across all repos, and top repositories with descriptions. Designed for recruiter workflows — Claude can extract skills and give career advice from a single call |
+| `index_github_repo(username, repo_name, provider, max_files)` | Auto-fetches the README and key source files from a GitHub repo and indexes them. After indexing, use `query_documents` to ask about architecture, patterns, code quality, etc. |
 | `upload_document_from_url(url, filename, provider)` | Downloads a file from any URL and indexes it — ideal for the GitHub → RAG workflow |
 | `upload_document_content(filename, content_base64, provider)` | Indexes a file from base64-encoded bytes — use when attaching a file directly to the Claude Desktop conversation |
 | `check_indexing_status(filename)` | Polls indexing progress for a previously uploaded file |
 
-All upload tools return immediately — indexing runs in the background. Call `check_indexing_status` to know when a file is ready.
+All upload and indexing tools return immediately — indexing runs in the background. Call `check_indexing_status` to know when a file is ready.
 
 ### Setup
 
@@ -504,6 +507,38 @@ Claude: [reads file → base64-encodes it]
         [calls upload_document_content("report.pdf", "<base64>")]
         ✓ 'report.pdf' uploaded — call check_indexing_status when ready.
 ```
+
+**Recruiter: extract skills from a GitHub profile**
+
+```
+You: Analyse the GitHub profile of rayenbm04 and extract their technical skills.
+
+Claude: [calls get_github_profile("rayenbm04")]
+        → bio, 7 repos, primary languages: C (5 repos), Python (2 repos)
+
+        Technical skills detected:
+        - C (systems programming, data structures — snake_c, todolist_c, tictactoe_c)
+        - Python (AI/ML — rag-assistant-for-documents, DevDocs_AI)
+        - RAG pipelines, FastAPI, vector databases (from repo descriptions)
+```
+
+**Recruiter: deep-dive into a specific project**
+
+```
+You: Tell me about the architecture of rayenbm04's rag-assistant-for-documents repo.
+
+Claude: [calls index_github_repo("rayenbm04", "rag-assistant-for-documents")]
+        ✓ Indexing started for README.md, main.py, mcp_server.py ...
+
+You: Check if it's ready, then explain the architecture.
+
+Claude: [calls check_indexing_status("rag-assistant-for-documents__README.md")]
+        ✓ Ready.
+        [calls query_documents("explain the architecture", ["rag-assistant-for-documents__README.md", ...])]
+        The project is a local-first RAG assistant built with FastAPI + LlamaIndex ...
+```
+
+> **Note on tool selection**: When asking about a GitHub user, say *"use the rag-assistant MCP"* to ensure Claude picks `get_github_profile` / `list_github_repos` over the GitHub connector's `search_repositories`, which fails for users with hyphenated names or few public repos.
 
 ### Adding the GitHub MCP
 

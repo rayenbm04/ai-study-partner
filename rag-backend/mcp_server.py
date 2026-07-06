@@ -2,10 +2,13 @@
 """
 mcp_server.py — MCP server for the RAG Assistant.
 
-Exposes six tools to any MCP-compatible client (Claude Desktop, etc.):
+Exposes nine tools to any MCP-compatible client (Claude Desktop, etc.):
   • list_documents           — see what files are indexed
   • query_documents          — ask a question against indexed files
   • upload_document          — index a new file from a local path
+  • list_github_repos        — list repos for any GitHub user/org (REST API)
+  • get_github_profile       — full profile summary: bio, languages, top repos (recruiter-ready)
+  • index_github_repo        — auto-fetch & index key files from a repo for deep Q&A
   • upload_document_from_url — download from a URL and index (ideal for GitHub/Notion)
   • upload_document_content  — index from base64 content (for direct file attachments)
   • check_indexing_status    — poll indexing progress for a previously uploaded file
@@ -98,10 +101,25 @@ def _headers() -> dict:
 mcp = FastMCP(
     "RAG Assistant",
     instructions=(
-        "Use list_documents first to see what files are available, "
-        "then call query_documents with the relevant file names. "
-        "Always pass the most specific file list you can — "
-        "querying all files at once reduces precision."
+        # Document Q&A
+        "To answer questions about indexed documents: call list_documents first, "
+        "then query_documents with the relevant file names. "
+        "Always pass the most specific file list you can — querying all files at once reduces precision.\n\n"
+
+        # GitHub — ALWAYS use these tools, never search_repositories
+        "For ANY GitHub user or organisation lookup — listing repos, checking a profile, "
+        "extracting skills, giving career advice — ALWAYS use this server's tools:\n"
+        "  • get_github_profile(username)  — bio, languages, top repos in one call. "
+        "Use this first for any recruiter or profile analysis request.\n"
+        "  • list_github_repos(username)   — simple repo list. Use when only names are needed.\n"
+        "  • index_github_repo(username, repo_name) — indexes repo files for deep Q&A.\n"
+        "NEVER use the GitHub connector's search_repositories for user-specific lookups — "
+        "it fails on usernames with hyphens and returns incomplete results. "
+        "Use get_github_profile or list_github_repos instead, always.\n\n"
+
+        # Upload flow
+        "To index a file from a URL (e.g. a raw GitHub file): call upload_document_from_url, "
+        "then poll check_indexing_status every 30 s until status is ready."
     ),
 )
 
@@ -154,6 +172,14 @@ def query_documents(
     str
         The answer followed by the source files and page numbers cited.
     """
+    # If no files specified, query across all indexed documents
+    if not files:
+        r = requests.get(f"{BASE_URL}/documents", headers=_headers(), timeout=15)
+        if r.status_code == 200:
+            files = [d["name"] for d in r.json() if d.get("status", "ready") == "ready"]
+        if not files:
+            return "No documents are indexed yet. Upload a file first."
+
     payload = {
         "question": question,
         "files":    files,
@@ -281,7 +307,296 @@ def upload_document(file_path: str, provider: str = "local") -> str:
     )
 
 
-# ── Tool 4: upload_document_from_url ─────────────────────────────────────────
+# ── Tool 4: list_github_repos ────────────────────────────────────────────────
+
+@mcp.tool()
+def list_github_repos(username: str, per_page: int = 30) -> str:
+    """
+    List repositories for a GitHub user or organisation via the REST API.
+
+    PREFER THIS over search_repositories from the GitHub connector — search_repositories
+    uses a keyword index that fails for users with few public repos or hyphenated names.
+    This tool calls /users/{username}/repos directly and always works.
+
+    Parameters
+    ----------
+    username : str
+        GitHub username or organisation name (e.g. "rayen-ben-mimoun").
+    per_page : int
+        Number of repos to return (max 100). Default 30.
+    """
+    if not GITHUB_TOKEN:
+        return "GITHUB_PERSONAL_ACCESS_TOKEN is not set in .env — cannot call GitHub API."
+
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    params = {"per_page": min(per_page, 100), "sort": "updated", "direction": "desc"}
+
+    r = requests.get(
+        f"https://api.github.com/users/{username}/repos",
+        headers=headers,
+        params=params,
+        timeout=15,
+    )
+    if r.status_code == 404:
+        return f"GitHub user '{username}' not found."
+    if r.status_code != 200:
+        return f"GitHub API error ({r.status_code}): {r.text[:200]}"
+
+    repos = r.json()
+    if not repos:
+        return f"No repositories found for '{username}'."
+
+    lines = [f"Repositories for {username} ({len(repos)} shown, sorted by last update):\n"]
+    for repo in repos:
+        private = " [private]" if repo.get("private") else ""
+        desc = repo.get("description") or ""
+        desc_str = f" — {desc}" if desc else ""
+        lines.append(f"• {repo['name']}{private}{desc_str}")
+    return "\n".join(lines)
+
+
+# ── Tool 5: get_github_profile ───────────────────────────────────────────────
+
+@mcp.tool()
+def get_github_profile(username: str) -> str:
+    """
+    Get a full profile summary for a GitHub user: bio, location, stats,
+    language breakdown across all repos, and top repositories with descriptions.
+
+    USE THIS — not search_repositories — whenever the user asks to analyse a GitHub
+    account, extract skills, assess a developer, or give career advice based on
+    their GitHub. Works for any username including those with hyphens.
+
+    Parameters
+    ----------
+    username : str
+        GitHub username (e.g. "rayen-ben-mimoun").
+    """
+    if not GITHUB_TOKEN:
+        return "GITHUB_PERSONAL_ACCESS_TOKEN is not set in .env — cannot call GitHub API."
+
+    gh_headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+
+    # 1. User profile
+    u = requests.get(f"https://api.github.com/users/{username}", headers=gh_headers, timeout=15)
+    if u.status_code == 404:
+        return f"GitHub user '{username}' not found."
+    if u.status_code != 200:
+        return f"GitHub API error ({u.status_code}): {u.text[:200]}"
+    user = u.json()
+
+    # 2. Repos (up to 100, sorted by stars)
+    r = requests.get(
+        f"https://api.github.com/users/{username}/repos",
+        headers=gh_headers,
+        params={"per_page": 100, "sort": "updated"},
+        timeout=15,
+    )
+    repos = r.json() if r.status_code == 200 else []
+
+    # Aggregate language bytes across all repos
+    lang_totals: dict[str, int] = {}
+    for repo in repos:
+        lang = repo.get("language")
+        if lang:
+            lang_totals[lang] = lang_totals.get(lang, 0) + 1
+
+    top_langs = sorted(lang_totals.items(), key=lambda x: x[1], reverse=True)[:8]
+    lang_str = ", ".join(f"{l} ({c} repos)" for l, c in top_langs) if top_langs else "unknown"
+
+    # Top 10 repos by stars
+    top_repos = sorted(repos, key=lambda x: x.get("stargazers_count", 0), reverse=True)[:10]
+
+    lines = [
+        f"# GitHub Profile: {user.get('name') or username} (@{username})",
+        "",
+        f"**Bio:** {user.get('bio') or 'Not set'}",
+        f"**Location:** {user.get('location') or 'Not set'}",
+        f"**Company:** {user.get('company') or 'Not set'}",
+        f"**Blog/Website:** {user.get('blog') or 'Not set'}",
+        f"**Public repos:** {user.get('public_repos', 0)}  |  "
+        f"**Followers:** {user.get('followers', 0)}  |  "
+        f"**Following:** {user.get('following', 0)}",
+        f"**Account created:** {user.get('created_at', '')[:10]}",
+        "",
+        f"**Primary languages:** {lang_str}",
+        "",
+        "## Top repositories (by stars)",
+    ]
+
+    for repo in top_repos:
+        stars   = repo.get("stargazers_count", 0)
+        forks   = repo.get("forks_count", 0)
+        lang    = repo.get("language") or "—"
+        desc    = repo.get("description") or "No description"
+        updated = repo.get("updated_at", "")[:10]
+        topics  = ", ".join(repo.get("topics", [])) or "—"
+        lines += [
+            f"\n### {repo['name']}",
+            f"- Stars: {stars}  |  Forks: {forks}  |  Language: {lang}",
+            f"- Last updated: {updated}",
+            f"- Topics: {topics}",
+            f"- Description: {desc}",
+            f"- URL: {repo['html_url']}",
+            f"- Raw base URL: https://raw.githubusercontent.com/{username}/{repo['name']}/HEAD/",
+        ]
+
+    lines += [
+        "",
+        "---",
+        "To deep-dive into a specific repo, call index_github_repo(username, repo_name) "
+        "and then query_documents() for detailed code analysis.",
+    ]
+
+    return "\n".join(lines)
+
+
+# ── Tool 6: index_github_repo ─────────────────────────────────────────────────
+
+@mcp.tool()
+def index_github_repo(
+    username: str,
+    repo_name: str,
+    provider: str = "local",
+    max_files: int = 10,
+) -> str:
+    """
+    Automatically fetch and index the key files from a GitHub repository
+    into the RAG assistant — README, main source files, config files.
+
+    After calling this, use query_documents() to ask detailed questions about
+    the repo: architecture, patterns, skills demonstrated, code quality, etc.
+
+    Returns immediately — call check_indexing_status(filename) to track progress
+    for each file.
+
+    Parameters
+    ----------
+    username : str
+        GitHub username (e.g. "rayenbm04").
+    repo_name : str
+        Repository name (e.g. "rag-assistant").
+    provider : str
+        "local" or "cloud" — vision model for any PDFs/images in the repo.
+    max_files : int
+        Max number of source files to index (excluding README). Default 10.
+    """
+    if not GITHUB_TOKEN:
+        return "GITHUB_PERSONAL_ACCESS_TOKEN is not set in .env."
+
+    gh_headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    base_api = f"https://api.github.com/repos/{username}/{repo_name}"
+
+    # Verify repo exists
+    meta = requests.get(base_api, headers=gh_headers, timeout=15)
+    if meta.status_code == 404:
+        return f"Repo '{username}/{repo_name}' not found or not accessible."
+    if meta.status_code != 200:
+        return f"GitHub API error ({meta.status_code}): {meta.text[:200]}"
+
+    default_branch = meta.json().get("default_branch", "main")
+
+    # Walk the repo tree (flat, one level of recursion)
+    tree_r = requests.get(
+        f"{base_api}/git/trees/{default_branch}",
+        headers=gh_headers,
+        params={"recursive": "1"},
+        timeout=20,
+    )
+    if tree_r.status_code != 200:
+        return f"Could not fetch repo tree: {tree_r.status_code}"
+
+    tree = tree_r.json().get("tree", [])
+
+    # Prioritise: README first, then source files, skip binaries/lockfiles
+    SKIP_PATTERNS = {
+        "package-lock.json", "yarn.lock", "poetry.lock", "Pipfile.lock",
+        ".gitignore", ".env", ".env.example",
+    }
+    SKIP_DIRS = {"node_modules", ".git", "__pycache__", "dist", "build", ".venv", "venv"}
+    SOURCE_EXTS = {
+        ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rs", ".cpp",
+        ".c", ".cs", ".rb", ".php", ".swift", ".kt", ".scala", ".r", ".ipynb",
+        ".sql", ".sh", ".yaml", ".yml", ".toml", ".md", ".txt",
+    }
+
+    readme_files = []
+    source_files = []
+
+    for item in tree:
+        if item.get("type") != "blob":
+            continue
+        path: str = item["path"]
+        parts = path.split("/")
+
+        # Skip hidden/vendor dirs
+        if any(p in SKIP_DIRS or p.startswith(".") for p in parts[:-1]):
+            continue
+        filename = parts[-1]
+        if filename in SKIP_PATTERNS:
+            continue
+
+        ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        name_lower = filename.lower()
+
+        if name_lower.startswith("readme"):
+            readme_files.append(path)
+        elif ext in SOURCE_EXTS and item.get("size", 0) < 200_000:  # skip files >200KB
+            source_files.append(path)
+
+    # Build final file list: README(s) first, then source up to max_files
+    to_index = readme_files[:2] + source_files[:max_files]
+    if not to_index:
+        return f"No indexable files found in '{username}/{repo_name}'."
+
+    indexed: list[str] = []
+    errors:  list[str] = []
+
+    for path in to_index:
+        raw_url = f"https://raw.githubusercontent.com/{username}/{repo_name}/{default_branch}/{path}"
+        # Use just the filename as the index key (prefix with repo name to avoid collisions)
+        safe_filename = f"{repo_name}__{path.replace('/', '__')}"
+        try:
+            indexed_name = _fetch_and_post(raw_url, safe_filename, provider, gh_headers)
+            indexed.append(indexed_name)
+        except Exception as e:
+            errors.append(f"{path}: {e}")
+
+    result_lines = [
+        f"✓ Indexing started for {len(indexed)} file(s) from '{username}/{repo_name}':",
+    ]
+    for name in indexed:
+        result_lines.append(f"  • {name}")
+    if errors:
+        result_lines.append(f"\n⚠ {len(errors)} file(s) failed:")
+        for e in errors:
+            result_lines.append(f"  • {e}")
+    result_lines += [
+        "",
+        "Call check_indexing_status(filename) for each file to track progress.",
+        "Once ready, use query_documents() to analyse the repo.",
+    ]
+    return "\n".join(result_lines)
+
+
+def _fetch_and_post(url: str, filename: str, provider: str, extra_headers: dict) -> str:
+    """Download from URL with auth headers and POST to /upload."""
+    resp = requests.get(url, headers=extra_headers, timeout=60)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Download failed ({resp.status_code})")
+    return _post_file(filename, resp.content, provider)
+
+
+# ── Tool 7: upload_document_from_url ─────────────────────────────────────────
 
 @mcp.tool()
 def upload_document_from_url(
