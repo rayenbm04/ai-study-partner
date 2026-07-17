@@ -17,3 +17,6 @@ rag-frontend/dist/
 .DS_Store
 Thumbs.db
 *.log
+RAG_Assistant_Architecture.tex
+RAG_Assistant_Architecture.docx
+liverable

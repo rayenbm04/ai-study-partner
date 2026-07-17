@@ -15,7 +15,7 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import create_engine, Column, String, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 import chromadb
@@ -94,11 +94,17 @@ class UserModel(_Base):
 
 _Base.metadata.create_all(bind=_engine)
 
-_pwd_ctx      = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-def _hash_pw(pw: str) -> str:           return _pwd_ctx.hash(pw)
-def _verify_pw(plain: str, h: str) -> bool: return _pwd_ctx.verify(plain, h)
+# bcrypt truncates/rejects secrets over 72 bytes — matches passlib's historical behavior.
+def _hash_pw(pw: str) -> str:
+    return bcrypt.hashpw(pw.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
+
+def _verify_pw(plain: str, h: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8")[:72], h.encode("utf-8"))
+    except ValueError:
+        return False
 
 def _make_token(user: UserModel) -> str:
     expire = datetime.utcnow() + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
