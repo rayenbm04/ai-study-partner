@@ -1,745 +1,162 @@
-# RAG Multimodal Assistant
+# AI Study Coach — Backend
 
-[![Backend tests](https://github.com/rayenbm04/rag-assistant-for-documents/actions/workflows/tests.yml/badge.svg)](https://github.com/rayenbm04/rag-assistant-for-documents/actions/workflows/tests.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-![ChromaDB](https://img.shields.io/badge/vector%20store-ChromaDB-orange)
-![Ollama](https://img.shields.io/badge/LLM-Ollama%20local-000000?logo=ollama&logoColor=white)
+Clean-architecture FastAPI backend for AI Study Coach: a multi-subject, persistent-learning-model study platform, redesigned from the forked `rag-assistant` project (`rag-backend`/`rag-frontend`, left untouched alongside this folder during the transition). Full system design — six-engine model, database schema, API contract, rollout plan — is in `../docs/ARCHITECTURE.md`; this README covers what's actually built and how to run it.
 
-A multimodal Retrieval-Augmented Generation (RAG) assistant that answers questions about your documents. Supports PDFs, Word files, PowerPoint presentations, spreadsheets, PlantUML diagrams, plain text, images, and web URLs.
-
-Runs fully locally via [Ollama](https://ollama.com) by default — no data leaves your machine. Optionally switch to **Groq** (free, Llama 3.3 70B) or **OpenAI** (GPT-4o) per session using the in-app toggle.
-
-Built as a 5-week internship project to explore the full RAG engineering stack: ingestion, retrieval, re-ranking, evaluation, and production packaging.
-
----
+Every LLM and embedding call in this pipeline is a cloud API — there is no local inference anywhere (no Ollama, no on-disk model weights). See `docs/LLM_PROVIDERS.md` for the free-tier provider comparison and upgrade path.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Browser (React)                          │
-│  Auth │ Sessions │ Chat │ Documents sidebar │ Prompt navigator  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTP / SSE  (Bearer JWT)
-┌────────────────────────────▼────────────────────────────────────┐
-│                     FastAPI Backend                             │
-│                                                                 │
-│  /auth/register|login  →  JWT token                            │
-│  /upload → extract → chunk → embed → ChromaDB                  │
-│  /reindex → re-extract + re-embed without re-uploading          │
-│                                                                 │
-│  /ask  ┌─ condense + typo-correct question                      │
-│        ├─ exhaustive query detection (list/résume/extrait)      │
-│        ├─ HyDE: generate hypothetical passage for vector search │
-│        ├─ multi-query: 3 rephrased questions for wider recall   │
-│        ├─ hybrid retrieve: vector (ChromaDB) + BM25             │
-│        ├─ RRF merge across all query variants                   │
-│        ├─ cross-encoder re-rank (BAAI/bge-reranker-base)        │
-│        ├─ smart pinning: PPTX overview / MLD overview / UML     │
-│        ├─ build prompt (labeled context + history)              │
-│        ├─ stream answer token-by-token via SSE                  │
-│        └─ LLM-as-judge eval: faithfulness + relevance           │
-└──────────────┬─────────────────────────────┬───────────────────┘
-               │                             │
-┌──────────────▼──────────┐   ┌─────────────▼─────────────────────┐
-│       Ollama            │   │   SQLite (rag_users.db)            │
-│  qwen2.5:7b             │   │   Users · hashed passwords · roles │
-│  nomic-embed-text       │   └────────────────────────────────────┘
-│  qwen2.5vl:7b           │
-└─────────────────────────┘
-```
-
----
-
-## Features
-
-### Retrieval pipeline
-
-```
-User Question
-      │
-      ▼
-┌─────────────────────────┐
-│  Question Condensation  │  follow-ups rewritten to standalone · typos corrected
-└─────────────┬───────────┘
-              │
-              ▼
-┌─────────────────────────┐
-│  Exhaustive Query       │  "liste", "résume", "extrait", "summarize", "list all" →
-│  Detection              │  fetch up to 200 chunks instead of top-K
-└─────────────┬───────────┘
-              │
-      ┌───────┴────────┐
-      ▼                ▼
-┌───────────┐   ┌──────────────────┐
-│   HyDE    │   │   Multi-Query    │  3 alternative phrasings generated in parallel
-│ Expansion │   │   Generation     │
-└─────┬─────┘   └────────┬─────────┘
-      │                  │
-      └────────┬──────────┘
-               ▼
-    ┌──────────────────────┐
-    │   Hybrid Retrieval   │  all queries fired in parallel
-    │  ┌────────────────┐  │
-    │  │  Vector Search │  │  HyDE query + 3 multi-query variants → ChromaDB
-    │  │    (ChromaDB)  │  │
-    │  ├────────────────┤  │
-    │  │  BM25 Search   │  │  original standalone query → keyword index
-    │  └────────────────┘  │
-    └──────────┬───────────┘
-               ▼
-    ┌──────────────────────┐
-    │  Reciprocal Rank     │  merge up to 5 result lists · deduplicate · boost
-    │  Fusion (RRF)        │  chunks appearing across multiple queries
-    └──────────┬───────────┘
-               ▼
-    ┌──────────────────────┐
-    │  Cross-Encoder       │  BAAI/bge-reranker-base scores each (query, chunk)
-    │  Re-ranking          │  pair jointly · keeps top-K
-    └──────────┬───────────┘
-               ▼
-    ┌──────────────────────┐
-    │  Smart Pinning       │  PPTX: always inject slide index + cover chunks
-    │                      │  MLD: always inject entity overview node
-    │                      │  UML/PUML/diagram images: pin ALL entity blocks
-    └──────────┬───────────┘
-               ▼
-    ┌──────────────────────┐
-    │   Qwen 2.5 7B        │  streams answer token-by-token via SSE
-    └──────────┬───────────┘
-               ▼
-    Answer + Citations + F/R Eval Scores
-```
-
-**HyDE (Hypothetical Document Embeddings)**
-Before retrieval, the LLM generates a short hypothetical passage that would answer the question. This passage is embedded and used for vector search instead of the raw question. A passage-shaped vector sits much closer to real document chunks in embedding space than a question-shaped vector does, measurably improving retrieval quality — especially for vague or short queries. The hypothesis is shown to the user as a collapsible "Search hypothesis" chip above the answer.
-
-**Multi-query retrieval**
-The question is simultaneously rewritten into 3 alternative phrasings by the LLM, each approaching the same information need from a different angle (different vocabulary, specificity, framing). Vector retrieval runs for each phrasing in parallel. All result lists — HyDE vector, 3 multi-query vectors, and BM25 — are merged via RRF, maximising the chance that relevant chunks are surfaced regardless of how the question was phrased. All expansions run concurrently so latency cost is minimal.
+Layered, dependency pointing inward:
 
-**Hybrid search (BM25 + vector)**
-Each query runs a dense vector retriever (ChromaDB cosine similarity) and a sparse BM25 keyword retriever in parallel. Results are fused with Reciprocal Rank Fusion. This catches both semantic matches ("describe the pricing model") and exact keyword matches (product codes, names, numbers).
+    api/            routes (thin — parse request, call a service, return a response schema)
+      + pydantic schemas
+    services/        business logic, framework-free, one package per engine
+    domain/          entities (frozen dataclasses) + repository interfaces (ABCs) — no framework, no SQL
+    repositories/     SQLAlchemy implementations of the domain repository interfaces
+    infrastructure/   DB engine/session/ORM models, file storage, cloud LLM/embedding SDKs
 
-**Cross-encoder re-ranking**
-After hybrid retrieval fetches 2× the needed chunks, a `BAAI/bge-reranker-base` model re-scores each `(question, chunk)` pair jointly — much more accurate than the individual scores from BM25/vector. Only the top-K chunks are passed to the LLM.
+A route never talks to a repository directly, and a service never imports SQLAlchemy or FastAPI — domain interfaces are the only thing services depend on, which is what makes them testable against in-memory fakes with no database at all. Domain exceptions (`app/core/exceptions.py`) carry their own HTTP status code and are mapped to responses by a single generic handler in `main.py`, so services never raise `HTTPException` directly.
 
-**Exhaustive query detection**
-Queries containing listing/summary/extraction keywords in English or French (`list all`, `enumerate`, `summarize`, `résume`, `liste toutes`, `extrait`, `récapitule`, etc.) automatically switch to exhaustive mode: up to 200 chunks are fetched instead of top-K, and the system prompt explicitly instructs the LLM not to stop early, skip entries, or use "etc." — ensuring complete enumeration of entities, attributes, or items.
+Postgres + pgvector is the target datastore in every environment (local via `docker-compose.yml`, tests via either in-memory SQLite or a real embedded Postgres — see Testing below).
 
-**Smart context pinning**
-Four file-type-specific pinning strategies guarantee critical chunks are always in context regardless of retrieval scores:
-- **PPTX**: slide index, total slide count, and cover slide body are always injected.
-- **MLD/schema files**: the entity overview node (listing all table names) is always pinned first, so "list all entities" queries always receive the complete index.
-- **UML / PlantUML / diagram images**: ALL entity blocks are pinned unconditionally — structured schema data should never be partially retrieved.
-- **Scanned PDFs**: the first page chunk (containing supplier name, client, date, reference number, currency) is always injected — prevents table-fragment chunks from outranking the document header in retrieval.
+## What's implemented
 
-**Document comparison mode**
-Automatically detected from keywords in English and French (*compare, contrast, difference, versus, à partir du PDF et du diagramme, les deux documents*, etc.). Switches from unified retrieval to per-file balanced retrieval — guaranteeing chunks from each document — and builds a labeled context (`=== Document: X ===`) so the LLM reasons across sources and cites each one explicitly.
+### Auth + Subjects
 
-**Session-scoped retrieval**
-Each chat session tracks its own file list. Retrieval is filtered to only that session's documents using ChromaDB metadata filters, so sessions with different files never bleed into each other.
+JWT access tokens (short-lived) plus rotating opaque refresh tokens (hashed at rest with SHA-256, single-use — revoked the moment they're exchanged, and revoked on logout). Subjects are the top-level, student-owned container everything else scopes to; every other feature enforces ownership by checking `subject.user_id` (directly, or by walking up through `document → subject` etc.) before returning or mutating anything, so a route can never leak another user's data by id.
 
-**History-aware question condensing**
-Follow-up questions ("what about the second one?" / "explain further") are rewritten into standalone queries before retrieval, using the last 5 turns of conversation history. Typos are corrected at the same step, even for first messages.
+- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`
+- `GET /api/v1/subjects`, `POST /api/v1/subjects`, `GET /api/v1/subjects/{id}`, `PATCH /api/v1/subjects/{id}`, `DELETE /api/v1/subjects/{id}` (archive, not a hard delete)
 
----
+### Knowledge Base
 
-### Ingestion
+Upload a PDF, DOCX, PPTX, XLSX, XLS, TXT, PNG, JPG, or WEBP (`app/services/knowledge_base/`), and a background task (real work, not a stub — runs synchronously in tests via httpx's `ASGITransport`) does the rest:
 
-**Multimodal document support**
+1. **Extraction** (`extractors/`) — a real parser per file type (pdfplumber, python-docx, python-pptx, openpyxl/xlrd), including PDF text-encoding (ligature/CID) fixes ported from the original fork.
+2. **Vision fallback** — scanned/image-only PDF pages (under a text-length threshold), images embedded in slides, and standalone image uploads all go through a vision-model call (`LLMProvider.complete_vision`) instead of being silently skipped. Same cloud LLM as everything else; no separate local OCR/vision pipeline.
+3. **Chunking** (`chunking.py`) — hierarchical parent/child character-based splitting (no tokenizer, no llama-index dependency). Parent chunks (~900 chars) keep enough context for coherent concept tagging and citations; child chunks (~220 chars, 40 overlap) are what gets embedded and retrieved.
+4. **Embedding** — child chunks are embedded and stored in pgvector.
+5. **Concept tagging** (`concept_tagger.py`) — an LLM call matches each parent chunk against the subject's existing concept graph, proposes new concepts when the material clearly introduces one, and wires up prerequisite edges — this is what makes the "knowledge graph" more than a chat log; every feature below reads from it.
 
-| Format | Processing |
-|--------|-----------|
-| PDF | Text extracted with `pdfplumber`; encoding artefacts fixed automatically (`Ø`→`é`, `(cid:28)`→`fi`, etc.); image-only pages sent to vision model in transcription mode |
-| PPTX | Compact overview block (title index, total slide count, cover slide body) + per-slide detail blocks. Tables extracted from all shapes. |
-| DOCX / DOC | Paragraphs and tables extracted with `python-docx`; document-level summary header with table row counts |
-| XLSX / XLS | Sheets extracted with `openpyxl` / `xlrd` |
-| PUML / PlantUML / UML | Parsed directly: all classes, attributes, and relationships extracted into one structured block per entity + an overview block listing all entity names. No vision model needed. |
-| PNG / JPG / WEBP / GIF | Analyzed by vision model. Filenames matching UML/diagram keywords (`uml`, `diagram`, `schema`, `architecture`, `class`, `sequence`, `erd`, etc.) use a compact structured prompt extracting entity names, attributes, and all relationships. Other images use a general description prompt. |
-| TXT / MD / CSV | Read directly |
-| URL | Web pages fetched via `requests` + `BeautifulSoup`, cleaned to plain text, indexed like a local file |
+Not carried over from the original fork: PlantUML diagram parsing and its hardcoded French→English glossary. Everything else that fork's extractors did (vision OCR, image description, PDF text fixes) is reimplemented here against the new cloud-provider abstraction rather than copied as-is.
 
-**MLD / relational schema chunking**
-When a document is detected as a relational schema (≥ 3 `entity = (...)` patterns), the standard token-size chunker is bypassed. Instead, the text is split on `;` delimiters so each entity definition becomes exactly one chunk. An additional overview chunk listing all entity names is prepended — this chunk scores highest on "list all entities / tables" queries and ensures exhaustive answers even when top-K < total entity count. Stale ChromaDB chunks are deleted before re-indexing so old and new chunks never mix.
+- `POST /api/v1/subjects/{id}/documents`, `GET /api/v1/subjects/{id}/documents`, `GET /api/v1/documents/{id}`, `DELETE /api/v1/documents/{id}`
 
-**Vision-extracted PDF page chunking**
-When a PDF has image-only pages processed by the vision model, the standard token-size chunker is also bypassed. Instead, each page is kept as a single chunk — a natural unit since the vision model already processes pages individually. This prevents the 128-char child chunk splitter from cutting markdown table rows mid-cell (e.g. splitting `75,546` across two chunks), which was the main cause of poor retrieval on scanned invoices and forms.
+### RAG Chat
 
-**PDF encoding repair**
-`pdfplumber` can produce garbled text when a PDF uses non-standard font encodings. All extracted text is passed through a post-processor that maps common CID ligature sequences (`(cid:28)` → `fi`, `(cid:29)` → `fl`, etc.) and corrects MacRoman/WinAnsi mis-maps (`Ø` → `é`, `Æ` → `à`, `Ç` → `ç`, etc.) common in French LaTeX-generated PDFs.
+`app/services/rag/` answers a student's question grounded in their uploaded material, with citations back to document/page/section. One chat turn:
 
-**Page-by-page progress tracking**
-PDF indexing reports progress after each page. The frontend shows a live progress bar ("Page 3 / 12") instead of a generic spinner.
+1. **`query_rewrite.py`** — condenses a follow-up ("what about the second one?") into a standalone question using recent chat history, then (config-permitting) expands it into a HyDE hypothetical answer and a few reworded variations — one combined structured-JSON LLM call.
+2. **`retriever.py`** — embeds every query variant, searches per-subject child-chunk embeddings via pgvector cosine distance, and fuses the ranked lists with Reciprocal Rank Fusion (RRF) — rewards a chunk that ranks well across *multiple* phrasings without needing raw distances (not comparable across different query embeddings) normalized by hand. Each hit's parent chunk is resolved for fuller context.
+3. **`rerank.py`** — one more LLM call re-scores the fused candidates by actual relevance to the question (no local cross-encoder — stays cloud-only).
+4. **`chat_service.py`** — orchestrates the above, generates a citation-annotated answer, and persists both the user's and assistant's messages.
 
-**Re-index without re-uploading**
-Each file card has a ↺ button that clears the file's ChromaDB chunks and re-runs extraction with the current extractor — useful after updating extraction logic.
+Every technique is a flag (`rag_enable_hyde`, `rag_enable_multi_query`, `rag_enable_rerank`) so a stricter free-tier model can have some switched off with no code change.
 
-**Upload deduplication**
-Re-uploading the same file (identical MD5) skips re-indexing and returns `ready` immediately.
+- `POST /api/v1/subjects/{id}/chat`, `GET /api/v1/subjects/{id}/conversations`, `GET /api/v1/conversations/{id}/messages`
 
-**Cancellable indexing**
-Each indexing job checks a cancellation flag between pages. Cancelling stops the job and deletes the partially-uploaded file.
+### Summaries
 
----
+`app/services/summary_engine/summary_service.py` generates one of six document-scoped study aids: `short`, `detailed`, `bullet`, `key_concepts`, `formula_sheet`, `definitions`. Unlike chat, there's no vector retrieval here — a summary's "corpus" is exactly one document, so the source is that document's parent chunks (already-sized context windows from ingestion) concatenated in page order and capped at `summary_max_source_chars` so a huge document doesn't blow a free-tier context window. The one type that reaches into another engine is `key_concepts`, which grounds its prompt in whatever the ingestion pipeline already tagged to this document in the subject's concept graph, rather than asking the LLM to invent concept names from scratch. Each summary is cached per `(document_id, summary_type)` — generating overwrites the previous version rather than piling up history, since it's a cache of "what does this document say," not a log.
 
-### Authentication
+The document-source assembly logic (parent chunks → capped text blob) is shared with the flashcard generator below, in `app/services/knowledge_base/document_source.py`.
 
-**JWT-based user accounts**
-Registration and login via `/auth/register` and `/auth/login`. Passwords hashed with bcrypt. Tokens are signed HS256 JWTs (7-day expiry). Every protected endpoint requires a `Bearer` token — expired tokens return `401` and the frontend redirects to login automatically.
+- `POST /api/v1/subjects/{id}/summaries` (body: `document_id`, `summary_type`) — generates/regenerates
+- `GET /api/v1/documents/{id}/summary?summary_type=...` — reads back what's cached (404 if never generated)
 
-**Multi-user support**
-Each user has isolated chat history scoped per user-ID in `localStorage`. File ownership is tracked server-side (`file_owners.json`) — non-admin users can only query their own files. Deleting a session automatically deletes its uploaded files if no other session references them.
+### Flashcards
 
-**Role-based access**
-The first registered account is automatically `admin`. Admins can query any file. The user's name and role are shown in the navbar.
+`app/services/flashcard_engine/` generates flashcards from a document and runs SM-2 spaced repetition on them:
 
----
+- **`generator.py`** — one structured-JSON LLM call turns a document's source text into a batch of question/answer flashcards, calibrated difficulty (easy/medium/hard), each optionally linked to a concept from the subject's concept graph tagged to that document (same conservative-grounding approach as `key_concepts` summaries — a concept name that doesn't match the graph is dropped, not invented).
+- **`sm2.py`** — the unmodified SM-2 algorithm (SuperMemo-2, 1987): pure functions, no I/O, fully unit-tested. A review is graded 0-5 ("how well did you recall this"); 0-2 is a lapse (streak resets, card comes back tomorrow), 3-5 grows the interval (1 day → 6 days → `previous_interval × ease_factor`).
+- **`flashcard_service.py`** — ownership checks, generation persistence, and the review loop. A card's SM-2 state (`flashcard_reviews`, one row per `(flashcard_id, user_id)`) is created lazily on first review — a never-reviewed card is simply "due now," so there's nothing to seed at generation time.
 
-### Interface
+- `POST /api/v1/subjects/{id}/flashcards/generate` (body: `document_id`, optional `count`)
+- `GET /api/v1/subjects/{id}/flashcards` — every card in a subject, with each student's current SM-2 state attached if it exists
+- `POST /api/v1/flashcards/{id}/review` (body: `quality`, 0-5)
+- `GET /api/v1/flashcards/due` — every card across every subject this student owns that's due now (never reviewed, or past its `next_review_date`) — not subject-scoped, since "what should I study today" spans subjects
 
-**Three-column layout**
-Left: sessions list with auto-generated titles. Centre: streaming chat with markdown rendering. Right: documents panel with upload zone, file cards, and prompt navigator.
+## Setup
 
-**Streaming responses**
-Answers stream character-by-character via SSE. A configurable delay (`STREAM_DELAY_MS`) makes output readable as it arrives.
+    python3.12 -m venv .venv
+    source .venv/bin/activate        # .venv\Scripts\activate on Windows
+    python -m pip install -r requirements.txt
+    cp .env.example .env             # fill in a real SECRET_KEY and at least one LLM_PROVIDER's API key
 
-**Cancel and restore**
-A Cancel button replaces Send while a response is generating. Cancelling removes the pending response entry and restores the question to the input bar, so the user can edit and resend without retyping.
+## Run the database migrations
 
-**Document preview**
-- **PDF**: rendered in an iframe via the browser's native PDF viewer.
-- **PPTX / DOCX / XLSX**: converted to PDF on demand by LibreOffice headless, then rendered in the same iframe. Conversions are cached by filename + mtime.
-- **Images**: displayed directly.
-- **Text / CSV / PUML**: shown as plain text.
+Requires a running Postgres with the `pgvector` extension available (the `pgvector/pgvector:pg16` Docker image already includes it — see `docker-compose.yml`; the easiest way to get everything running locally is `docker compose up`, which starts Postgres and applies migrations automatically).
 
-**Usage dashboard**
-Click **Stats** in the navbar to see: questions asked (server-tracked), average response time, documents indexed, total chunks, active models, token usage, and estimated cost if using paid APIs.
+    python -m alembic upgrade head
 
-**Per-file summarization**
-Each file row in the Stats dashboard has a **∑ Summarize** button. Clicking it streams a full document summary inline below the filename, scoped to that single file.
+Five migrations, applied in order:
 
-**Chunk viewer**
-Clicking a file row in the Stats dashboard expands its stored chunks inline, showing the exact text the retriever works with. Useful for debugging retrieval quality.
-
-**RAG evaluation badges**
-After each answer, two LLM-as-judge calls score:
-- **F** (Faithfulness): is every claim grounded in retrieved context?
-- **R** (Answer relevance): does the answer address the question?
-
-Scores appear as colour-coded badges (green ≥ 80%, amber 50–80%, red < 50%).
-
-**PDF export**
-Click **Export PDF** to print the current chat to a formatted PDF via the browser's print dialog.
-
-**Prompt navigator**
-Collapsible Prompts section lists every question in the session. Clicking scrolls directly to that exchange.
-
-**LLM-generated session titles**
-After the first message, a background request generates a 2–5 word title using both the question and filename.
-
----
-
-## Prerequisites
-
-### 1. Ollama
-
-Install from [ollama.com](https://ollama.com), then pull the required models:
-
-```bash
-ollama pull qwen2.5:7b           # ~4.7 GB — text generation (recommended)
-ollama pull nomic-embed-text     # ~274 MB — embeddings
-ollama pull qwen2.5vl:7b         # ~4.7 GB — image & scanned PDF analysis
-```
-
-> Tested on an RTX 4070 (12 GB VRAM) — both models run 100% on GPU. For maximum quality use `qwen3:8b` (`LLM_MODEL=qwen3:8b` — thinking tokens suppressed automatically). For faster responses on weaker hardware, any Ollama-compatible 7B instruct model works.
-
-**Optional: expand vision model context window** (recommended for large UML diagrams):
-
-```bash
-ollama show qwen2.5vl:7b --modelfile > qwen_custom.txt
-# Add this line at the top of qwen_custom.txt:
-#   PARAMETER num_ctx 8192
-ollama create qwen2.5vl-large -f qwen_custom.txt
-# Then set VISION_MODEL=qwen2.5vl-large in .env
-```
-
-### 2. Python 3.10+
-
-### 3. Node.js 18+
-
-### 4. LibreOffice (optional — for PPTX / DOCX / XLSX preview)
-
-Install from [libreoffice.org](https://www.libreoffice.org). Without it, document preview falls back to plain text. All other features work normally.
-
----
-
-## Running locally
-
-### Backend
-
-```bash
-cd rag-backend
-
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
-
-pip install -r requirements.txt
-
-cp .env.example .env         # edit SECRET_KEY before deploying
-uvicorn main:app --reload
-```
-
-On first run, `rag_users.db` is created automatically. The first account registered becomes admin.
-
-### Frontend
-
-```bash
-cd rag-frontend
-npm install
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173).
-
----
-
-## Running with Docker
-
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) running. Ollama must be running on the host machine.
-
-```bash
-docker compose up --build
-```
-
-- Frontend: [http://localhost](http://localhost)
-- Backend: [http://localhost:8000](http://localhost:8000)
-
-The backend connects to Ollama on the host via `host.docker.internal:11434`. Uploaded files and ChromaDB are persisted in Docker volumes so data survives restarts.
-
----
-
-## Environment variables
-
-All variables are optional — sensible defaults are set for local development. Copy `.env.example` to `.env` inside `rag-backend/` to override.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLM_MODEL` | `qwen2.5:7b` | Ollama model for text generation and eval |
-| `EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model |
-| `VISION_MODEL` | `qwen2.5vl:7b` | Ollama vision model for images and scanned PDFs |
-| `UPLOAD_DIR` | `./uploads` | Where uploaded files are saved |
-| `CHROMA_DIR` | `./chroma_db` | ChromaDB persistent storage path |
-| `ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated CORS origins |
-| `MAX_UPLOAD_SIZE_MB` | `50` | Maximum file upload size |
-| `SIMILARITY_TOP_K` | `4` | Chunks retrieved per query (2× fetched before re-ranking; exhaustive queries fetch up to 200) |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `STREAM_DELAY_MS` | `20` | Delay between streamed characters in ms |
-| `ENABLE_RERANK` | `true` | Enable cross-encoder re-ranking |
-| `RERANK_MODEL` | `BAAI/bge-reranker-base` | HuggingFace cross-encoder model (~22 MB, downloaded on first run) |
-| `ENABLE_EVAL` | `true` | Enable faithfulness + relevance scoring after each answer |
-| `ENABLE_HYDE` | `true` | Enable HyDE hypothetical passage expansion |
-| `ENABLE_MULTI_QUERY` | `true` | Enable multi-query retrieval (3 rephrased questions via RRF) |
-| `MULTI_QUERY_N` | `3` | Number of alternative query phrasings |
-| `OPENAI_API_KEY` | _(empty)_ | OpenAI API key — leave blank to disable the Cloud option |
-| `OPENAI_MODEL` | `gpt-4o` | OpenAI model name |
-| `GROQ_API_KEY` | _(empty)_ | Groq API key — leave blank to disable the Groq option |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq model name |
-| `SECRET_KEY` | `change-me-in-production` | HS256 signing key for JWT — **change before deploying** |
-| `ACCESS_TOKEN_EXPIRE_DAYS` | `7` | JWT token lifetime in days |
-| `DATABASE_URL` | `sqlite:///./rag_users.db` | SQLAlchemy connection string |
-| `PARENT_CHUNK_SIZE` | `512` | Parent chunk size in tokens (AutoMerging docstore) |
-| `CHILD_CHUNK_SIZE` | `256` | Child/leaf chunk size in tokens (ChromaDB) |
-| `NODE_STORE_DIR` | `./node_store` | LlamaIndex docstore path |
-
----
-
-## API reference
-
-All endpoints except `/auth/register` and `/auth/login` require `Authorization: Bearer <token>`.
-
-**Auth**
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/auth/register` | `{email, password, firstname, lastname}` → `{access_token, user}`. First account becomes admin. |
-| `POST` | `/auth/login` | `{email, password}` → `{access_token, user}` |
-| `GET` | `/auth/me` | Current user profile |
-| `GET` | `/auth/users` | (admin) List all users |
-| `PATCH` | `/auth/users/{id}/role` | (admin) Change a user's role |
-
-**Documents & chat**
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/upload` | Upload a file. Indexing runs in background. Returns `{id, name, status}`. |
-| `POST` | `/upload-url` | `{url}` — Fetch and index a web page. Returns `{name, status, title}`. |
-| `GET` | `/status/{filename}` | Poll indexing status. Returns `{status, progress}`. |
-| `GET` | `/files/{filename}` | Serve an uploaded file for preview. |
-| `GET` | `/slides-pdf/{filename}` | Convert PPTX to PDF via LibreOffice and serve (cached). |
-| `GET` | `/doc-pdf/{filename}` | Convert DOCX / XLSX to PDF via LibreOffice and serve (cached). |
-| `POST` | `/reindex/{filename}` | Clear and re-extract a file's chunks without re-uploading. |
-| `POST` | `/ask` | `{question, history[], files[]}` → SSE stream (see below). |
-| `POST` | `/title` | `{question, files[]}` → `{title}`. Generates a short session title. |
-| `GET` | `/documents` | List documents owned by current user (admins see all). |
-| `DELETE` | `/documents/{filename}` | Remove a file and delete its chunks from ChromaDB. |
-| `GET` | `/dashboard` | Models, chunk counts, query stats, token usage, config. |
-| `POST` | `/cancel/{filename}` | Cancel an in-progress indexing job. |
-| `GET` | `/debug/chunks/{filename}` | Return all stored chunk texts for a file (dev only). |
-
-### SSE event types (`/ask`)
-
-```json
-{ "type": "indexing_wait", "files": ["doc.pptx"] }
-{ "type": "hypothesis",    "text": "A hypothetical passage…" }
-{ "type": "token",         "content": "T" }
-{ "type": "done",          "sources": ["file.pdf"], "citations": [{"file": "file.pdf", "pages": [1, 2]}], "warning": null, "mode": "standard" }
-{ "type": "eval",          "faithfulness": 0.92, "answer_relevance": 0.87 }
-{ "type": "error",         "message": "..." }
-```
-
-`mode` is `"comparison"` when per-file balanced retrieval was used, `"standard"` otherwise.
-
----
-
-## MCP integration (Claude Desktop)
-
-`mcp_server.py` exposes the RAG assistant as a set of tools inside Claude Desktop. Once configured, you can query indexed documents, upload new files from local paths or URLs, and check indexing progress — all from any Claude conversation without opening the browser.
-
-### Tools exposed
-
-| Tool | Description |
+| Migration | Adds |
 |---|---|
-| `list_documents()` | Lists all indexed files ready to query |
-| `query_documents(question, files, provider)` | Runs the full RAG pipeline and returns the answer with citations. Pass `files=[]` to search across all indexed documents automatically |
-| `upload_document(file_path, provider)` | Uploads a file from a local path and starts indexing in the background |
-| `list_github_repos(username, per_page)` | Lists repos for any GitHub user or org via the REST API — more reliable than the GitHub connector's search for hyphenated usernames or users with few public repos |
-| `get_github_profile(username)` | Returns a full developer profile: bio, location, language breakdown across all repos, and top repositories with descriptions. Designed for recruiter workflows — Claude can extract skills and give career advice from a single call |
-| `index_github_repo(username, repo_name, provider, max_files)` | Auto-fetches the README and key source files from a GitHub repo and indexes them. After indexing, use `query_documents` to ask about architecture, patterns, code quality, etc. |
-| `upload_document_from_url(url, filename, provider)` | Downloads a file from any URL and indexes it — ideal for the GitHub → RAG workflow |
-| `upload_document_content(filename, content_base64, provider)` | Indexes a file from base64-encoded bytes — use when attaching a file directly to the Claude Desktop conversation |
-| `check_indexing_status(filename)` | Polls indexing progress for a previously uploaded file |
-
-All upload and indexing tools return immediately — indexing runs in the background. Call `check_indexing_status` to know when a file is ready.
-
-### Setup
-
-**1. Install the MCP dependency**
-
-```bash
-cd rag-backend
-venv\Scripts\activate
-pip install fastmcp
-```
-
-**2. Add credentials to `.env`**
-
-```env
-MCP_EMAIL=your@email.com
-MCP_PASSWORD=yourpassword
-MCP_BASE_URL=http://localhost:8000
-```
-
-These must match an existing account in the app. The same files are visible in the web UI under the **Library** section (files indexed via MCP but not yet added to a session).
-
-**3. Configure Claude Desktop**
-
-Find your config file:
-- **Standard install**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **Windows Store install**: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
-
-Add the RAG assistant server. Use the full Python path from your venv to avoid PATH issues:
-
-```json
-{
-  "mcpServers": {
-    "rag-assistant": {
-      "command": "D:\\PROJECTS\\rag-assistant\\rag-backend\\venv\\Scripts\\python.exe",
-      "args": ["D:\\PROJECTS\\rag-assistant\\rag-backend\\mcp_server.py"]
-    }
-  }
-}
-```
-
-**4. Start your backend, then restart Claude Desktop**
-
-```bash
-cd rag-backend
-uvicorn main:app --reload
-```
-
-Restart Claude Desktop. A 🔌 icon in the bottom-left of the input bar confirms the MCP server connected.
-
-### Usage examples
-
-**Querying an indexed document**
-
-```
-You: What is the net amount to pay in the CCF invoice?
-
-Claude: [calls list_documents → sees CCF04162026.pdf]
-        [calls query_documents("net amount to pay", ["CCF04162026.pdf"])]
-
-        The net amount to pay is **291,707 TND** (Tunisian Dinar).
-
-        Sources:
-          • CCF04162026.pdf (page 2)
-```
-
-**GitHub → RAG pipeline**
-
-With the GitHub MCP also configured (see below), Claude can fetch a file from any repo and index it in one turn:
-
-```
-You: Index the requirements.txt from my rag-assistant-for-documents repo.
-
-Claude: [calls get_file_contents → gets raw download URL]
-        [calls upload_document_from_url(url, "requirements.txt")]
-        ✓ 'requirements.txt' uploaded — indexing started.
-
-You: Check if it's ready.
-
-Claude: [calls check_indexing_status("requirements.txt")]
-        ✓ 'requirements.txt' is fully indexed and ready to query.
-```
-
-**Attaching a file directly**
-
-```
-You: [attaches report.pdf] Upload this to the RAG assistant.
-
-Claude: [reads file → base64-encodes it]
-        [calls upload_document_content("report.pdf", "<base64>")]
-        ✓ 'report.pdf' uploaded — call check_indexing_status when ready.
-```
-
-**Recruiter: extract skills from a GitHub profile**
-
-```
-You: Analyse the GitHub profile of rayenbm04 and extract their technical skills.
-
-Claude: [calls get_github_profile("rayenbm04")]
-        → bio, 7 repos, primary languages: C (5 repos), Python (2 repos)
-
-        Technical skills detected:
-        - C (systems programming, data structures — snake_c, todolist_c, tictactoe_c)
-        - Python (AI/ML — rag-assistant-for-documents, DevDocs_AI)
-        - RAG pipelines, FastAPI, vector databases (from repo descriptions)
-```
-
-**Recruiter: deep-dive into a specific project**
-
-```
-You: Tell me about the architecture of rayenbm04's rag-assistant-for-documents repo.
-
-Claude: [calls index_github_repo("rayenbm04", "rag-assistant-for-documents")]
-        ✓ Indexing started for README.md, main.py, mcp_server.py ...
-
-You: Check if it's ready, then explain the architecture.
-
-Claude: [calls check_indexing_status("rag-assistant-for-documents__README.md")]
-        ✓ Ready.
-        [calls query_documents("explain the architecture", ["rag-assistant-for-documents__README.md", ...])]
-        The project is a local-first RAG assistant built with FastAPI + LlamaIndex ...
-```
-
-> **Note on tool selection**: When asking about a GitHub user, say *"use the rag-assistant MCP"* to ensure Claude picks `get_github_profile` / `list_github_repos` over the GitHub connector's `search_repositories`, which fails for users with hyphenated names or few public repos.
-
-### Adding the GitHub MCP
-
-Lets Claude fetch files from any GitHub repo and pipe them straight into your RAG index.
-
-**1. Generate a GitHub Personal Access Token**
-
-Go to github.com → Settings → Developer settings → Personal access tokens → Generate new token (classic). Check the `repo` scope (or `public_repo` if you only have public repos). Copy the token.
-
-**2. Add to Claude Desktop config**
-
-Node.js must be installed. Find the full path to `npx` by running `where npx` in Command Prompt, then add:
-
-```json
-{
-  "mcpServers": {
-    "rag-assistant": { ... },
-    "github": {
-      "command": "C:\\Program Files\\nodejs\\npx.cmd",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_TOKEN_HERE"
-      }
-    }
-  }
-}
-```
-
-Also add your token to `rag-backend/.env` so the MCP server can download from private repos directly:
-
-```env
-GITHUB_PERSONAL_ACCESS_TOKEN=YOUR_TOKEN_HERE
-```
-
-**3. Restart Claude Desktop**
-
-Both MCPs will appear in the tools panel. The full workflow — *"Index main.py from my repo"* — now resolves in a single conversation turn.
-
-### Notes
-
-- Your FastAPI backend must be running for the tools to work.
-- `provider="local"` uses Ollama (default, fully private). `provider="cloud"` uses Groq (faster, requires `GROQ_API_KEY`).
-- Large files (>500 chunks) can take several minutes to embed locally. Upload returns immediately; poll `check_indexing_status` every 30 s.
-- Files indexed via MCP appear in the web UI under a **Library** section in the Files panel — click `+` to add them to the current session, or the trash icon to delete them.
-
----
-
-## Running tests
-
-```bash
-cd rag-backend
-venv\Scripts\activate
-pip install pytest httpx2
-pytest tests/ -v
-```
-
-All external services (Ollama, ChromaDB, LlamaIndex) are mocked so tests run fully offline. 27/27 tests pass.
-
----
-
-## Project structure
-
-```
-rag-assistant/
-├── docker-compose.yml
-├── rag-backend/
-│   ├── main.py                  # FastAPI app — auth, all endpoints, RAG pipeline
-│   ├── tests/
-│   │   ├── conftest.py          # Mocks for offline testing
-│   │   ├── test_extraction.py
-│   │   └── test_api.py
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── .env.example
-│   ├── rag_users.db             # SQLite user database (auto-created)
-│   └── file_owners.json         # Maps filenames to owner user IDs
-└── rag-frontend/
-    ├── src/
-    │   ├── App.jsx              # React app — auth, sessions, chat, upload, dashboard
-    │   └── App.css
-    ├── Dockerfile
-    ├── nginx.conf
-    └── package.json
-```
-
----
-
-## Benchmarks
-
-Pipeline config for all runs: `CHILD_CHUNK_SIZE=256`, `SIMILARITY_TOP_K=8`, `ENABLE_HYDE=true`, `ENABLE_MULTI_QUERY=true`, `ENABLE_RERANK=true`.
-
----
-
-### Retrieval quality (Hit@8 / MRR) — 65 questions
-
-Retrieval is model-independent — embeddings always use `nomic-embed-text` locally.
-
-| Configuration | Hit@8 | MRR |
-|---|---|---|
-| Vector only | 96% | 0.72 |
-| Hybrid (vector + BM25) | 99% | 0.78 |
-| **Hybrid + Reranker** | **100%** | **0.89** |
-
----
-
-### Answer quality — Local (105 questions)
-
-Evaluated with `answer_eval.py` on a 105-question dataset covering all file types (DOCX, PDF, XLSX, PPTX, PUML, PNG, scanned PDF). Correctness scored by keyword-overlap. Faithfulness and relevance scored by the local LLM-as-judge (same model as the answerer — scores may be inflated by ~5–15%).
-
-| Model | Provider | Questions | Faithfulness | Relevance | Correctness |
-|---|---|---|---|---|---|
-| **qwen2.5:7b** | **Local (Ollama)** | **105 / 105** | **0.937** | **0.899** | **0.798** |
-
-| Metric | Score | Threshold |
-|---|---|---|
-| Faithfulness | 0.937 | ≥ 0.85 ✓ |
-| Relevance | 0.899 | ≥ 0.80 ✓ |
-| Correctness | 0.798 | ≥ 0.70 ✓ |
-
----
-
-### Answer quality — Cloud / Groq (65 questions)
-
-The cloud eval covers 65 questions across all file types including scanned PDFs. Groq's free-tier token limits (100K TPD for 70B-class models) make larger runs impractical in a single session. All three metrics are scored by `llama-3.1-8b-instant` as LLM-as-judge. Aux calls (HyDE, multi-query, condensing) always use `llama-3.1-8b-instant` regardless of which main model is selected — so every run is a hybrid: 8B for aux, selected model for final answer generation.
-
-| Model | Questions | Faithfulness | Relevance | Correctness |
-|---|---|---|---|---|
-| **llama-3.1-8b-instant** | **65** | 82.6% | 83.8% | **84.5%** |
-| **llama-3.3-70b-versatile** | **65** | **84.8%** | **84.3%** | 81.5% |
-| meta-llama/llama-4-scout-17b-16e-instruct | **65** | 80.4% | 84.0% | 81.0% |
-
-> **Scout note:** Scout doubles as both the vision model (image and scanned-PDF analysis) and a capable text generation model. Its scores are competitive with the 70B despite being a much smaller model.
-
----
-
-### Model comparison
-
-Full comparison across all models and providers on a common 65-question subset (answer quality). Retrieval always uses `nomic-embed-text` — differences in Hit@8 reflect the quality of LLM-generated HyDE queries.
-
-**Retrieval quality on scanned PDF (CCF — 15 questions)**
-
-| Model | Provider | Hit@8 | MRR |
-|---|---|---|---|
-| qwen2.5:7b | Local | 86.7% | 0.80 |
-| llama-3.3-70b-versatile | Cloud | 93.3% | 0.90 |
-| llama-4-scout-17b | Cloud | 93.3% | 0.90 |
-| **llama-3.1-8b-instant** | **Cloud** | **100%** | **0.97** |
-
-**Answer quality — all file types**
-
-| Model | Provider | Q | Faithfulness | Relevance | Correctness |
-|---|---|---|---|---|---|
-| **qwen2.5:7b** | Local | 105 | **93.7%** | **89.9%** | 79.8% |
-| llama-3.1-8b-instant | Cloud | 65 | 82.6% | 83.8% | **84.5%** |
-| **llama-3.3-70b-versatile** | **Cloud** | **65** | **84.8%** | **84.3%** | 81.5% |
-| llama-4-scout-17b | Cloud | 65 | 80.4% | 84.0% | 81.0% |
-
-**Key takeaways**
-
-- **Local (qwen2.5:7b)** scores highest on faithfulness (93.7%) and relevance (89.9%) — it stays tightly grounded in retrieved context and runs entirely offline with no data leaving the machine.
-- **llama-3.1-8b-instant** achieves the best correctness (84.5%) and perfect retrieval on scanned PDFs (Hit@8=100%), despite being the smallest cloud model. Best choice when accuracy on factual documents matters.
-- **llama-3.3-70b-versatile** delivers the best overall balance across all three metrics. Recommended for general-purpose use on the cloud tier.
-- **Scout (llama-4-scout-17b)** is the only model that serves dual duty as both vision model (scanned PDF / image extraction) and text generation model. Its answer quality is comparable to the 70B at a much lower cost.
-
----
-
-## Technical decisions
-
-**Why HyDE?**
-Embedding a short question ("what are the project objectives?") produces a vector that sits in "question space", while indexed chunks sit in "answer space". A hypothetical passage bridges that gap — it's shaped like a document chunk, so cosine similarity works much better. The trade-off is one extra LLM call per query, but this runs in parallel with multi-query generation so the wall-clock cost is shared.
-
-**Why multi-query retrieval?**
-A single phrasing of a question may not match the vocabulary used in the source document. Generating 3 alternatives dramatically increases lexical and semantic coverage. Combined with RRF, chunks that appear across multiple query variants get boosted scores, reducing sensitivity to any one phrasing.
-
-**Why delimiter-based chunking for MLD schemas?**
-Fixed-size token chunking splits entity definitions mid-definition. A retriever with top-K=8 then misses the entities whose chunks happened to score lower. Splitting on `;` guarantees each entity is one atomic chunk, and the overview node (listing all entity names) scores highest on exhaustive queries — so "list all entities" always returns the complete list regardless of top-K.
-
-**Why page-level chunking for vision-extracted PDFs?**
-The vision model processes one page at a time and returns a markdown transcript — tables included. If that transcript is then split by the 128-char child chunker, markdown table rows are cut mid-cell: `75,` in one chunk and `546 | 20 | 60,437` in the next. No retriever can recover the original row from those fragments, and the LLM can't answer questions about pricing. Keeping each page as one chunk preserves table structure at the cost of slightly larger retrieval units — an acceptable trade-off for structured documents.
-
-**Why pin all UML chunks?**
-UML and PlantUML files are structured data, not narrative text. Every entity block is equally important and should always be in context. Embedding-based similarity would arbitrarily favour entities whose names happen to appear in the query. Pinning all blocks is O(n) in the number of entities and the context cost is acceptable given typical schema sizes (15–30 entities).
-
-**Why LlamaIndex over LangChain?**
-LlamaIndex has first-class support for hybrid retrievers, node postprocessors, and ChromaDB without needing custom wrapper code. The `QueryFusionRetriever` with `reciprocal_rerank` mode handles BM25 + vector fusion in a few lines.
-
-**Why BM25 + vector instead of vector alone?**
-Vector search struggles with exact keyword lookups — product codes, names, numbers. BM25 is strong there but misses paraphrasing. Fusing both gives consistent performance across both query types.
-
-**Why a cross-encoder for re-ranking?**
-Bi-encoder similarity scores query and document independently. A cross-encoder reads them together and produces a much more accurate relevance estimate. `BAAI/bge-reranker-base` adds ~1–2 s per query on CPU with a measurable quality improvement.
-
-**Why LLM-as-judge for evaluation?**
-Standard RAG evaluation frameworks (RAGAS, TruLens) require either ground-truth datasets or cloud API calls. Using the local LLM means evaluation runs fully offline with zero extra dependencies. The trade-off is score inflation — acceptable for a development feedback signal.
-
-**Why SSE instead of WebSockets?**
-SSE is unidirectional (server → client) which fits the streaming response pattern exactly. It works over plain HTTP, requires no connection upgrade, and is trivially supported by FastAPI's `StreamingResponse`.
+| `0001_initial` | `users`, `subjects`, `refresh_tokens` |
+| `0002_knowledge_base` | `documents`, `chunks`, `embeddings` (pgvector), `concepts`, `concept_prerequisites`, `concept_chunks`; enables the `vector` extension |
+| `0003_chat` | `conversations`, `messages` |
+| `0004_summaries` | `summaries` |
+| `0005_flashcards` | `flashcards`, `flashcard_reviews` |
+
+## Run the API
+
+    python -m uvicorn app.main:app --reload
+
+Interactive docs at `http://localhost:8000/docs`.
+
+## Run the tests
+
+    python -m pytest
+
+187 tests. Almost none of them call a real LLM/embedding API or need Postgres running:
+
+- **Unit tests** (`tests/unit/`) exercise every service (`AuthService`, `SubjectService`, `DocumentService`, `ConceptTagger`, `IngestionPipeline`, `query_rewrite`/`retriever`/`rerank`/`ChatService`, `SummaryService`, `sm2`/flashcard `generator`/`FlashcardService`) against in-memory fake repositories and providers (`tests/unit/fakes.py`) — no database, no network, no event loop surprises.
+- **Extractor tests** run the real PDF/DOCX/PPTX/XLSX parsers against small files generated on the fly (a real `reportlab`-generated PDF, a real `python-docx` document, a real `python-pptx` deck with an embedded image, etc. — not mocks), with vision-model calls (scanned pages, slide images, standalone images) swapped for a fake that still exercises the real image-rendering/extraction code path.
+- **Integration tests** (`tests/integration/`) hit the real FastAPI app end to end via httpx's `AsyncClient` + `ASGITransport`, against an in-memory SQLite database, covering the full upload → extract → chunk → embed → concept-tag pipeline, chat, summaries, and flashcards.
+- **The one exception:** `test_embedding_search_pgvector.py` and `test_chat_api.py` run against a **real embedded Postgres+pgvector** instead of SQLite (via the `pgserver` pip package — no docker/root needed), because pgvector's cosine-distance operator (`<=>`) genuinely doesn't exist on SQLite and mocking that query wouldn't prove anything. See the `pg_server`/`pg_engine`/`pg_client` fixtures in `tests/conftest.py`.
+
+## LLM configuration
+
+All LLM and embedding calls are cloud APIs — nothing runs locally. See `../docs/LLM_PROVIDERS.md` for the provider comparison and rationale. Defaults to Gemini for both chat (concept tagging, chat's condense/expand/rerank/answer calls, summary and flashcard generation) and embeddings. Groq, OpenRouter, and OpenAI are implemented behind the same `LLMProvider` interface (`app/services/llm/`) — switching is a `.env` change (`LLM_PROVIDER=groq`, etc.), not a code change.
+
+Feature-specific tuning lives in `app/core/config.py` and is `.env`-overridable — see `.env.example` for the full list:
+
+- **RAG chat:** `RAG_ENABLE_HYDE`, `RAG_ENABLE_MULTI_QUERY`, `RAG_ENABLE_RERANK`, `RAG_RETRIEVAL_TOP_K`, `RAG_FINAL_CONTEXT_CHUNKS`, etc. — a stricter free-tier quota can turn off the extra LLM calls (HyDE, multi-query, rerank) without touching code.
+- **Summaries:** `SUMMARY_MAX_SOURCE_CHARS`.
+- **Flashcards:** `FLASHCARD_SOURCE_MAX_CHARS`, `FLASHCARD_DEFAULT_GENERATE_COUNT`, `FLASHCARD_MAX_GENERATE_COUNT`.
+
+## API endpoint reference
+
+All routes are prefixed `/api/v1` and (except auth) require `Authorization: Bearer <access_token>`.
+
+| Method & path | Purpose |
+|---|---|
+| `POST /auth/register` | Create an account |
+| `POST /auth/login` | Get an access + refresh token pair |
+| `POST /auth/refresh` | Rotate a refresh token for a new pair |
+| `POST /auth/logout` | Revoke a refresh token |
+| `GET /auth/me` | Current user |
+| `GET /subjects` | List your subjects |
+| `POST /subjects` | Create a subject |
+| `GET /subjects/{id}` | Get a subject |
+| `PATCH /subjects/{id}` | Update a subject |
+| `DELETE /subjects/{id}` | Archive a subject |
+| `POST /subjects/{id}/documents` | Upload + ingest a document |
+| `GET /subjects/{id}/documents` | List a subject's documents |
+| `GET /documents/{id}` | Get a document (status, page count) |
+| `DELETE /documents/{id}` | Delete a document |
+| `POST /subjects/{id}/chat` | Ask a question, grounded in the subject's material |
+| `GET /subjects/{id}/conversations` | List a subject's chat conversations |
+| `GET /conversations/{id}/messages` | A conversation's message history |
+| `POST /subjects/{id}/summaries` | Generate/regenerate a document summary |
+| `GET /documents/{id}/summary` | Read a cached summary (`?summary_type=`) |
+| `POST /subjects/{id}/flashcards/generate` | Generate flashcards from a document |
+| `GET /subjects/{id}/flashcards` | List a subject's flashcards (+ your review state) |
+| `POST /flashcards/{id}/review` | Grade a review (SM-2) |
+| `GET /flashcards/due` | Every card due for review, across subjects |
+
+## What's not built yet
+
+Per `../docs/ARCHITECTURE.md`'s rollout plan: Quiz + Exam engine, Progress engine (mastery rollup, weak-concept detection), Planning engine (study plans/scheduling), Analytics, and the frontend migration. Nothing above depends on those being built first.
