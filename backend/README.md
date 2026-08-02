@@ -29,6 +29,8 @@ Routes depend on services, services depend on repository *interfaces* (never on 
 
 **Quiz + Exam engine** — LLM-generated questions (mcq, true/false, short answer, calculation, fill-in-the-blank) from a document, grounded in its concepts. mcq/true_false/fill_blank are auto-graded by exact match; short_answer/calculation are graded by an LLM judging substantive equivalence. A quiz attempt hides `correct_answer`/`explanation` until submitted, so a student can't read the answer off the quiz or probe answers one at a time. Exams are quizzes with `kind="exam"` (duration, style, and a per-exam attempt history) rather than a separate table — they reuse the exact same attempt/grading endpoints a regular quiz would.
 
+**Progress engine** — recomputes, on every read, a 0-100 mastery score per concept from whatever evidence exists for it (latest flashcard review grade + quiz/exam answer correctness), rolls it up the concept tree (chapter/subject mastery is never stored, just aggregated from children), and flags weak concepts from three signals: `repeated_errors` (a high wrong-answer rate), `slow_response` (answers taking much longer than a baseline), and `decay` (a previously-mastered concept whose score has since dropped). No LLM calls — purely arithmetic over data the other engines already record. Thresholds are `.env`-tunable (see below), not hardcoded, since they're heuristics rather than a fixed spec.
+
 ## Setup
 
 ```bash
@@ -54,6 +56,7 @@ alembic upgrade head
 | `0004` | `summaries` |
 | `0005` | `flashcards`, `flashcard_reviews` |
 | `0006` | `quizzes`, `quiz_questions`, `quiz_attempts`, `student_answers` |
+| `0007` | `progress`, `weak_concepts` |
 
 ## Run the API
 
@@ -69,7 +72,7 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 pytest
 ```
 
-237 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`) run against a real embedded Postgres+pgvector via `pgserver`, since SQLite can't execute pgvector's cosine-distance operator. No test ever calls a real LLM or embedding API — those are always faked in tests.
+285 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep progress-engine test in `test_progress_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests.
 
 ## LLM configuration
 
@@ -84,6 +87,10 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 | `SUMMARY_MAX_SOURCE_CHARS` | cap on source text fed into a summary call |
 | `FLASHCARD_SOURCE_MAX_CHARS` / `FLASHCARD_DEFAULT_GENERATE_COUNT` / `FLASHCARD_MAX_GENERATE_COUNT` | flashcard generation tuning |
 | `QUIZ_SOURCE_MAX_CHARS` / `QUIZ_DEFAULT_GENERATE_COUNT` / `QUIZ_MAX_GENERATE_COUNT` | quiz/exam generation tuning |
+| `PROGRESS_TREND_UP_THRESHOLD` / `PROGRESS_TREND_DOWN_THRESHOLD` | minimum point change to call a concept's trend up/down instead of flat |
+| `WEAK_CONCEPT_MIN_ERROR_COUNT` / `WEAK_CONCEPT_ERROR_RATE_THRESHOLD` | repeated-errors detection tuning |
+| `WEAK_CONCEPT_SLOW_RESPONSE_SECONDS` | slow-response baseline |
+| `WEAK_CONCEPT_DECAY_DROP_THRESHOLD` / `WEAK_CONCEPT_DECAY_MIN_PREVIOUS_SCORE` | decay detection tuning |
 
 ## API endpoint reference
 
@@ -114,10 +121,11 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 | POST | `/api/v1/quiz-attempts/{id}/submit` | Finalize an attempt — returns score + per-question corrections |
 | POST | `/api/v1/subjects/{id}/exams/generate` | Generate an exam (a quiz with `kind="exam"`) |
 | GET | `/api/v1/exams/{id}/history` | This user's past attempts at one exam |
+| GET | `/api/v1/subjects/{id}/progress` | Rolled-up concept-tree mastery for this subject |
+| GET | `/api/v1/subjects/{id}/weak-concepts` | Currently-active detected gaps for this subject |
 
 ## What's not built yet
 
-- **Progress engine** — mastery rollup from the concept graph, weak-concept detection from repeated wrong quiz/exam answers.
 - **Planning engine** — study plan generation from exam date + available time + current mastery.
 - **Analytics engine** — dashboards over everything above.
 - **Frontend** — still the original forked React app; a page-by-page TypeScript rewrite is planned as each page is touched.

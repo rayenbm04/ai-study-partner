@@ -25,6 +25,14 @@ class QuizRepository(ABC):
     async def get_by_id(self, quiz_id: str) -> Quiz | None: ...
 
     @abstractmethod
+    async def list_by_subject(self, subject_id: str) -> list[Quiz]:
+        """Every quiz/exam ever generated for this subject — used by the
+        progress engine to find which quiz_ids' answers count as evidence
+        for this subject's concepts (quiz_questions don't carry subject_id
+        directly, only via quiz_id -> quiz.subject_id)."""
+        ...
+
+    @abstractmethod
     async def list_questions(self, quiz_id: str) -> list[QuizQuestion]: ...
 
     @abstractmethod

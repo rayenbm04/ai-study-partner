@@ -94,6 +94,18 @@ class Settings(BaseSettings):
     quiz_default_generate_count: int = 10
     quiz_max_generate_count: int = 30
 
+    # Progress engine (Phase 8). Mastery/weak-concept thresholds are tuned
+    # heuristics, not a fixed algorithm spec (unlike sm2.py) — kept
+    # adjustable here rather than hardcoded so they can be tuned without a
+    # code change as real usage data comes in.
+    progress_trend_up_threshold: float = 1.0
+    progress_trend_down_threshold: float = 1.0
+    weak_concept_min_error_count: int = 2
+    weak_concept_error_rate_threshold: float = 0.5
+    weak_concept_slow_response_seconds: float = 60.0
+    weak_concept_decay_drop_threshold: float = 15.0
+    weak_concept_decay_min_previous_score: float = 60.0
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]

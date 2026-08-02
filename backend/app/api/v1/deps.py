@@ -21,6 +21,7 @@ from app.repositories.embedding_repo import SqlAlchemyEmbeddingRepository
 from app.repositories.flashcard_repo import SqlAlchemyFlashcardRepository
 from app.repositories.flashcard_review_repo import SqlAlchemyFlashcardReviewRepository
 from app.repositories.message_repo import SqlAlchemyMessageRepository
+from app.repositories.progress_repo import SqlAlchemyProgressRepository
 from app.repositories.quiz_attempt_repo import SqlAlchemyQuizAttemptRepository
 from app.repositories.quiz_repo import SqlAlchemyQuizRepository
 from app.repositories.refresh_token_repo import SqlAlchemyRefreshTokenRepository
@@ -28,6 +29,7 @@ from app.repositories.student_answer_repo import SqlAlchemyStudentAnswerReposito
 from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.repositories.summary_repo import SqlAlchemySummaryRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
+from app.repositories.weak_concept_repo import SqlAlchemyWeakConceptRepository
 from app.services.auth_service import AuthService
 from app.services.document_service import DocumentService
 from app.services.embeddings.base import EmbeddingProvider
@@ -37,6 +39,7 @@ from app.services.flashcard_engine.flashcard_service import FlashcardService
 from app.services.knowledge_base.ingestion_task import ingest_document_task
 from app.services.llm.base import LLMProvider
 from app.services.llm.factory import build_llm_provider
+from app.services.progress_engine.progress_service import ProgressService
 from app.services.quiz_engine.quiz_service import QuizService
 from app.services.rag.chat_service import ChatService
 from app.services.subject_service import SubjectService
@@ -103,6 +106,14 @@ def get_quiz_attempt_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemy
 
 def get_student_answer_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyStudentAnswerRepository:
     return SqlAlchemyStudentAnswerRepository(session)
+
+
+def get_progress_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyProgressRepository:
+    return SqlAlchemyProgressRepository(session)
+
+
+def get_weak_concept_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyWeakConceptRepository:
+    return SqlAlchemyWeakConceptRepository(session)
 
 
 def get_storage() -> StoragePort:
@@ -244,6 +255,37 @@ def get_exam_service(
     attempt_repo: SqlAlchemyQuizAttemptRepository = Depends(get_quiz_attempt_repo),
 ) -> ExamService:
     return ExamService(quiz_service=quiz_service, attempt_repo=attempt_repo)
+
+
+def get_progress_service(
+    progress_repo: SqlAlchemyProgressRepository = Depends(get_progress_repo),
+    weak_concept_repo: SqlAlchemyWeakConceptRepository = Depends(get_weak_concept_repo),
+    concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
+    flashcard_repo: SqlAlchemyFlashcardRepository = Depends(get_flashcard_repo),
+    flashcard_review_repo: SqlAlchemyFlashcardReviewRepository = Depends(get_flashcard_review_repo),
+    quiz_repo: SqlAlchemyQuizRepository = Depends(get_quiz_repo),
+    quiz_attempt_repo: SqlAlchemyQuizAttemptRepository = Depends(get_quiz_attempt_repo),
+    student_answer_repo: SqlAlchemyStudentAnswerRepository = Depends(get_student_answer_repo),
+    subject_service: SubjectService = Depends(get_subject_service),
+) -> ProgressService:
+    return ProgressService(
+        progress_repo=progress_repo,
+        weak_concept_repo=weak_concept_repo,
+        concept_repo=concept_repo,
+        flashcard_repo=flashcard_repo,
+        flashcard_review_repo=flashcard_review_repo,
+        quiz_repo=quiz_repo,
+        quiz_attempt_repo=quiz_attempt_repo,
+        student_answer_repo=student_answer_repo,
+        subject_service=subject_service,
+        trend_up_threshold=settings.progress_trend_up_threshold,
+        trend_down_threshold=settings.progress_trend_down_threshold,
+        weak_min_error_count=settings.weak_concept_min_error_count,
+        weak_error_rate_threshold=settings.weak_concept_error_rate_threshold,
+        weak_slow_response_seconds=settings.weak_concept_slow_response_seconds,
+        weak_decay_drop_threshold=settings.weak_concept_decay_drop_threshold,
+        weak_decay_min_previous_score=settings.weak_concept_decay_min_previous_score,
+    )
 
 
 def get_ingestion_runner() -> Callable[[str], Awaitable[None]]:

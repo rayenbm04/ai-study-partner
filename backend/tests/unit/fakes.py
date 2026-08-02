@@ -12,6 +12,7 @@ from app.domain.entities.conversation import Conversation
 from app.domain.entities.document import Document
 from app.domain.entities.flashcard import Flashcard, FlashcardReview
 from app.domain.entities.message import Message
+from app.domain.entities.progress import Progress, WeakConcept
 from app.domain.entities.quiz import Quiz, QuizAttempt, QuizQuestion, StudentAnswer
 from app.domain.entities.refresh_token import RefreshToken
 from app.domain.entities.subject import Subject
@@ -26,6 +27,7 @@ from app.domain.repositories.embedding_repository import EmbeddingRepository
 from app.domain.repositories.flashcard_repository import FlashcardRepository
 from app.domain.repositories.flashcard_review_repository import FlashcardReviewRepository
 from app.domain.repositories.message_repository import MessageRepository
+from app.domain.repositories.progress_repository import ProgressRepository
 from app.domain.repositories.quiz_attempt_repository import QuizAttemptRepository
 from app.domain.repositories.quiz_repository import QuizRepository
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
@@ -33,6 +35,7 @@ from app.domain.repositories.student_answer_repository import StudentAnswerRepos
 from app.domain.repositories.subject_repository import SubjectRepository
 from app.domain.repositories.summary_repository import SummaryRepository
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.weak_concept_repository import WeakConceptRepository
 from app.infrastructure.storage.base import StoragePort
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.llm.base import LLMProvider
@@ -574,6 +577,9 @@ class FakeQuizRepository(QuizRepository):
     async def get_by_id(self, quiz_id):
         return self._by_id.get(quiz_id)
 
+    async def list_by_subject(self, subject_id):
+        return [q for q in self._by_id.values() if q.subject_id == subject_id]
+
     async def list_questions(self, quiz_id):
         return [q for q in self._questions_by_id.values() if q.quiz_id == quiz_id]
 
@@ -608,6 +614,9 @@ class FakeQuizAttemptRepository(QuizAttemptRepository):
         self._by_id[attempt_id] = updated
         return updated
 
+    async def list_by_user(self, user_id):
+        return [a for a in self._by_id.values() if a.user_id == user_id]
+
 
 class FakeStudentAnswerRepository(StudentAnswerRepository):
     def __init__(self):
@@ -632,3 +641,69 @@ class FakeStudentAnswerRepository(StudentAnswerRepository):
 
     async def list_by_attempt(self, quiz_attempt_id):
         return [a for a in self._by_key.values() if a.quiz_attempt_id == quiz_attempt_id]
+
+
+class FakeProgressRepository(ProgressRepository):
+    def __init__(self):
+        # Keyed by (user_id, concept_id) — mirrors the real table's unique constraint.
+        self._by_key: dict[tuple[str, str], Progress] = {}
+
+    async def upsert(self, *, user_id, concept_id, mastery_score, trend):
+        key = (user_id, concept_id)
+        existing = self._by_key.get(key)
+        record = Progress(
+            id=existing.id if existing else str(uuid.uuid4()),
+            user_id=user_id,
+            concept_id=concept_id,
+            mastery_score=mastery_score,
+            trend=trend,
+            last_updated=datetime.now(timezone.utc),
+        )
+        self._by_key[key] = record
+        return record
+
+    async def get_by_user_and_concept(self, user_id, concept_id):
+        return self._by_key.get((user_id, concept_id))
+
+    async def list_by_user(self, user_id):
+        return [p for p in self._by_key.values() if p.user_id == user_id]
+
+
+class FakeWeakConceptRepository(WeakConceptRepository):
+    def __init__(self):
+        self._by_id: dict[str, WeakConcept] = {}
+
+    async def create(self, *, user_id, concept_id, reason, confidence):
+        record = WeakConcept(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            concept_id=concept_id,
+            reason=reason,
+            confidence=confidence,
+            status="active",
+            detected_at=datetime.now(timezone.utc),
+        )
+        self._by_id[record.id] = record
+        return record
+
+    async def update_active(self, weak_concept_id, *, reason, confidence):
+        updated = replace(self._by_id[weak_concept_id], reason=reason, confidence=confidence)
+        self._by_id[weak_concept_id] = updated
+        return updated
+
+    async def resolve(self, weak_concept_id):
+        updated = replace(self._by_id[weak_concept_id], status="resolved")
+        self._by_id[weak_concept_id] = updated
+        return updated
+
+    async def get_active_by_user_and_concept(self, user_id, concept_id):
+        return next(
+            (
+                w for w in self._by_id.values()
+                if w.user_id == user_id and w.concept_id == concept_id and w.status == "active"
+            ),
+            None,
+        )
+
+    async def list_active_by_user(self, user_id):
+        return [w for w in self._by_id.values() if w.user_id == user_id and w.status == "active"]

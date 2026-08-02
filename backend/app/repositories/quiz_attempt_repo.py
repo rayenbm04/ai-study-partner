@@ -46,3 +46,8 @@ class SqlAlchemyQuizAttemptRepository(QuizAttemptRepository):
         await self._session.flush()
         await self._session.refresh(model)
         return _to_entity(model)
+
+    async def list_by_user(self, user_id: str) -> list[QuizAttempt]:
+        stmt = select(QuizAttemptModel).where(QuizAttemptModel.user_id == user_id)
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [_to_entity(m) for m in models]

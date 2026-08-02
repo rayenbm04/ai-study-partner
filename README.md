@@ -28,7 +28,7 @@ Uploaded course material (PDF, DOCX, PPTX, ...) is turned into a personal, per-s
     citing the student's own material* (document, page, section) —
     never just general knowledge floating free of what they were actually taught
 
-Everything the student-facing features do — chat, summaries, flashcards, quizzes/exams, and eventually progress tracking — reads from and writes back to that same per-subject concept graph, which is what makes the system a tutor with memory rather than a chat log.
+Everything the student-facing features do — chat, summaries, flashcards, quizzes/exams, and progress tracking — reads from and writes back to that same per-subject concept graph, which is what makes the system a tutor with memory rather than a chat log.
 
 ## What a student can do with it
 
@@ -47,11 +47,11 @@ The course is automatically turned into:
 
 reviewed on a **spaced-repetition** schedule (the SM-2 algorithm) that spaces reviews out further each time a card is recalled successfully — day 1, day 3, day 7, day 15, and so on — so a student reviews right before they'd otherwise forget, not on a fixed calendar.
 
-### 3. Get their gaps identified *(planned)*
+### 3. Get their gaps identified
 
-By analyzing answers, repeated mistakes, response time, and which chapters keep coming up wrong:
+Every concept gets a 0-100 mastery score computed from flashcard review grades and quiz/exam answer correctness, rolled up from individual concepts to chapters to the whole subject. Repeated wrong answers, noticeably slow answers, or a score that's dropped since it was last measured each flag a concept as a "weak concept" — a concrete, ranked list of what to focus on next, not just a vague sense of struggling.
 
-> "You've mastered 85% of the Electricity chapter, but you're struggling with series-circuit laws. Here's a focused 20-minute session."
+> "You've mastered 85% of the Electricity chapter, but you're struggling with series-circuit laws."
 
 ### 4. Get tested
 
@@ -89,13 +89,13 @@ The full system design — the six-engine model (Knowledge Base, Student Memory,
 | Auto-generated summaries (6 types) | ✅ Built — Summary engine |
 | Auto-generated flashcards + spaced repetition | ✅ Built — Flashcard engine (SM-2) |
 | Quiz / exam generation + grading | ✅ Built — Quiz + Exam engine |
-| Progress / history | 🚧 Partial — chat, review, and quiz/exam attempt history exist; mastery scoring doesn't yet |
-| Gap detection ("weak concepts") | ⏳ Planned — Progress engine |
+| Progress / mastery rollup | ✅ Built — Progress engine |
+| Gap detection ("weak concepts") | ✅ Built — Progress engine |
 | Exam-prep study plan | ⏳ Planned — Planning engine |
 | Analytics dashboard | ⏳ Planned — Analytics engine |
 | School/teacher dashboard | ⏳ Not started |
 
-In other words: "explain, memorize, test" is built and working end to end; "detect gaps, plan revision" is designed (see the rollout plan in `docs/ARCHITECTURE.md`) but not yet implemented.
+In other words: "explain, memorize, test, detect gaps" is built and working end to end; "plan revision" is designed (see the rollout plan in `docs/ARCHITECTURE.md`) but not yet implemented.
 
 ## Project layout
 

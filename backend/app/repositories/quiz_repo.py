@@ -84,6 +84,11 @@ class SqlAlchemyQuizRepository(QuizRepository):
         model = await self._session.get(QuizModel, quiz_id)
         return _quiz_to_entity(model) if model else None
 
+    async def list_by_subject(self, subject_id: str) -> list[Quiz]:
+        stmt = select(QuizModel).where(QuizModel.subject_id == subject_id)
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [_quiz_to_entity(m) for m in models]
+
     async def list_questions(self, quiz_id: str) -> list[QuizQuestion]:
         stmt = select(QuizQuestionModel).where(QuizQuestionModel.quiz_id == quiz_id)
         models = (await self._session.execute(stmt)).scalars().all()

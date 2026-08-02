@@ -22,3 +22,11 @@ class QuizAttemptRepository(ABC):
 
     @abstractmethod
     async def complete(self, attempt_id: str, *, completed_at: datetime, score: float) -> QuizAttempt: ...
+
+    @abstractmethod
+    async def list_by_user(self, user_id: str) -> list[QuizAttempt]:
+        """Every attempt this user has ever made, across every quiz/subject —
+        used by the progress engine to gather quiz/exam evidence; the service
+        filters down to attempts on quizzes belonging to one subject (same
+        list-then-filter pattern as FlashcardReviewRepository.list_by_user)."""
+        ...
