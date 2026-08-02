@@ -83,3 +83,10 @@ class ExtractionError(DomainError):
 
     def __init__(self, filename: str, reason: str):
         super().__init__(f"Could not extract content from '{filename}': {reason}")
+
+
+class ConversationNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, conversation_id: str):
+        super().__init__(f"Conversation '{conversation_id}' was not found.")

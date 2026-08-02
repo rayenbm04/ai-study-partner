@@ -61,6 +61,16 @@ class Settings(BaseSettings):
     concept_tag_relevance_threshold: float = 0.5
     max_new_concepts_per_chunk: int = 3
 
+    # RAG chat (Phase 4). Each technique is its own flag so a slower/cheaper
+    # free-tier LLM can have some of them switched off without code changes.
+    rag_enable_hyde: bool = True
+    rag_enable_multi_query: bool = True
+    rag_enable_rerank: bool = True
+    rag_multi_query_count: int = 3          # extra query variations beyond the original + HyDE
+    rag_retrieval_top_k: int = 8            # per query variant, before fusion
+    rag_final_context_chunks: int = 6       # chunks kept after fusion/rerank, sent to the answer LLM
+    rag_history_messages: int = 6           # prior turns fed into condense_question
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]

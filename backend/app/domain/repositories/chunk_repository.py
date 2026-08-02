@@ -13,3 +13,10 @@ class ChunkRepository(ABC):
 
     @abstractmethod
     async def list_by_document(self, document_id: str) -> list[Chunk]: ...
+
+    @abstractmethod
+    async def get_by_ids(self, chunk_ids: list[str]) -> list[Chunk]:
+        """Used by retrieval: fetch metadata (page/section/parent) for chunks
+        that came back from a vector search, and to resolve each retrieved
+        child chunk's parent for fuller context assembly."""
+        ...

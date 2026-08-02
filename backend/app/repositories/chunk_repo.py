@@ -69,3 +69,10 @@ class SqlAlchemyChunkRepository(ChunkRepository):
         stmt = select(ChunkModel).where(ChunkModel.document_id == document_id)
         models = (await self._session.execute(stmt)).scalars().all()
         return [_to_entity(m) for m in models]
+
+    async def get_by_ids(self, chunk_ids: list[str]) -> list[Chunk]:
+        if not chunk_ids:
+            return []
+        stmt = select(ChunkModel).where(ChunkModel.id.in_(chunk_ids))
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [_to_entity(m) for m in models]

@@ -4,8 +4,10 @@ from app.infrastructure.db.models.chunk import ChunkModel  # noqa: F401
 from app.infrastructure.db.models.concept import ConceptModel  # noqa: F401
 from app.infrastructure.db.models.concept_chunk import ConceptChunkModel  # noqa: F401
 from app.infrastructure.db.models.concept_prerequisite import ConceptPrerequisiteModel  # noqa: F401
+from app.infrastructure.db.models.conversation import ConversationModel  # noqa: F401
 from app.infrastructure.db.models.document import DocumentModel  # noqa: F401
 from app.infrastructure.db.models.embedding import EmbeddingModel  # noqa: F401
+from app.infrastructure.db.models.message import MessageModel  # noqa: F401
 from app.infrastructure.db.models.refresh_token import RefreshTokenModel  # noqa: F401
 from app.infrastructure.db.models.subject import SubjectModel  # noqa: F401
 from app.infrastructure.db.models.user import UserModel  # noqa: F401

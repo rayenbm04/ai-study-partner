@@ -1,21 +1,26 @@
 """In-memory fakes for the repository interfaces, used by unit tests so
 service logic is verified with no database, no event loop surprises, and no
 test fixtures beyond plain Python dicts."""
+import math
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
 
 from app.domain.entities.chunk import Chunk
 from app.domain.entities.concept import Concept
+from app.domain.entities.conversation import Conversation
 from app.domain.entities.document import Document
+from app.domain.entities.message import Message
 from app.domain.entities.refresh_token import RefreshToken
 from app.domain.entities.subject import Subject
 from app.domain.entities.user import User
 from app.domain.repositories.chunk_repository import ChunkRepository
 from app.domain.repositories.concept_chunk_repository import ConceptChunkRepository
 from app.domain.repositories.concept_repository import ConceptRepository
+from app.domain.repositories.conversation_repository import ConversationRepository
 from app.domain.repositories.document_repository import DocumentRepository
 from app.domain.repositories.embedding_repository import EmbeddingRepository
+from app.domain.repositories.message_repository import MessageRepository
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
 from app.domain.repositories.subject_repository import SubjectRepository
 from app.domain.repositories.user_repository import UserRepository
@@ -205,6 +210,9 @@ class FakeChunkRepository(ChunkRepository):
     async def list_by_document(self, document_id):
         return [c for c in self._by_id.values() if c.document_id == document_id]
 
+    async def get_by_ids(self, chunk_ids):
+        return [self._by_id[cid] for cid in chunk_ids if cid in self._by_id]
+
 
 class FakeConceptRepository(ConceptRepository):
     def __init__(self):
@@ -235,13 +243,41 @@ class FakeConceptChunkRepository(ConceptChunkRepository):
         self.links.append((concept_id, chunk_id, relevance))
 
 
+def _cosine_distance(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    if norm_a == 0 or norm_b == 0:
+        return 1.0
+    return 1.0 - dot / (norm_a * norm_b)
+
+
 class FakeEmbeddingRepository(EmbeddingRepository):
-    def __init__(self):
+    """search() mirrors the real repository's join against chunks to filter
+    by subject_id — takes an optional chunk_repo reference to resolve that,
+    since (like the real embeddings table) this fake doesn't otherwise know
+    which subject a chunk_id belongs to."""
+
+    def __init__(self, chunk_repo: "FakeChunkRepository | None" = None):
         self.stored: dict[str, tuple[list[float], str]] = {}
+        self._chunk_repo = chunk_repo
 
     async def bulk_create(self, *, chunk_ids, vectors, model_name):
         for chunk_id, vector in zip(chunk_ids, vectors):
             self.stored[chunk_id] = (vector, model_name)
+
+    async def search(self, *, subject_id, query_vector, top_k, model_name):
+        candidates: list[tuple[str, float]] = []
+        for chunk_id, (vector, stored_model_name) in self.stored.items():
+            if stored_model_name != model_name:
+                continue
+            if self._chunk_repo is not None:
+                chunk = self._chunk_repo._by_id.get(chunk_id)
+                if chunk is None or chunk.subject_id != subject_id:
+                    continue
+            candidates.append((chunk_id, _cosine_distance(query_vector, vector)))
+        candidates.sort(key=lambda pair: pair[1])
+        return candidates[:top_k]
 
 
 class FakeStorage(StoragePort):
@@ -312,3 +348,54 @@ class FakeEmbeddingProvider(EmbeddingProvider):
 
     async def embed_query(self, text):
         return self._vector_for(text)
+
+
+class FakeConversationRepository(ConversationRepository):
+    def __init__(self):
+        self._by_id: dict[str, Conversation] = {}
+
+    async def create(self, *, user_id, subject_id, title):
+        conversation = Conversation(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            subject_id=subject_id,
+            title=title,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._by_id[conversation.id] = conversation
+        return conversation
+
+    async def get_by_id(self, conversation_id):
+        return self._by_id.get(conversation_id)
+
+    async def list_by_subject(self, user_id, subject_id):
+        conversations = [
+            c for c in self._by_id.values() if c.user_id == user_id and c.subject_id == subject_id
+        ]
+        return sorted(conversations, key=lambda c: c.created_at, reverse=True)
+
+
+class FakeMessageRepository(MessageRepository):
+    def __init__(self):
+        self._by_id: dict[str, Message] = {}
+        self._order: list[str] = []
+
+    async def create(self, *, conversation_id, role, content, citations):
+        message = Message(
+            id=str(uuid.uuid4()),
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            citations=list(citations),
+            created_at=datetime.now(timezone.utc),
+        )
+        self._by_id[message.id] = message
+        self._order.append(message.id)
+        return message
+
+    async def list_by_conversation(self, conversation_id):
+        return [
+            self._by_id[mid]
+            for mid in self._order
+            if self._by_id[mid].conversation_id == conversation_id
+        ]

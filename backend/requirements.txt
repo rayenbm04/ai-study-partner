@@ -27,6 +27,7 @@ pytest-asyncio==0.25.0
 httpx==0.28.1
 aiosqlite==0.20.0
 reportlab==5.0.0  # test-only: generates a real PDF fixture for extractor tests
+pgserver==0.1.4  # test-only: embedded real Postgres+pgvector, no docker/root — for testing cosine-distance search for real
 
 # Document extraction (Phase 3: Knowledge Base)
 pdfplumber==0.11.10
