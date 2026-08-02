@@ -1,17 +1,21 @@
 
 rag-backend/venv/
-rag-backend/__pycache__/
-rag-backend/*.pyc
+rag-backend/**/__pycache__/
+rag-backend/**/*.pyc
 rag-backend/.env
 rag-backend/chroma_db/
 rag-backend/uploads/
 rag-backend/uploaded_docs/
 rag-backend/storage/
 rag-backend/slides_cache/
+rag-backend/node_store/
+rag-backend/rag_users.db
+rag-backend/file_owners.json
 
 
 rag-frontend/node_modules/
 rag-frontend/dist/
+rag-frontend/dist2/
 
 
 .DS_Store
@@ -20,3 +24,6 @@ Thumbs.db
 RAG_Assistant_Architecture.tex
 RAG_Assistant_Architecture.docx
 liverable
+
+# scratch/experiment folders that don't belong in the repo
+test-cancel/
