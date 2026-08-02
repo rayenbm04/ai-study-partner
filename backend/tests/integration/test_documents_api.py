@@ -40,6 +40,27 @@ async def test_upload_document_ingests_synchronously_in_tests(client):
     assert body["error_message"] is None
 
 
+async def test_upload_image_ingests_via_vision_fallback(client):
+    """Standalone images have no extractable text at all — the entire
+    pipeline (upload -> ingestion -> extraction -> chunking -> concept
+    tagging) has to go through the vision-model path end to end."""
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+
+    upload_resp = await client.post(
+        f"/api/v1/subjects/{subject_id}/documents",
+        headers=headers,
+        files={"file": ("diagram.png", b"\x89PNG\r\n\x1a\nfake-but-not-empty", "image/png")},
+    )
+    assert upload_resp.status_code == 201
+    document_id = upload_resp.json()["id"]
+
+    status_resp = await client.get(f"/api/v1/documents/{document_id}", headers=headers)
+    body = status_resp.json()
+    assert body["status"] == "ready"
+    assert body["error_message"] is None
+
+
 async def test_upload_rejects_unsupported_file_type(client):
     headers = await _register_and_login(client, "alice@example.com")
     subject_id = await _create_subject(client, headers)
@@ -47,7 +68,7 @@ async def test_upload_rejects_unsupported_file_type(client):
     resp = await client.post(
         f"/api/v1/subjects/{subject_id}/documents",
         headers=headers,
-        files={"file": ("photo.jpg", b"not really a jpeg", "image/jpeg")},
+        files={"file": ("clip.mp4", b"not really a video", "video/mp4")},
     )
     assert resp.status_code == 415
 

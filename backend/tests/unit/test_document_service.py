@@ -42,7 +42,7 @@ async def test_upload_rejects_unsupported_file_type():
     subject = await subject_service.create("user-1", name="Physics")
 
     with pytest.raises(UnsupportedFileTypeError):
-        await service.upload(user_id="user-1", subject_id=subject.id, filename="photo.jpg", content=b"data")
+        await service.upload(user_id="user-1", subject_id=subject.id, filename="clip.mp4", content=b"data")
 
 
 async def test_upload_rejects_file_over_size_limit():

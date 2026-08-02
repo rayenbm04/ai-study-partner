@@ -16,6 +16,7 @@ from app.services.embeddings.base import EmbeddingProvider
 from app.services.knowledge_base.chunking import chunk_segments
 from app.services.knowledge_base.concept_tagger import ConceptTagger
 from app.services.knowledge_base.extractors.registry import get_extractor
+from app.services.llm.base import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class IngestionPipeline:
         embedding_repo: EmbeddingRepository,
         storage: StoragePort,
         embedding_provider: EmbeddingProvider,
+        llm_provider: LLMProvider,
         concept_tagger: ConceptTagger,
         chunk_parent_chars: int,
         chunk_child_chars: int,
@@ -41,6 +43,7 @@ class IngestionPipeline:
         self._embeddings = embedding_repo
         self._storage = storage
         self._embedder = embedding_provider
+        self._llm = llm_provider
         self._concept_tagger = concept_tagger
         self._parent_chars = chunk_parent_chars
         self._child_chars = chunk_child_chars
@@ -56,7 +59,7 @@ class IngestionPipeline:
 
         content = await self._storage.read(document.storage_path)
         extractor = get_extractor(document.original_filename)
-        segments = extractor(content, document.original_filename)
+        segments = await extractor(content, document.original_filename, self._llm)
 
         drafts = chunk_segments(
             segments,

@@ -32,3 +32,22 @@ class GeminiProvider(LLMProvider):
             config=config,
         )
         return response.text or ""
+
+    async def complete_vision(
+        self,
+        *,
+        image_bytes: bytes,
+        mime_type: str,
+        prompt: str,
+        max_output_tokens: int = 2048,
+    ) -> str:
+        # Gemini Flash is natively multimodal — no separate vision model/config
+        # needed, unlike the local Ollama + fallback cloud vision model setup
+        # this replaces.
+        config = types.GenerateContentConfig(temperature=0.1, max_output_tokens=max_output_tokens)
+        response = await self._client.aio.models.generate_content(
+            model=self._model,
+            contents=[types.Part.from_bytes(data=image_bytes, mime_type=mime_type), prompt],
+            config=config,
+        )
+        return response.text or ""

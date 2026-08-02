@@ -266,16 +266,27 @@ class FakeLLMProvider(LLMProvider):
     """Returns canned responses in order (or a single fixed response) and
     records every call so tests can assert on the prompt built for the LLM."""
 
-    def __init__(self, response: str | None = None, responses: list[str] | None = None):
+    def __init__(
+        self,
+        response: str | None = None,
+        responses: list[str] | None = None,
+        vision_response: str = "A described image.",
+    ):
         self._response = response
         self._responses = list(responses) if responses is not None else None
+        self._vision_response = vision_response
         self.calls: list[dict] = []
+        self.vision_calls: list[dict] = []
 
     async def complete(self, *, prompt, system=None, temperature=0.2, max_output_tokens=2048, response_json=False):
         self.calls.append({"prompt": prompt, "system": system, "response_json": response_json})
         if self._responses is not None:
             return self._responses.pop(0) if self._responses else "{}"
         return self._response if self._response is not None else "{}"
+
+    async def complete_vision(self, *, image_bytes, mime_type, prompt, max_output_tokens=2048):
+        self.vision_calls.append({"image_bytes": image_bytes, "mime_type": mime_type, "prompt": prompt})
+        return self._vision_response
 
 
 class FakeEmbeddingProvider(EmbeddingProvider):

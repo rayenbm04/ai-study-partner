@@ -31,6 +31,7 @@ def _build_pipeline(*, llm_response: str = '{"matched": [], "new_concepts": []}'
         embedding_repo=embedding_repo,
         storage=storage,
         embedding_provider=embedder,
+        llm_provider=llm,
         concept_tagger=ConceptTagger(
             llm_provider=llm,
             concept_repo=concept_repo,

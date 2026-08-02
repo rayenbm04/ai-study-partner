@@ -4,9 +4,14 @@ from docx import Document as DocxDocument
 
 from app.core.exceptions import ExtractionError
 from app.services.knowledge_base.extractors.base import ExtractedSegment
+from app.services.llm.base import LLMProvider
 
 
-def extract_docx(content: bytes, filename: str) -> list[ExtractedSegment]:
+async def extract_docx(
+    content: bytes, filename: str, llm_provider: LLMProvider | None = None
+) -> list[ExtractedSegment]:
+    # llm_provider is accepted (unused) for signature parity with the other
+    # extractors — DOCX paragraphs/tables never need a vision call.
     try:
         document = DocxDocument(io.BytesIO(content))
     except Exception as exc:

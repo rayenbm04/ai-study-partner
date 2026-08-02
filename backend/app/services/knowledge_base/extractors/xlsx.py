@@ -4,9 +4,12 @@ from openpyxl import load_workbook
 
 from app.core.exceptions import ExtractionError
 from app.services.knowledge_base.extractors.base import ExtractedSegment
+from app.services.llm.base import LLMProvider
 
 
-def extract_xlsx(content: bytes, filename: str) -> list[ExtractedSegment]:
+async def extract_xlsx(
+    content: bytes, filename: str, llm_provider: LLMProvider | None = None
+) -> list[ExtractedSegment]:
     try:
         workbook = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
     except Exception as exc:

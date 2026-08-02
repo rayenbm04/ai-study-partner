@@ -53,6 +53,7 @@ async def ingest_document_task(
             embedding_repo=SqlAlchemyEmbeddingRepository(session),
             storage=resolved_storage,
             embedding_provider=resolved_embedder,
+            llm_provider=resolved_llm,
             concept_tagger=ConceptTagger(
                 llm_provider=resolved_llm,
                 concept_repo=SqlAlchemyConceptRepository(session),

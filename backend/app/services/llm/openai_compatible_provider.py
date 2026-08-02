@@ -1,3 +1,5 @@
+import base64
+
 from openai import AsyncOpenAI
 
 from app.services.llm.base import LLMProvider
@@ -34,5 +36,32 @@ class OpenAICompatibleProvider(LLMProvider):
             temperature=temperature,
             max_tokens=max_output_tokens,
             response_format={"type": "json_object"} if response_json else None,
+        )
+        return response.choices[0].message.content or ""
+
+    async def complete_vision(
+        self,
+        *,
+        image_bytes: bytes,
+        mime_type: str,
+        prompt: str,
+        max_output_tokens: int = 2048,
+    ) -> str:
+        # Standard OpenAI-compatible vision message shape — same content-part
+        # format Groq's and OpenRouter's vision-capable models accept.
+        data_url = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                }
+            ],
+            temperature=0.1,
+            max_tokens=max_output_tokens,
         )
         return response.choices[0].message.content or ""

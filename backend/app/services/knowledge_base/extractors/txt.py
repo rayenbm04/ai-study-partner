@@ -1,8 +1,11 @@
 from app.core.exceptions import ExtractionError
 from app.services.knowledge_base.extractors.base import ExtractedSegment
+from app.services.llm.base import LLMProvider
 
 
-def extract_txt(content: bytes, filename: str) -> list[ExtractedSegment]:
+async def extract_txt(
+    content: bytes, filename: str, llm_provider: LLMProvider | None = None
+) -> list[ExtractedSegment]:
     try:
         text = content.decode("utf-8")
     except UnicodeDecodeError:

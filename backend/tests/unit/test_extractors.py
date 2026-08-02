@@ -1,23 +1,32 @@
 """These build small real files in memory (PDF via reportlab, DOCX/PPTX/XLSX
 via their own write APIs) and run the actual extractor against them — not
 mocks. If pdfplumber, python-docx, python-pptx, or openpyxl ever change how
-they expose text, these fail for real instead of a mock quietly agreeing."""
+they expose text, these fail for real instead of a mock quietly agreeing.
+
+Anything that would need a real vision-model call (scanned PDF pages, PPTX
+images, standalone images) uses FakeLLMProvider instead — still exercises the
+real image-rendering/extraction code path, just not a real network call."""
 import io
 
 import pytest
 from docx import Document as DocxDocument
 from openpyxl import Workbook
 from pptx import Presentation
+from pptx.util import Inches
+from PIL import Image
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from app.core.exceptions import ExtractionError
+from app.core.exceptions import ExtractionError, UnsupportedFileTypeError
 from app.services.knowledge_base.extractors.docx import extract_docx
-from app.services.knowledge_base.extractors.pdf import extract_pdf
+from app.services.knowledge_base.extractors.image import extract_image
+from app.services.knowledge_base.extractors.pdf import _fix_pdf_text, extract_pdf
 from app.services.knowledge_base.extractors.pptx import extract_pptx
 from app.services.knowledge_base.extractors.registry import SUPPORTED_EXTENSIONS, extension_of, get_extractor
 from app.services.knowledge_base.extractors.txt import extract_txt
+from app.services.knowledge_base.extractors.xls import extract_xls
 from app.services.knowledge_base.extractors.xlsx import extract_xlsx
+from tests.unit.fakes import FakeLLMProvider
 
 
 def _make_pdf(pages: list[str]) -> bytes:
@@ -30,9 +39,17 @@ def _make_pdf(pages: list[str]) -> bytes:
     return buffer.getvalue()
 
 
-def test_extract_pdf_returns_one_segment_per_page():
+def _make_blank_pdf_page() -> bytes:
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.showPage()  # no drawString call at all -> pdfplumber extracts no text
+    c.save()
+    return buffer.getvalue()
+
+
+async def test_extract_pdf_returns_one_segment_per_page():
     content = _make_pdf(["First page of the course.", "Second page continues here."])
-    segments = extract_pdf(content, "notes.pdf")
+    segments = await extract_pdf(content, "notes.pdf")
 
     assert len(segments) == 2
     assert segments[0].page == 1
@@ -41,15 +58,42 @@ def test_extract_pdf_returns_one_segment_per_page():
     assert "Second page" in segments[1].text
 
 
-def test_extract_pdf_skips_blank_pages():
+async def test_extract_pdf_skips_blank_pages_when_no_llm_provider():
     content = _make_pdf(["Only real content page.", ""])
-    segments = extract_pdf(content, "notes.pdf")
+    segments = await extract_pdf(content, "notes.pdf")
     assert len(segments) == 1
 
 
-def test_extract_pdf_raises_extraction_error_on_garbage_bytes():
+async def test_extract_pdf_raises_extraction_error_on_garbage_bytes():
     with pytest.raises(ExtractionError):
-        extract_pdf(b"this is not a pdf", "broken.pdf")
+        await extract_pdf(b"this is not a pdf", "broken.pdf")
+
+
+async def test_extract_pdf_falls_back_to_vision_for_low_text_page():
+    content = _make_blank_pdf_page()
+    llm = FakeLLMProvider(vision_response="Transcribed diagram content.")
+
+    segments = await extract_pdf(content, "scanned.pdf", llm_provider=llm)
+
+    assert len(segments) == 1
+    assert segments[0].text == "Transcribed diagram content."
+    assert len(llm.vision_calls) == 1
+    assert llm.vision_calls[0]["mime_type"] == "image/png"
+
+
+async def test_extract_pdf_does_not_call_vision_when_page_has_enough_text():
+    content = _make_pdf(["This page already has plenty of real extracted text on it, well over fifty characters."])
+    llm = FakeLLMProvider(vision_response="should not be used")
+
+    await extract_pdf(content, "notes.pdf", llm_provider=llm)
+
+    assert llm.vision_calls == []
+
+
+def test_fix_pdf_text_repairs_ligature_placeholders_and_mac_roman_mismatches():
+    assert _fix_pdf_text("re(cid:12)ection") == "reflection"  # (cid:12) ligature placeholder -> "fl"
+    assert _fix_pdf_text("(cid:99) stripped") == " stripped"  # unmapped cid codes are stripped, not left in
+    assert _fix_pdf_text("cafØ") == "café"  # "Ø" MacRoman mismatch -> "é"
 
 
 def _make_docx() -> bytes:
@@ -66,8 +110,8 @@ def _make_docx() -> bytes:
     return buffer.getvalue()
 
 
-def test_extract_docx_groups_paragraphs_under_headings():
-    segments = extract_docx(_make_docx(), "algebra.docx")
+async def test_extract_docx_groups_paragraphs_under_headings():
+    segments = await extract_docx(_make_docx(), "algebra.docx")
     section_titles = [s.section_title for s in segments]
     assert "Chapter 1: Vectors" in section_titles
     assert "Chapter 2: Matrices" in section_titles
@@ -76,38 +120,59 @@ def test_extract_docx_groups_paragraphs_under_headings():
     assert "magnitude and direction" in vectors_segment.text
 
 
-def test_extract_docx_includes_table_content():
-    segments = extract_docx(_make_docx(), "algebra.docx")
+async def test_extract_docx_includes_table_content():
+    segments = await extract_docx(_make_docx(), "algebra.docx")
     assert any("Term | Definition" in s.text for s in segments)
 
 
-def test_extract_docx_raises_extraction_error_on_garbage_bytes():
+async def test_extract_docx_raises_extraction_error_on_garbage_bytes():
     with pytest.raises(ExtractionError):
-        extract_docx(b"not a docx file", "broken.docx")
+        await extract_docx(b"not a docx file", "broken.docx")
 
 
-def _make_pptx() -> bytes:
+def _make_pptx_with_image() -> bytes:
     presentation = Presentation()
-    layout = presentation.slide_layouts[1]  # title + content
+    layout = presentation.slide_layouts[1]
     slide = presentation.slides.add_slide(layout)
     slide.shapes.title.text = "Newton's Laws"
     slide.placeholders[1].text = "The first law states that an object at rest stays at rest."
+
+    tiny_image = Image.new("RGB", (4, 4), color="blue")
+    image_buffer = io.BytesIO()
+    tiny_image.save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+    slide.shapes.add_picture(image_buffer, Inches(1), Inches(4), Inches(1), Inches(1))
+
     buffer = io.BytesIO()
     presentation.save(buffer)
     return buffer.getvalue()
 
 
-def test_extract_pptx_captures_title_and_body():
-    segments = extract_pptx(_make_pptx(), "physics.pptx")
+async def test_extract_pptx_captures_title_and_body():
+    segments = await extract_pptx(_make_pptx_with_image(), "physics.pptx")
     assert len(segments) == 1
     assert segments[0].section_title == "Newton's Laws"
     assert "object at rest" in segments[0].text
     assert segments[0].page == 1
 
 
-def test_extract_pptx_raises_extraction_error_on_garbage_bytes():
+async def test_extract_pptx_describes_embedded_images_when_llm_provided():
+    llm = FakeLLMProvider(vision_response="A free-body diagram of a block on an incline.")
+
+    segments = await extract_pptx(_make_pptx_with_image(), "physics.pptx", llm_provider=llm)
+
+    assert len(llm.vision_calls) == 1
+    assert "[Image]: A free-body diagram" in segments[0].text
+
+
+async def test_extract_pptx_skips_image_description_without_llm_provider():
+    segments = await extract_pptx(_make_pptx_with_image(), "physics.pptx")
+    assert "[Image]" not in segments[0].text
+
+
+async def test_extract_pptx_raises_extraction_error_on_garbage_bytes():
     with pytest.raises(ExtractionError):
-        extract_pptx(b"not a pptx file", "broken.pptx")
+        await extract_pptx(b"not a pptx file", "broken.pptx")
 
 
 def _make_xlsx() -> bytes:
@@ -121,32 +186,58 @@ def _make_xlsx() -> bytes:
     return buffer.getvalue()
 
 
-def test_extract_xlsx_joins_cells_and_uses_sheet_name_as_section():
-    segments = extract_xlsx(_make_xlsx(), "formulas.xlsx")
+async def test_extract_xlsx_joins_cells_and_uses_sheet_name_as_section():
+    segments = await extract_xlsx(_make_xlsx(), "formulas.xlsx")
     assert len(segments) == 1
     assert segments[0].section_title == "Formulas"
     assert "Area of circle | pi * r^2" in segments[0].text
 
 
-def test_extract_xlsx_raises_extraction_error_on_garbage_bytes():
+async def test_extract_xlsx_raises_extraction_error_on_garbage_bytes():
     with pytest.raises(ExtractionError):
-        extract_xlsx(b"not an xlsx file", "broken.xlsx")
+        await extract_xlsx(b"not an xlsx file", "broken.xlsx")
 
 
-def test_extract_txt_decodes_utf8():
-    segments = extract_txt("Résumé du cours de physique.".encode("utf-8"), "notes.txt")
+async def test_extract_xls_raises_extraction_error_on_garbage_bytes():
+    with pytest.raises(ExtractionError):
+        await extract_xls(b"not a real xls file", "broken.xls")
+
+
+async def test_extract_txt_decodes_utf8():
+    segments = await extract_txt("Résumé du cours de physique.".encode("utf-8"), "notes.txt")
     assert len(segments) == 1
     assert "Résumé" in segments[0].text
 
 
-def test_extract_txt_falls_back_to_latin1():
+async def test_extract_txt_falls_back_to_latin1():
     content = "Café".encode("latin-1")
-    segments = extract_txt(content, "notes.txt")
+    segments = await extract_txt(content, "notes.txt")
     assert "Caf" in segments[0].text
 
 
-def test_extract_txt_empty_file_returns_no_segments():
-    assert extract_txt(b"   \n  ", "empty.txt") == []
+async def test_extract_txt_empty_file_returns_no_segments():
+    assert await extract_txt(b"   \n  ", "empty.txt") == []
+
+
+async def test_extract_image_requires_llm_provider():
+    with pytest.raises(ExtractionError):
+        await extract_image(b"fake image bytes", "diagram.png", llm_provider=None)
+
+
+async def test_extract_image_returns_vision_description():
+    llm = FakeLLMProvider(vision_response="A hand-drawn circuit diagram with a resistor and battery.")
+
+    segments = await extract_image(b"fake image bytes", "diagram.png", llm_provider=llm)
+
+    assert len(segments) == 1
+    assert "circuit diagram" in segments[0].text
+    assert llm.vision_calls[0]["mime_type"] == "image/png"
+
+
+async def test_extract_image_infers_mime_type_from_extension():
+    llm = FakeLLMProvider(vision_response="A photo of handwritten notes.")
+    await extract_image(b"fake jpeg bytes", "photo.JPG", llm_provider=llm)
+    assert llm.vision_calls[0]["mime_type"] == "image/jpeg"
 
 
 @pytest.mark.parametrize(
@@ -163,7 +254,5 @@ def test_get_extractor_returns_callable_for_supported_types():
 
 
 def test_get_extractor_rejects_unsupported_type():
-    from app.core.exceptions import UnsupportedFileTypeError
-
     with pytest.raises(UnsupportedFileTypeError):
-        get_extractor("scan.jpg")
+        get_extractor("scan.gif")
