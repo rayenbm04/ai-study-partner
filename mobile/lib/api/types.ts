@@ -1,0 +1,174 @@
+/** Types mirror the backend's pydantic response schemas field-for-field —
+ * see backend/app/api/v1/schemas/*.py. Keep these in sync by hand for now;
+ * there's no shared codegen between the two yet. */
+
+export type User = {
+  id: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  role: string;
+};
+
+export type TokenPair = {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+};
+
+export type Subject = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  created_at: string;
+  archived_at: string | null;
+};
+
+export type QuestionType = "mcq" | "true_false" | "short_answer" | "calculation" | "fill_blank";
+export type Difficulty = "easy" | "medium" | "hard";
+
+export type QuizQuestionPublic = {
+  id: string;
+  type: QuestionType;
+  question: string;
+  options: string[] | null;
+  points: number;
+  difficulty: Difficulty;
+  concept_id: string | null;
+};
+
+export type Quiz = {
+  id: string;
+  subject_id: string;
+  title: string;
+  kind: "quiz" | "exam";
+  difficulty: Difficulty;
+  topics: string[];
+  duration_minutes: number | null;
+  style: string | null;
+  created_at: string;
+  questions: QuizQuestionPublic[];
+};
+
+export type QuizAttempt = {
+  id: string;
+  quiz_id: string;
+  started_at: string;
+  completed_at: string | null;
+  score: number | null;
+};
+
+export type QuestionResult = {
+  question_id: string;
+  question: string;
+  type: QuestionType;
+  student_answer: string | null;
+  correct_answer: string;
+  explanation: string | null;
+  is_correct: boolean | null;
+  points: number;
+};
+
+export type QuizAttemptResult = {
+  id: string;
+  quiz_id: string;
+  started_at: string;
+  completed_at: string | null;
+  score: number | null;
+  answers: QuestionResult[];
+};
+
+export type FlashcardReviewState = {
+  ease_factor: number;
+  interval_days: number;
+  repetitions: number;
+  last_grade: number | null;
+  last_reviewed_at: string | null;
+  next_review_date: string;
+};
+
+export type Flashcard = {
+  id: string;
+  subject_id: string;
+  concept_id: string | null;
+  question: string;
+  answer: string;
+  difficulty: Difficulty;
+  tags: string[];
+  source: "generated" | "manual";
+  created_at: string;
+  review: FlashcardReviewState | null;
+};
+
+export type ConceptMastery = {
+  concept_id: string;
+  name: string;
+  mastery_score: number | null;
+  trend: "up" | "down" | "flat" | null;
+  children: ConceptMastery[];
+};
+
+export type WeakConcept = {
+  id: string;
+  concept_id: string;
+  reason: "repeated_errors" | "slow_response" | "decay";
+  confidence: number;
+  status: "active" | "resolved";
+  detected_at: string;
+};
+
+export type StudyPlanItem = {
+  id: string;
+  subject_id: string;
+  concept_id: string | null;
+  scheduled_date: string;
+  activity_type: "reading" | "flashcards" | "quiz" | "exam";
+  duration_minutes: number;
+  status: "pending" | "done" | "skipped";
+};
+
+export type StudyPlan = {
+  id: string;
+  name: string;
+  exam_date: string | null;
+  daily_minutes_available: number;
+  status: "active" | "completed" | "archived";
+  created_at: string;
+  items: StudyPlanItem[];
+};
+
+export type SubjectAnalytics = {
+  subject_id: string;
+  subject_name: string;
+  document_count: number;
+  flashcard_count: number;
+  flashcards_due_count: number;
+  quiz_count: number;
+  exam_count: number;
+  quiz_attempt_count: number;
+  average_quiz_score: number | null;
+  conversation_count: number;
+  average_mastery: number | null;
+  weak_concept_count: number;
+  concepts_practiced: number;
+  concepts_total: number;
+};
+
+export type OverviewAnalytics = {
+  subject_count: number;
+  total_flashcards_due: number;
+  subjects: SubjectAnalytics[];
+};
+
+export type Document = {
+  id: string;
+  subject_id: string;
+  original_filename: string;
+  file_type: string;
+  status: "pending" | "processing" | "ready" | "failed";
+  page_count: number | null;
+  error_message: string | null;
+  uploaded_at: string;
+};
