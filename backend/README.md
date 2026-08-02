@@ -31,6 +31,10 @@ Routes depend on services, services depend on repository *interfaces* (never on 
 
 **Progress engine** — recomputes, on every read, a 0-100 mastery score per concept from whatever evidence exists for it (latest flashcard review grade + quiz/exam answer correctness), rolls it up the concept tree (chapter/subject mastery is never stored, just aggregated from children), and flags weak concepts from three signals: `repeated_errors` (a high wrong-answer rate), `slow_response` (answers taking much longer than a baseline), and `decay` (a previously-mastered concept whose score has since dropped). No LLM calls — purely arithmetic over data the other engines already record. Thresholds are `.env`-tunable (see below), not hardcoded, since they're heuristics rather than a fixed spec.
 
+**Planning engine** — generates a day-by-day study plan across one or more subjects: ranks concepts by urgency (weak-flagged and never-touched concepts first, then ascending mastery score, reusing the progress engine's own scoring), then distributes sessions across days based on `daily_minutes_available` and an optional `exam_date` (defaulting to a 14-day plan if no exam date is given), reserving the final day before an exam date for a full-subject review session. No LLM calls, no new tracking tables — a plan item's status (pending/done/skipped) is set explicitly by the student rather than auto-logged from activity elsewhere.
+
+**Analytics engine** — read-side aggregation only, per the architecture doc's "no new tables" directive: per-subject and cross-subject overview stats (documents, flashcards + due count, quizzes/exams + average score, conversations, average mastery, weak-concept count, concepts practiced vs. total) computed on request from data the other five engines already store.
+
 ## Setup
 
 ```bash
@@ -57,6 +61,7 @@ alembic upgrade head
 | `0005` | `flashcards`, `flashcard_reviews` |
 | `0006` | `quizzes`, `quiz_questions`, `quiz_attempts`, `student_answers` |
 | `0007` | `progress`, `weak_concepts` |
+| `0008` | `study_plans`, `study_plan_items` |
 
 ## Run the API
 
@@ -72,7 +77,7 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 pytest
 ```
 
-285 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep progress-engine test in `test_progress_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests.
+322 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep test each in `test_progress_api.py` and `test_study_plans_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests.
 
 ## LLM configuration
 
@@ -91,6 +96,7 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 | `WEAK_CONCEPT_MIN_ERROR_COUNT` / `WEAK_CONCEPT_ERROR_RATE_THRESHOLD` | repeated-errors detection tuning |
 | `WEAK_CONCEPT_SLOW_RESPONSE_SECONDS` | slow-response baseline |
 | `WEAK_CONCEPT_DECAY_DROP_THRESHOLD` / `WEAK_CONCEPT_DECAY_MIN_PREVIOUS_SCORE` | decay detection tuning |
+| `PLANNING_DEFAULT_SESSION_MINUTES` / `PLANNING_DEFAULT_PLAN_DAYS` | study-plan session length and default plan length when no exam date is set |
 
 ## API endpoint reference
 
@@ -123,9 +129,12 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 | GET | `/api/v1/exams/{id}/history` | This user's past attempts at one exam |
 | GET | `/api/v1/subjects/{id}/progress` | Rolled-up concept-tree mastery for this subject |
 | GET | `/api/v1/subjects/{id}/weak-concepts` | Currently-active detected gaps for this subject |
+| POST | `/api/v1/study-plans` | Generate a study plan across one or more subjects |
+| GET | `/api/v1/study-plans/{id}` | Get a plan and its scheduled items |
+| PATCH | `/api/v1/study-plan-items/{id}` | Mark a plan item pending / done / skipped |
+| GET | `/api/v1/analytics/overview` | Cross-subject stats (subject count, total flashcards due, per-subject breakdown) |
+| GET | `/api/v1/analytics/subjects/{id}` | Stats for one subject (documents, flashcards, quizzes, mastery, weak concepts) |
 
 ## What's not built yet
 
-- **Planning engine** — study plan generation from exam date + available time + current mastery.
-- **Analytics engine** — dashboards over everything above.
 - **Frontend** — still the original forked React app; a page-by-page TypeScript rewrite is planned as each page is touched.

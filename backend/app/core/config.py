@@ -106,6 +106,12 @@ class Settings(BaseSettings):
     weak_concept_decay_drop_threshold: float = 15.0
     weak_concept_decay_min_previous_score: float = 60.0
 
+    # Planning engine (Phase 9). Session length and default plan length (used
+    # when no exam_date is given) are tuned heuristics, same reasoning as the
+    # progress engine's thresholds above — adjustable without a code change.
+    planning_default_session_minutes: int = 25
+    planning_default_plan_days: int = 14
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]

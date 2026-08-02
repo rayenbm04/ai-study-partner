@@ -16,6 +16,8 @@ from app.infrastructure.db.models.quiz_attempt import QuizAttemptModel  # noqa: 
 from app.infrastructure.db.models.quiz_question import QuizQuestionModel  # noqa: F401
 from app.infrastructure.db.models.refresh_token import RefreshTokenModel  # noqa: F401
 from app.infrastructure.db.models.student_answer import StudentAnswerModel  # noqa: F401
+from app.infrastructure.db.models.study_plan import StudyPlanModel  # noqa: F401
+from app.infrastructure.db.models.study_plan_item import StudyPlanItemModel  # noqa: F401
 from app.infrastructure.db.models.subject import SubjectModel  # noqa: F401
 from app.infrastructure.db.models.summary import SummaryModel  # noqa: F401
 from app.infrastructure.db.models.user import UserModel  # noqa: F401

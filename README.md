@@ -59,9 +59,15 @@ The course is turned into quizzes (mcq, true/false, short answer, calculation, f
 
 > "Generate a quiz on this chapter." / "Generate a one-hour exam."
 
-### 5. Get an exam-prep plan *(planned)*
+### 5. Get an exam-prep plan
 
-Given a deadline ("exam in 30 days"), the app builds a day-by-day plan from the student's current mastery, available study time, and priority weak spots.
+Given a deadline ("exam in 30 days") and how much time is available per day, the app builds a day-by-day plan across one or more subjects — weak and never-touched concepts scheduled first, a full-subject review session reserved for the day before the exam.
+
+> "Generate a study plan for Physics and Chemistry, 45 minutes a day, exam on the 20th."
+
+### 6. See it all in one place
+
+A per-subject and cross-subject analytics view — documents, flashcards (and how many are due), quiz/exam counts and average scores, conversations, average mastery, and weak-concept counts — computed on the fly from what the other five engines already track, with no separate tracking layer of its own.
 
 ## Inputs
 
@@ -91,11 +97,11 @@ The full system design — the six-engine model (Knowledge Base, Student Memory,
 | Quiz / exam generation + grading | ✅ Built — Quiz + Exam engine |
 | Progress / mastery rollup | ✅ Built — Progress engine |
 | Gap detection ("weak concepts") | ✅ Built — Progress engine |
-| Exam-prep study plan | ⏳ Planned — Planning engine |
-| Analytics dashboard | ⏳ Planned — Analytics engine |
+| Exam-prep study plan | ✅ Built — Planning engine |
+| Analytics dashboard | ✅ Built — Analytics engine (API only, no frontend yet) |
 | School/teacher dashboard | ⏳ Not started |
 
-In other words: "explain, memorize, test, detect gaps" is built and working end to end; "plan revision" is designed (see the rollout plan in `docs/ARCHITECTURE.md`) but not yet implemented.
+In other words: every engine in the six-engine design is now built and working end to end — "explain, memorize, test, detect gaps, plan revision, see the analytics" all have a working API. The one remaining gap is the frontend: these engines are only reachable via the API today, not yet through a UI (see Project layout below).
 
 ## Project layout
 

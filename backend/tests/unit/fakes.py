@@ -15,6 +15,7 @@ from app.domain.entities.message import Message
 from app.domain.entities.progress import Progress, WeakConcept
 from app.domain.entities.quiz import Quiz, QuizAttempt, QuizQuestion, StudentAnswer
 from app.domain.entities.refresh_token import RefreshToken
+from app.domain.entities.study_plan import StudyPlan, StudyPlanItem
 from app.domain.entities.subject import Subject
 from app.domain.entities.summary import Summary
 from app.domain.entities.user import User
@@ -32,6 +33,7 @@ from app.domain.repositories.quiz_attempt_repository import QuizAttemptRepositor
 from app.domain.repositories.quiz_repository import QuizRepository
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
 from app.domain.repositories.student_answer_repository import StudentAnswerRepository
+from app.domain.repositories.study_plan_repository import StudyPlanRepository
 from app.domain.repositories.subject_repository import SubjectRepository
 from app.domain.repositories.summary_repository import SummaryRepository
 from app.domain.repositories.user_repository import UserRepository
@@ -707,3 +709,53 @@ class FakeWeakConceptRepository(WeakConceptRepository):
 
     async def list_active_by_user(self, user_id):
         return [w for w in self._by_id.values() if w.user_id == user_id and w.status == "active"]
+
+
+class FakeStudyPlanRepository(StudyPlanRepository):
+    def __init__(self):
+        self._plans_by_id: dict[str, StudyPlan] = {}
+        self._items_by_id: dict[str, StudyPlanItem] = {}
+
+    async def create(self, *, user_id, name, exam_date, daily_minutes_available):
+        plan = StudyPlan(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            name=name,
+            exam_date=exam_date,
+            daily_minutes_available=daily_minutes_available,
+            status="active",
+            created_at=datetime.now(timezone.utc),
+        )
+        self._plans_by_id[plan.id] = plan
+        return plan
+
+    async def bulk_create_items(self, *, study_plan_id, drafts):
+        items = []
+        for draft in drafts:
+            item = StudyPlanItem(
+                id=str(uuid.uuid4()),
+                study_plan_id=study_plan_id,
+                subject_id=draft.subject_id,
+                concept_id=draft.concept_id,
+                scheduled_date=draft.scheduled_date,
+                activity_type=draft.activity_type,
+                duration_minutes=draft.duration_minutes,
+                status="pending",
+            )
+            self._items_by_id[item.id] = item
+            items.append(item)
+        return items
+
+    async def get_by_id(self, study_plan_id):
+        return self._plans_by_id.get(study_plan_id)
+
+    async def list_items(self, study_plan_id):
+        return [i for i in self._items_by_id.values() if i.study_plan_id == study_plan_id]
+
+    async def get_item_by_id(self, item_id):
+        return self._items_by_id.get(item_id)
+
+    async def update_item_status(self, item_id, *, status):
+        updated = replace(self._items_by_id[item_id], status=status)
+        self._items_by_id[item_id] = updated
+        return updated

@@ -108,3 +108,16 @@ def build_rollup(concepts: list[Concept], leaf_results: dict[str, tuple[float, s
 
     roots = children_by_parent.get(None, [])
     return [build(root) for root in roots]
+
+
+def flatten_leaves(nodes: list[ConceptMastery]) -> list[ConceptMastery]:
+    """Collects every leaf node (no children) out of a rolled-up tree —
+    used by engines that need per-concept granularity (planning, analytics)
+    rather than the chapter/subject-level rollup itself."""
+    leaves: list[ConceptMastery] = []
+    for node in nodes:
+        if node.children:
+            leaves.extend(flatten_leaves(node.children))
+        else:
+            leaves.append(node)
+    return leaves

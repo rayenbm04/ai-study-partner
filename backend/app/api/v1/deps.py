@@ -26,10 +26,12 @@ from app.repositories.quiz_attempt_repo import SqlAlchemyQuizAttemptRepository
 from app.repositories.quiz_repo import SqlAlchemyQuizRepository
 from app.repositories.refresh_token_repo import SqlAlchemyRefreshTokenRepository
 from app.repositories.student_answer_repo import SqlAlchemyStudentAnswerRepository
+from app.repositories.study_plan_repo import SqlAlchemyStudyPlanRepository
 from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.repositories.summary_repo import SqlAlchemySummaryRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
 from app.repositories.weak_concept_repo import SqlAlchemyWeakConceptRepository
+from app.services.analytics_engine.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.document_service import DocumentService
 from app.services.embeddings.base import EmbeddingProvider
@@ -39,6 +41,7 @@ from app.services.flashcard_engine.flashcard_service import FlashcardService
 from app.services.knowledge_base.ingestion_task import ingest_document_task
 from app.services.llm.base import LLMProvider
 from app.services.llm.factory import build_llm_provider
+from app.services.planning_engine.planning_service import PlanningService
 from app.services.progress_engine.progress_service import ProgressService
 from app.services.quiz_engine.quiz_service import QuizService
 from app.services.rag.chat_service import ChatService
@@ -114,6 +117,10 @@ def get_progress_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyProg
 
 def get_weak_concept_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyWeakConceptRepository:
     return SqlAlchemyWeakConceptRepository(session)
+
+
+def get_study_plan_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyStudyPlanRepository:
+    return SqlAlchemyStudyPlanRepository(session)
 
 
 def get_storage() -> StoragePort:
@@ -285,6 +292,40 @@ def get_progress_service(
         weak_slow_response_seconds=settings.weak_concept_slow_response_seconds,
         weak_decay_drop_threshold=settings.weak_concept_decay_drop_threshold,
         weak_decay_min_previous_score=settings.weak_concept_decay_min_previous_score,
+    )
+
+
+def get_planning_service(
+    study_plan_repo: SqlAlchemyStudyPlanRepository = Depends(get_study_plan_repo),
+    subject_service: SubjectService = Depends(get_subject_service),
+    progress_service: ProgressService = Depends(get_progress_service),
+) -> PlanningService:
+    return PlanningService(
+        study_plan_repo=study_plan_repo,
+        subject_service=subject_service,
+        progress_service=progress_service,
+        default_session_minutes=settings.planning_default_session_minutes,
+        default_plan_days=settings.planning_default_plan_days,
+    )
+
+
+def get_analytics_service(
+    document_repo: SqlAlchemyDocumentRepository = Depends(get_document_repo),
+    quiz_repo: SqlAlchemyQuizRepository = Depends(get_quiz_repo),
+    quiz_attempt_repo: SqlAlchemyQuizAttemptRepository = Depends(get_quiz_attempt_repo),
+    conversation_repo: SqlAlchemyConversationRepository = Depends(get_conversation_repo),
+    flashcard_service: FlashcardService = Depends(get_flashcard_service),
+    subject_service: SubjectService = Depends(get_subject_service),
+    progress_service: ProgressService = Depends(get_progress_service),
+) -> AnalyticsService:
+    return AnalyticsService(
+        document_repo=document_repo,
+        quiz_repo=quiz_repo,
+        quiz_attempt_repo=quiz_attempt_repo,
+        conversation_repo=conversation_repo,
+        flashcard_service=flashcard_service,
+        subject_service=subject_service,
+        progress_service=progress_service,
     )
 
 

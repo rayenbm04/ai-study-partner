@@ -149,3 +149,31 @@ class QuizAttemptAlreadySubmittedError(DomainError):
 
     def __init__(self, attempt_id: str):
         super().__init__(f"Quiz attempt '{attempt_id}' has already been submitted.")
+
+
+class StudyPlanNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, study_plan_id: str):
+        super().__init__(f"Study plan '{study_plan_id}' was not found.")
+
+
+class StudyPlanItemNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, item_id: str):
+        super().__init__(f"Study plan item '{item_id}' was not found.")
+
+
+class EmptyStudyPlanError(DomainError):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self):
+        super().__init__("Can't generate a study plan: none of the selected subjects have any concepts yet.")
+
+
+class InvalidStudyPlanItemStatusError(DomainError):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self, status_value: str, allowed: tuple[str, ...]):
+        super().__init__(f"'{status_value}' is not a valid study plan item status. Expected one of: {', '.join(allowed)}.")
