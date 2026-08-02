@@ -1,0 +1,43 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Settings & validation
+pydantic==2.13.4  # floor set by google-genai/openai SDKs, not by our own code
+pydantic-settings==2.7.1
+email-validator==2.2.0
+
+# Database (Postgres + pgvector in production, async throughout)
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+
+# Auth
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.1
+
+# Env
+python-dotenv==1.0.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1
+aiosqlite==0.20.0
+reportlab==5.0.0  # test-only: generates a real PDF fixture for extractor tests
+
+# Document extraction (Phase 3: Knowledge Base)
+pdfplumber==0.11.10
+python-docx==1.2.0
+python-pptx==1.0.2
+openpyxl==3.1.5
+
+# Cloud LLM / embedding SDKs — no local inference anywhere in this pipeline.
+# google-genai talks to Gemini (chat + embeddings). openai is the official SDK
+# but doubles as a generic OpenAI-compatible client, which is how Groq and
+# OpenRouter are reached (same client, different base_url) without a bespoke
+# HTTP layer for each provider.
+google-genai==2.16.0
+openai==2.52.0

@@ -1,0 +1,37 @@
+from pydantic import BaseModel, EmailStr, Field
+
+from app.domain.entities.user import User
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    firstname: str = Field(min_length=1, max_length=100)
+    lastname: str = Field(min_length=1, max_length=100)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    firstname: str
+    lastname: str
+    role: str
+
+    @classmethod
+    def from_entity(cls, user: User) -> "UserResponse":
+        return cls(id=user.id, email=user.email, firstname=user.firstname, lastname=user.lastname, role=user.role)
