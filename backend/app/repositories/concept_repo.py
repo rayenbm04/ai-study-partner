@@ -3,7 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.concept import Concept
 from app.domain.repositories.concept_repository import ConceptRepository
+from app.infrastructure.db.models.chunk import ChunkModel
 from app.infrastructure.db.models.concept import ConceptModel
+from app.infrastructure.db.models.concept_chunk import ConceptChunkModel
 from app.infrastructure.db.models.concept_prerequisite import ConceptPrerequisiteModel
 
 
@@ -43,3 +45,14 @@ class SqlAlchemyConceptRepository(ConceptRepository):
             return  # a concept can't require itself
         self._session.add(ConceptPrerequisiteModel(concept_id=concept_id, prerequisite_id=prerequisite_id))
         await self._session.flush()
+
+    async def list_by_document(self, document_id: str) -> list[Concept]:
+        stmt = (
+            select(ConceptModel)
+            .join(ConceptChunkModel, ConceptChunkModel.concept_id == ConceptModel.id)
+            .join(ChunkModel, ChunkModel.id == ConceptChunkModel.chunk_id)
+            .where(ChunkModel.document_id == document_id)
+            .distinct()
+        )
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [_to_entity(m) for m in models]

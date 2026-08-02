@@ -14,22 +14,28 @@ from app.infrastructure.db.session import get_db
 from app.infrastructure.storage.base import StoragePort
 from app.infrastructure.storage.local_storage import LocalStorage
 from app.repositories.chunk_repo import SqlAlchemyChunkRepository
+from app.repositories.concept_repo import SqlAlchemyConceptRepository
 from app.repositories.conversation_repo import SqlAlchemyConversationRepository
 from app.repositories.document_repo import SqlAlchemyDocumentRepository
 from app.repositories.embedding_repo import SqlAlchemyEmbeddingRepository
+from app.repositories.flashcard_repo import SqlAlchemyFlashcardRepository
+from app.repositories.flashcard_review_repo import SqlAlchemyFlashcardReviewRepository
 from app.repositories.message_repo import SqlAlchemyMessageRepository
 from app.repositories.refresh_token_repo import SqlAlchemyRefreshTokenRepository
 from app.repositories.subject_repo import SqlAlchemySubjectRepository
+from app.repositories.summary_repo import SqlAlchemySummaryRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
 from app.services.auth_service import AuthService
 from app.services.document_service import DocumentService
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.embeddings.factory import build_embedding_provider
+from app.services.flashcard_engine.flashcard_service import FlashcardService
 from app.services.knowledge_base.ingestion_task import ingest_document_task
 from app.services.llm.base import LLMProvider
 from app.services.llm.factory import build_llm_provider
 from app.services.rag.chat_service import ChatService
 from app.services.subject_service import SubjectService
+from app.services.summary_engine.summary_service import SummaryService
 
 _bearer_scheme = HTTPBearer()
 
@@ -64,6 +70,22 @@ def get_conversation_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemy
 
 def get_message_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyMessageRepository:
     return SqlAlchemyMessageRepository(session)
+
+
+def get_concept_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyConceptRepository:
+    return SqlAlchemyConceptRepository(session)
+
+
+def get_summary_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemySummaryRepository:
+    return SqlAlchemySummaryRepository(session)
+
+
+def get_flashcard_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyFlashcardRepository:
+    return SqlAlchemyFlashcardRepository(session)
+
+
+def get_flashcard_review_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyFlashcardReviewRepository:
+    return SqlAlchemyFlashcardReviewRepository(session)
 
 
 def get_storage() -> StoragePort:
@@ -132,6 +154,46 @@ def get_chat_service(
         retrieval_top_k=settings.rag_retrieval_top_k,
         final_context_chunks=settings.rag_final_context_chunks,
         history_messages=settings.rag_history_messages,
+    )
+
+
+def get_summary_service(
+    summary_repo: SqlAlchemySummaryRepository = Depends(get_summary_repo),
+    document_service: DocumentService = Depends(get_document_service),
+    chunk_repo: SqlAlchemyChunkRepository = Depends(get_chunk_repo),
+    concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
+    llm_provider: LLMProvider = Depends(get_llm_provider),
+) -> SummaryService:
+    return SummaryService(
+        summary_repo=summary_repo,
+        document_service=document_service,
+        chunk_repo=chunk_repo,
+        concept_repo=concept_repo,
+        llm_provider=llm_provider,
+        max_source_chars=settings.summary_max_source_chars,
+    )
+
+
+def get_flashcard_service(
+    flashcard_repo: SqlAlchemyFlashcardRepository = Depends(get_flashcard_repo),
+    review_repo: SqlAlchemyFlashcardReviewRepository = Depends(get_flashcard_review_repo),
+    document_service: DocumentService = Depends(get_document_service),
+    subject_service: SubjectService = Depends(get_subject_service),
+    chunk_repo: SqlAlchemyChunkRepository = Depends(get_chunk_repo),
+    concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
+    llm_provider: LLMProvider = Depends(get_llm_provider),
+) -> FlashcardService:
+    return FlashcardService(
+        flashcard_repo=flashcard_repo,
+        review_repo=review_repo,
+        document_service=document_service,
+        subject_service=subject_service,
+        chunk_repo=chunk_repo,
+        concept_repo=concept_repo,
+        llm_provider=llm_provider,
+        max_source_chars=settings.flashcard_source_max_chars,
+        default_generate_count=settings.flashcard_default_generate_count,
+        max_generate_count=settings.flashcard_max_generate_count,
     )
 
 

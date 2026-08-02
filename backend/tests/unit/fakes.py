@@ -10,9 +10,11 @@ from app.domain.entities.chunk import Chunk
 from app.domain.entities.concept import Concept
 from app.domain.entities.conversation import Conversation
 from app.domain.entities.document import Document
+from app.domain.entities.flashcard import Flashcard, FlashcardReview
 from app.domain.entities.message import Message
 from app.domain.entities.refresh_token import RefreshToken
 from app.domain.entities.subject import Subject
+from app.domain.entities.summary import Summary
 from app.domain.entities.user import User
 from app.domain.repositories.chunk_repository import ChunkRepository
 from app.domain.repositories.concept_chunk_repository import ConceptChunkRepository
@@ -20,9 +22,12 @@ from app.domain.repositories.concept_repository import ConceptRepository
 from app.domain.repositories.conversation_repository import ConversationRepository
 from app.domain.repositories.document_repository import DocumentRepository
 from app.domain.repositories.embedding_repository import EmbeddingRepository
+from app.domain.repositories.flashcard_repository import FlashcardRepository
+from app.domain.repositories.flashcard_review_repository import FlashcardReviewRepository
 from app.domain.repositories.message_repository import MessageRepository
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
 from app.domain.repositories.subject_repository import SubjectRepository
+from app.domain.repositories.summary_repository import SummaryRepository
 from app.domain.repositories.user_repository import UserRepository
 from app.infrastructure.storage.base import StoragePort
 from app.services.embeddings.base import EmbeddingProvider
@@ -215,9 +220,17 @@ class FakeChunkRepository(ChunkRepository):
 
 
 class FakeConceptRepository(ConceptRepository):
-    def __init__(self):
+    """list_by_document needs both a concept_chunk_repo (for the concept<->chunk
+    links) and a chunk_repo (to filter those links down to one document's
+    chunks) — pass both in for tests that exercise it (e.g. the summary
+    engine's key_concepts grounding); tests that don't care about that method
+    can construct this with no arguments as before."""
+
+    def __init__(self, concept_chunk_repo=None, chunk_repo=None):
         self._by_id: dict[str, Concept] = {}
         self.prerequisites: list[tuple[str, str]] = []
+        self._concept_chunk_repo = concept_chunk_repo
+        self._chunk_repo = chunk_repo
 
     async def list_by_subject(self, subject_id):
         return [c for c in self._by_id.values() if c.subject_id == subject_id]
@@ -233,6 +246,16 @@ class FakeConceptRepository(ConceptRepository):
     async def add_prerequisite(self, *, concept_id, prerequisite_id):
         if concept_id != prerequisite_id:
             self.prerequisites.append((concept_id, prerequisite_id))
+
+    async def list_by_document(self, document_id):
+        if self._concept_chunk_repo is None or self._chunk_repo is None:
+            return []
+        chunk_ids_in_doc = {c.id for c in self._chunk_repo._by_id.values() if c.document_id == document_id}
+        concept_ids = {
+            concept_id for concept_id, chunk_id, _relevance in self._concept_chunk_repo.links
+            if chunk_id in chunk_ids_in_doc
+        }
+        return [self._by_id[cid] for cid in concept_ids if cid in self._by_id]
 
 
 class FakeConceptChunkRepository(ConceptChunkRepository):
@@ -399,3 +422,106 @@ class FakeMessageRepository(MessageRepository):
             for mid in self._order
             if self._by_id[mid].conversation_id == conversation_id
         ]
+
+
+class FakeSummaryRepository(SummaryRepository):
+    def __init__(self):
+        # Keyed by (document_id, summary_type) — mirrors the real table's
+        # unique constraint, so upsert-vs-insert semantics match for free.
+        self._by_key: dict[tuple[str, str], Summary] = {}
+
+    async def upsert(self, *, document_id, subject_id, summary_type, content):
+        key = (document_id, summary_type)
+        existing = self._by_key.get(key)
+        now = datetime.now(timezone.utc)
+        summary = Summary(
+            id=existing.id if existing else str(uuid.uuid4()),
+            document_id=document_id,
+            subject_id=subject_id,
+            summary_type=summary_type,
+            content=content,
+            created_at=existing.created_at if existing else now,
+            updated_at=now,
+        )
+        self._by_key[key] = summary
+        return summary
+
+    async def get_by_document_and_type(self, document_id, summary_type):
+        return self._by_key.get((document_id, summary_type))
+
+    async def list_by_document(self, document_id):
+        return [s for s in self._by_key.values() if s.document_id == document_id]
+
+
+class FakeFlashcardRepository(FlashcardRepository):
+    """list_by_user needs to know which subjects belong to which user — takes
+    an optional subject_repo reference to resolve that, mirroring the pattern
+    used by FakeEmbeddingRepository/FakeConceptRepository for the same reason
+    (this fake doesn't otherwise know the subject->user mapping)."""
+
+    def __init__(self, subject_repo=None):
+        self._by_id: dict[str, Flashcard] = {}
+        self._subject_repo = subject_repo
+
+    async def bulk_create(self, *, subject_id, drafts):
+        cards = []
+        for draft in drafts:
+            card = Flashcard(
+                id=str(uuid.uuid4()),
+                subject_id=subject_id,
+                concept_id=draft.concept_id,
+                question=draft.question,
+                answer=draft.answer,
+                difficulty=draft.difficulty,
+                tags=list(draft.tags),
+                source=draft.source,
+                created_at=datetime.now(timezone.utc),
+            )
+            self._by_id[card.id] = card
+            cards.append(card)
+        return cards
+
+    async def get_by_id(self, flashcard_id):
+        return self._by_id.get(flashcard_id)
+
+    async def list_by_subject(self, subject_id):
+        return [c for c in self._by_id.values() if c.subject_id == subject_id]
+
+    async def list_by_user(self, user_id):
+        if self._subject_repo is None:
+            return []
+        subject_ids = {s.id for s in self._subject_repo._by_id.values() if s.user_id == user_id}
+        return [c for c in self._by_id.values() if c.subject_id in subject_ids]
+
+
+class FakeFlashcardReviewRepository(FlashcardReviewRepository):
+    def __init__(self):
+        # Keyed by (flashcard_id, user_id) — mirrors the real table's unique
+        # constraint.
+        self._by_key: dict[tuple[str, str], FlashcardReview] = {}
+
+    async def upsert(
+        self, *, flashcard_id, user_id, ease_factor, interval_days, repetitions, last_grade,
+        last_reviewed_at, next_review_date,
+    ):
+        key = (flashcard_id, user_id)
+        existing = self._by_key.get(key)
+        review = FlashcardReview(
+            id=existing.id if existing else str(uuid.uuid4()),
+            flashcard_id=flashcard_id,
+            user_id=user_id,
+            ease_factor=ease_factor,
+            interval_days=interval_days,
+            repetitions=repetitions,
+            last_grade=last_grade,
+            last_reviewed_at=last_reviewed_at,
+            next_review_date=next_review_date,
+        )
+        self._by_key[key] = review
+        return review
+
+    async def get_by_flashcard_and_user(self, flashcard_id, user_id):
+        return self._by_key.get((flashcard_id, user_id))
+
+    async def list_by_user(self, user_id):
+        return [r for r in self._by_key.values() if r.user_id == user_id]

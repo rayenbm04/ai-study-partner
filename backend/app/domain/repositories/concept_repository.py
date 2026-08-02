@@ -15,3 +15,11 @@ class ConceptRepository(ABC):
 
     @abstractmethod
     async def add_prerequisite(self, *, concept_id: str, prerequisite_id: str) -> None: ...
+
+    @abstractmethod
+    async def list_by_document(self, document_id: str) -> list[Concept]:
+        """Concepts tagged to any chunk belonging to this document (via
+        concept_chunks) — used by the summary engine to ground the
+        'key concepts' summary type in the real per-subject concept graph
+        instead of asking the LLM to invent concept names from scratch."""
+        ...

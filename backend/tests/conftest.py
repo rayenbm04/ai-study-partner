@@ -64,6 +64,7 @@ async def client(test_engine, tmp_path):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        ac.app = app  # tests can add further dependency_overrides (e.g. get_llm_provider) before requesting
         yield ac
 
 

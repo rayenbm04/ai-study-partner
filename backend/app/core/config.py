@@ -71,6 +71,21 @@ class Settings(BaseSettings):
     rag_final_context_chunks: int = 6       # chunks kept after fusion/rerank, sent to the answer LLM
     rag_history_messages: int = 6           # prior turns fed into condense_question
 
+    # Summary engine (Phase 5). A summary is scoped to one document, built from
+    # that document's parent chunks (already-chosen context windows, no vector
+    # search needed since the "corpus" is just this one document) rather than
+    # through the RAG retriever — capped so a huge document doesn't blow past
+    # free-tier context limits or turn a summary into an expensive call.
+    summary_max_source_chars: int = 16000
+
+    # Flashcard engine (Phase 6). Same document-scoped source assembly as
+    # summaries (shared in services/knowledge_base/document_source.py);
+    # generation count is caller-adjustable up to this cap so a request can't
+    # accidentally ask for hundreds of cards in one (expensive) LLM call.
+    flashcard_source_max_chars: int = 16000
+    flashcard_default_generate_count: int = 10
+    flashcard_max_generate_count: int = 30
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]

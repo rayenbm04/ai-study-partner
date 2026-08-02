@@ -90,3 +90,34 @@ class ConversationNotFoundError(DomainError):
 
     def __init__(self, conversation_id: str):
         super().__init__(f"Conversation '{conversation_id}' was not found.")
+
+
+class InvalidSummaryTypeError(DomainError):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self, summary_type: str, allowed: tuple[str, ...]):
+        super().__init__(f"'{summary_type}' is not a valid summary type. Expected one of: {', '.join(allowed)}.")
+
+
+class DocumentNotReadyError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, document_id: str, status_value: str):
+        super().__init__(
+            f"Document '{document_id}' isn't ready yet (status: '{status_value}'). "
+            "Wait for ingestion to finish before generating study material from it."
+        )
+
+
+class SummaryNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, document_id: str, summary_type: str):
+        super().__init__(f"No '{summary_type}' summary has been generated yet for document '{document_id}'.")
+
+
+class FlashcardNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, flashcard_id: str):
+        super().__init__(f"Flashcard '{flashcard_id}' was not found.")

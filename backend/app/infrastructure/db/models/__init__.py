@@ -7,7 +7,10 @@ from app.infrastructure.db.models.concept_prerequisite import ConceptPrerequisit
 from app.infrastructure.db.models.conversation import ConversationModel  # noqa: F401
 from app.infrastructure.db.models.document import DocumentModel  # noqa: F401
 from app.infrastructure.db.models.embedding import EmbeddingModel  # noqa: F401
+from app.infrastructure.db.models.flashcard import FlashcardModel  # noqa: F401
+from app.infrastructure.db.models.flashcard_review import FlashcardReviewModel  # noqa: F401
 from app.infrastructure.db.models.message import MessageModel  # noqa: F401
 from app.infrastructure.db.models.refresh_token import RefreshTokenModel  # noqa: F401
 from app.infrastructure.db.models.subject import SubjectModel  # noqa: F401
+from app.infrastructure.db.models.summary import SummaryModel  # noqa: F401
 from app.infrastructure.db.models.user import UserModel  # noqa: F401
