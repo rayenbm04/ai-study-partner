@@ -86,6 +86,14 @@ class Settings(BaseSettings):
     flashcard_default_generate_count: int = 10
     flashcard_max_generate_count: int = 30
 
+    # Quiz + exam engine (Phase 7). Same document-scoped source assembly as
+    # summaries/flashcards; open-ended answers (short_answer/calculation) are
+    # graded via an extra LLM call per submission, so the generate cap here
+    # also bounds grading cost per attempt.
+    quiz_source_max_chars: int = 16000
+    quiz_default_generate_count: int = 10
+    quiz_max_generate_count: int = 30
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]

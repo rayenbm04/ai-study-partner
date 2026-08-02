@@ -28,7 +28,7 @@ Uploaded course material (PDF, DOCX, PPTX, ...) is turned into a personal, per-s
     citing the student's own material* (document, page, section) —
     never just general knowledge floating free of what they were actually taught
 
-Everything the student-facing features do — chat, summaries, flashcards, and eventually quizzes and progress tracking — reads from and writes back to that same per-subject concept graph, which is what makes the system a tutor with memory rather than a chat log.
+Everything the student-facing features do — chat, summaries, flashcards, quizzes/exams, and eventually progress tracking — reads from and writes back to that same per-subject concept graph, which is what makes the system a tutor with memory rather than a chat log.
 
 ## What a student can do with it
 
@@ -53,11 +53,11 @@ By analyzing answers, repeated mistakes, response time, and which chapters keep 
 
 > "You've mastered 85% of the Electricity chapter, but you're struggling with series-circuit laws. Here's a focused 20-minute session."
 
-### 4. Get tested *(planned)*
+### 4. Get tested
 
-From the course plus past exams: easy quizzes, exam-level exercises, full mock exams, and detailed corrections.
+The course is turned into quizzes (mcq, true/false, short answer, calculation, fill-in-the-blank) and exams (a quiz with a duration and a style tag, e.g. "past-exam"), auto-graded — objective question types by exact match, open-ended ones by an LLM judging substantive equivalence — with the correct answer and explanation for each question revealed only after the attempt is submitted.
 
-> "Generate a bac-level math test on derivatives, one hour."
+> "Generate a quiz on this chapter." / "Generate a one-hour exam."
 
 ### 5. Get an exam-prep plan *(planned)*
 
@@ -88,14 +88,14 @@ The full system design — the six-engine model (Knowledge Base, Student Memory,
 | Chat with the course, with citations | ✅ Built — RAG chat |
 | Auto-generated summaries (6 types) | ✅ Built — Summary engine |
 | Auto-generated flashcards + spaced repetition | ✅ Built — Flashcard engine (SM-2) |
-| Progress / history | 🚧 Partial — chat and review history exist; mastery scoring doesn't yet |
+| Quiz / exam generation + grading | ✅ Built — Quiz + Exam engine |
+| Progress / history | 🚧 Partial — chat, review, and quiz/exam attempt history exist; mastery scoring doesn't yet |
 | Gap detection ("weak concepts") | ⏳ Planned — Progress engine |
-| Quiz / exam generation + grading | ⏳ Planned — Assessment engine |
 | Exam-prep study plan | ⏳ Planned — Planning engine |
 | Analytics dashboard | ⏳ Planned — Analytics engine |
 | School/teacher dashboard | ⏳ Not started |
 
-In other words: the "explain, memorize" half of the vision is built and working end to end; the "test, detect gaps, plan revision" half is designed (see the rollout plan in `docs/ARCHITECTURE.md`) but not yet implemented.
+In other words: "explain, memorize, test" is built and working end to end; "detect gaps, plan revision" is designed (see the rollout plan in `docs/ARCHITECTURE.md`) but not yet implemented.
 
 ## Project layout
 

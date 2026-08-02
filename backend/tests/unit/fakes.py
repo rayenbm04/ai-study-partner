@@ -12,6 +12,7 @@ from app.domain.entities.conversation import Conversation
 from app.domain.entities.document import Document
 from app.domain.entities.flashcard import Flashcard, FlashcardReview
 from app.domain.entities.message import Message
+from app.domain.entities.quiz import Quiz, QuizAttempt, QuizQuestion, StudentAnswer
 from app.domain.entities.refresh_token import RefreshToken
 from app.domain.entities.subject import Subject
 from app.domain.entities.summary import Summary
@@ -25,7 +26,10 @@ from app.domain.repositories.embedding_repository import EmbeddingRepository
 from app.domain.repositories.flashcard_repository import FlashcardRepository
 from app.domain.repositories.flashcard_review_repository import FlashcardReviewRepository
 from app.domain.repositories.message_repository import MessageRepository
+from app.domain.repositories.quiz_attempt_repository import QuizAttemptRepository
+from app.domain.repositories.quiz_repository import QuizRepository
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
+from app.domain.repositories.student_answer_repository import StudentAnswerRepository
 from app.domain.repositories.subject_repository import SubjectRepository
 from app.domain.repositories.summary_repository import SummaryRepository
 from app.domain.repositories.user_repository import UserRepository
@@ -525,3 +529,106 @@ class FakeFlashcardReviewRepository(FlashcardReviewRepository):
 
     async def list_by_user(self, user_id):
         return [r for r in self._by_key.values() if r.user_id == user_id]
+
+
+class FakeQuizRepository(QuizRepository):
+    def __init__(self):
+        self._by_id: dict[str, Quiz] = {}
+        self._questions_by_id: dict[str, QuizQuestion] = {}
+
+    async def create(self, *, subject_id, user_id, title, kind, difficulty, topics, duration_minutes, style):
+        quiz = Quiz(
+            id=str(uuid.uuid4()),
+            subject_id=subject_id,
+            user_id=user_id,
+            title=title,
+            kind=kind,
+            difficulty=difficulty,
+            topics=list(topics),
+            duration_minutes=duration_minutes,
+            style=style,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._by_id[quiz.id] = quiz
+        return quiz
+
+    async def bulk_create_questions(self, *, quiz_id, drafts):
+        questions = []
+        for draft in drafts:
+            question = QuizQuestion(
+                id=str(uuid.uuid4()),
+                quiz_id=quiz_id,
+                concept_id=draft.concept_id,
+                type=draft.type,
+                question=draft.question,
+                options=list(draft.options) if draft.options is not None else None,
+                correct_answer=draft.correct_answer,
+                explanation=draft.explanation,
+                points=draft.points,
+                difficulty=draft.difficulty,
+            )
+            self._questions_by_id[question.id] = question
+            questions.append(question)
+        return questions
+
+    async def get_by_id(self, quiz_id):
+        return self._by_id.get(quiz_id)
+
+    async def list_questions(self, quiz_id):
+        return [q for q in self._questions_by_id.values() if q.quiz_id == quiz_id]
+
+    async def get_question_by_id(self, question_id):
+        return self._questions_by_id.get(question_id)
+
+
+class FakeQuizAttemptRepository(QuizAttemptRepository):
+    def __init__(self):
+        self._by_id: dict[str, QuizAttempt] = {}
+
+    async def create(self, *, quiz_id, user_id):
+        attempt = QuizAttempt(
+            id=str(uuid.uuid4()),
+            quiz_id=quiz_id,
+            user_id=user_id,
+            started_at=datetime.now(timezone.utc),
+            completed_at=None,
+            score=None,
+        )
+        self._by_id[attempt.id] = attempt
+        return attempt
+
+    async def get_by_id(self, attempt_id):
+        return self._by_id.get(attempt_id)
+
+    async def list_by_quiz(self, quiz_id):
+        return [a for a in self._by_id.values() if a.quiz_id == quiz_id]
+
+    async def complete(self, attempt_id, *, completed_at, score):
+        updated = replace(self._by_id[attempt_id], completed_at=completed_at, score=score)
+        self._by_id[attempt_id] = updated
+        return updated
+
+
+class FakeStudentAnswerRepository(StudentAnswerRepository):
+    def __init__(self):
+        # Keyed by (quiz_attempt_id, quiz_question_id) — mirrors the real
+        # table's unique constraint.
+        self._by_key: dict[tuple[str, str], StudentAnswer] = {}
+
+    async def upsert(self, *, quiz_attempt_id, quiz_question_id, answer, is_correct, time_spent_seconds, submitted_at):
+        key = (quiz_attempt_id, quiz_question_id)
+        existing = self._by_key.get(key)
+        record = StudentAnswer(
+            id=existing.id if existing else str(uuid.uuid4()),
+            quiz_attempt_id=quiz_attempt_id,
+            quiz_question_id=quiz_question_id,
+            answer=answer,
+            is_correct=is_correct,
+            time_spent_seconds=time_spent_seconds,
+            submitted_at=submitted_at,
+        )
+        self._by_key[key] = record
+        return record
+
+    async def list_by_attempt(self, quiz_attempt_id):
+        return [a for a in self._by_key.values() if a.quiz_attempt_id == quiz_attempt_id]

@@ -121,3 +121,31 @@ class FlashcardNotFoundError(DomainError):
 
     def __init__(self, flashcard_id: str):
         super().__init__(f"Flashcard '{flashcard_id}' was not found.")
+
+
+class QuizNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, quiz_id: str):
+        super().__init__(f"Quiz '{quiz_id}' was not found.")
+
+
+class QuizQuestionNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, question_id: str):
+        super().__init__(f"Quiz question '{question_id}' was not found.")
+
+
+class QuizAttemptNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, attempt_id: str):
+        super().__init__(f"Quiz attempt '{attempt_id}' was not found.")
+
+
+class QuizAttemptAlreadySubmittedError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, attempt_id: str):
+        super().__init__(f"Quiz attempt '{attempt_id}' has already been submitted.")

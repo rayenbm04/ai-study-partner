@@ -21,7 +21,10 @@ from app.repositories.embedding_repo import SqlAlchemyEmbeddingRepository
 from app.repositories.flashcard_repo import SqlAlchemyFlashcardRepository
 from app.repositories.flashcard_review_repo import SqlAlchemyFlashcardReviewRepository
 from app.repositories.message_repo import SqlAlchemyMessageRepository
+from app.repositories.quiz_attempt_repo import SqlAlchemyQuizAttemptRepository
+from app.repositories.quiz_repo import SqlAlchemyQuizRepository
 from app.repositories.refresh_token_repo import SqlAlchemyRefreshTokenRepository
+from app.repositories.student_answer_repo import SqlAlchemyStudentAnswerRepository
 from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.repositories.summary_repo import SqlAlchemySummaryRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
@@ -29,10 +32,12 @@ from app.services.auth_service import AuthService
 from app.services.document_service import DocumentService
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.embeddings.factory import build_embedding_provider
+from app.services.exam_engine.exam_service import ExamService
 from app.services.flashcard_engine.flashcard_service import FlashcardService
 from app.services.knowledge_base.ingestion_task import ingest_document_task
 from app.services.llm.base import LLMProvider
 from app.services.llm.factory import build_llm_provider
+from app.services.quiz_engine.quiz_service import QuizService
 from app.services.rag.chat_service import ChatService
 from app.services.subject_service import SubjectService
 from app.services.summary_engine.summary_service import SummaryService
@@ -86,6 +91,18 @@ def get_flashcard_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyFla
 
 def get_flashcard_review_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyFlashcardReviewRepository:
     return SqlAlchemyFlashcardReviewRepository(session)
+
+
+def get_quiz_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyQuizRepository:
+    return SqlAlchemyQuizRepository(session)
+
+
+def get_quiz_attempt_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyQuizAttemptRepository:
+    return SqlAlchemyQuizAttemptRepository(session)
+
+
+def get_student_answer_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyStudentAnswerRepository:
+    return SqlAlchemyStudentAnswerRepository(session)
 
 
 def get_storage() -> StoragePort:
@@ -195,6 +212,38 @@ def get_flashcard_service(
         default_generate_count=settings.flashcard_default_generate_count,
         max_generate_count=settings.flashcard_max_generate_count,
     )
+
+
+def get_quiz_service(
+    quiz_repo: SqlAlchemyQuizRepository = Depends(get_quiz_repo),
+    attempt_repo: SqlAlchemyQuizAttemptRepository = Depends(get_quiz_attempt_repo),
+    answer_repo: SqlAlchemyStudentAnswerRepository = Depends(get_student_answer_repo),
+    document_service: DocumentService = Depends(get_document_service),
+    subject_service: SubjectService = Depends(get_subject_service),
+    chunk_repo: SqlAlchemyChunkRepository = Depends(get_chunk_repo),
+    concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
+    llm_provider: LLMProvider = Depends(get_llm_provider),
+) -> QuizService:
+    return QuizService(
+        quiz_repo=quiz_repo,
+        attempt_repo=attempt_repo,
+        answer_repo=answer_repo,
+        document_service=document_service,
+        subject_service=subject_service,
+        chunk_repo=chunk_repo,
+        concept_repo=concept_repo,
+        llm_provider=llm_provider,
+        max_source_chars=settings.quiz_source_max_chars,
+        default_generate_count=settings.quiz_default_generate_count,
+        max_generate_count=settings.quiz_max_generate_count,
+    )
+
+
+def get_exam_service(
+    quiz_service: QuizService = Depends(get_quiz_service),
+    attempt_repo: SqlAlchemyQuizAttemptRepository = Depends(get_quiz_attempt_repo),
+) -> ExamService:
+    return ExamService(quiz_service=quiz_service, attempt_repo=attempt_repo)
 
 
 def get_ingestion_runner() -> Callable[[str], Awaitable[None]]:
