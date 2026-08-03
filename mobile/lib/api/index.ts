@@ -9,3 +9,5 @@ export * as progressApi from "./progress";
 export * as studyPlansApi from "./studyPlans";
 export * as analyticsApi from "./analytics";
 export * as chatApi from "./chat";
+export * as examsApi from "./exams";
+export * as summariesApi from "./summaries";

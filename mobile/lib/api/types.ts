@@ -186,6 +186,18 @@ export type Conversation = {
   created_at: string;
 };
 
+export type SummaryType = "short" | "detailed" | "bullet" | "key_concepts" | "formula_sheet" | "definitions";
+
+export type Summary = {
+  id: string;
+  document_id: string;
+  subject_id: string;
+  summary_type: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Document = {
   id: string;
   subject_id: string;

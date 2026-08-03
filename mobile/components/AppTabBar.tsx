@@ -90,12 +90,18 @@ const styles = StyleSheet.create({
   // tab bar floats over the whole browser viewport (it's rendered by the
   // Tabs navigator, outside any single screen's centered column), so it
   // needs its own centering to line up with the content underneath it.
+  //
+  // `alignSelf: "center"` does NOT center an absolutely-positioned element —
+  // that's a flex-participation property and this element has been taken
+  // out of flex flow, so it was a no-op and the bar just hugged the left
+  // edge of the full browser width. left:0 + right:0 + a fixed (not "100%")
+  // width + auto horizontal margins is the actual CSS trick for centering
+  // an absolutely-positioned box.
   wrapWeb: {
     left: 0,
     right: 0,
-    alignSelf: "center",
-    width: "100%",
-    maxWidth: 448,
+    width: 448,
+    marginHorizontal: "auto",
   },
   bar: {
     flexDirection: "row",

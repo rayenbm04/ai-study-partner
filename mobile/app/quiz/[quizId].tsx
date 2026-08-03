@@ -6,9 +6,14 @@
  * (the backend deliberately withholds it — AnswerAckResponse has no
  * is_correct) — full results only appear after the whole attempt is
  * submitted, on the results view at the bottom of this file.
+ *
+ * Exams are quizzes with kind="exam" and a duration_minutes — same
+ * attempt/answer/submit flow, plus a countdown that auto-submits whatever
+ * has been answered so far when time runs out (a real quiz has no timer at
+ * all: duration_minutes is null, so the countdown code below never mounts).
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -32,18 +37,60 @@ export default function QuizAttemptScreen() {
   const [result, setResult] = useState<QuizAttemptResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [examEndsAt, setExamEndsAt] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [timeUp, setTimeUp] = useState(false);
+  const isFinalizingRef = useRef(false);
+
   useEffect(() => {
     Promise.all([quizzesApi.getQuiz(quizId), quizzesApi.startAttempt(quizId)])
       .then(([loadedQuiz, attempt]) => {
         setQuiz(loadedQuiz);
         setAttemptId(attempt.id);
         setQuestionStartedAt(Date.now());
+        if (loadedQuiz.kind === "exam" && loadedQuiz.duration_minutes) {
+          setExamEndsAt(Date.now() + loadedQuiz.duration_minutes * 60_000);
+        }
       })
       .finally(() => setIsLoading(false));
   }, [quizId]);
 
+  // Countdown tick — recomputed from the fixed end timestamp each second
+  // rather than decremented, so it can't drift no matter how often this
+  // effect re-runs.
+  useEffect(() => {
+    if (examEndsAt === null || result || timeUp) return;
+    const tick = () => {
+      const secondsLeft = Math.max(0, Math.round((examEndsAt - Date.now()) / 1000));
+      setRemainingSeconds(secondsLeft);
+      if (secondsLeft <= 0) setTimeUp(true);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [examEndsAt, result, timeUp]);
+
   const currentQuestion = quiz?.questions[currentIndex];
   const isLastQuestion = quiz ? currentIndex === quiz.questions.length - 1 : false;
+
+  // Time ran out — best-effort submit whatever answer is currently on
+  // screen, then finalize the attempt with however many questions actually
+  // got answered.
+  useEffect(() => {
+    if (!timeUp || isFinalizingRef.current || !attemptId) return;
+    isFinalizingRef.current = true;
+    (async () => {
+      if (currentAnswer.trim() && currentQuestion) {
+        const timeSpentSeconds = Math.round((Date.now() - questionStartedAt) / 1000);
+        await quizzesApi
+          .submitAnswer(attemptId, { question_id: currentQuestion.id, answer: currentAnswer, time_spent_seconds: timeSpentSeconds })
+          .catch(() => {});
+      }
+      const finalResult = await quizzesApi.submitAttempt(attemptId);
+      setResult(finalResult);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeUp]);
 
   async function handleContinue() {
     if (!attemptId || !currentQuestion) return;
@@ -83,6 +130,19 @@ export default function QuizAttemptScreen() {
     return <ResultsView result={result} onDone={() => router.back()} />;
   }
 
+  if (timeUp) {
+    return (
+      <Screen>
+        <View style={styles.loading}>
+          <ActivityIndicator color={colors.accent} />
+          <Text variant="body" style={{ marginTop: spacing.md, color: colors.textSecondary }}>
+            Time's up — submitting your exam…
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
+
   if (!currentQuestion) return null;
 
   const showsOptions = currentQuestion.options && currentQuestion.options.length > 0;
@@ -99,6 +159,7 @@ export default function QuizAttemptScreen() {
             />
           ))}
         </View>
+        {remainingSeconds !== null ? <TimerChip seconds={remainingSeconds} /> : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
@@ -152,6 +213,21 @@ export default function QuizAttemptScreen() {
         style={styles.action}
       />
     </Screen>
+  );
+}
+
+function TimerChip({ seconds }: { seconds: number }) {
+  const { colors } = useTheme();
+  const low = seconds <= 60;
+  const mm = Math.floor(seconds / 60);
+  const ss = seconds % 60;
+  return (
+    <View style={[styles.timerChip, { backgroundColor: low ? colors.errorLight : colors.surfaceAlt }]}>
+      <Ionicons name="timer-outline" size={14} color={low ? colors.error : colors.textSecondary} />
+      <Text style={{ fontVariant: ["tabular-nums"], color: low ? colors.error : colors.textSecondary, fontWeight: "600" }}>
+        {mm}:{ss.toString().padStart(2, "0")}
+      </Text>
+    </View>
   );
 }
 
@@ -231,6 +307,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     gap: 5,
+  },
+  timerChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    height: 32,
+    borderRadius: radii.full,
   },
   segment: {
     flex: 1,
