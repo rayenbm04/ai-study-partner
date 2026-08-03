@@ -6,9 +6,11 @@ import { Button, Screen, Text, TextField } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useTheme } from "../../lib/theme-context";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { colors } = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +40,7 @@ export default function LoginScreen() {
         </Text>
       </View>
 
-      <View style={styles.form}>
+      <View>
         <TextField
           label="Email"
           value={email}
@@ -56,7 +58,7 @@ export default function LoginScreen() {
           style={styles.field}
         />
         {error ? (
-          <Text variant="caption" style={styles.error}>
+          <Text variant="caption" style={[styles.error, { color: colors.error }]}>
             {error}
           </Text>
         ) : null}
@@ -80,9 +82,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: spacing.sm,
-  },
-  form: {
-    gap: 0,
   },
   field: {
     marginTop: spacing.lg,

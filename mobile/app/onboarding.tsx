@@ -10,18 +10,26 @@
  * instead of being silently dropped. A real "default daily minutes" user
  * setting would be a small, separate backend addition later.
  */
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Button, Card, ProgressBar, Screen, Text, TextField } from "../components/ui";
-import { colors, spacing } from "../constants/theme";
+import { radii, spacing } from "../constants/theme";
 import { ApiError, subjectsApi } from "../lib/api";
+import { useTheme } from "../lib/theme-context";
 
-const MINUTE_OPTIONS = [15, 30, 45, 60];
+const MINUTE_OPTIONS = [
+  { minutes: 15, sub: "just the due cards" },
+  { minutes: 30, sub: "cards + a short quiz" },
+  { minutes: 45, sub: "cards, quiz and a summary" },
+  { minutes: 60, sub: "deep review" },
+];
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [step, setStep] = useState<1 | 2>(1);
   const [subjectName, setSubjectName] = useState("");
   const [dailyMinutes, setDailyMinutes] = useState<number | null>(30);
@@ -49,6 +57,9 @@ export default function OnboardingScreen() {
 
       {step === 1 ? (
         <View style={styles.body}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="school" size={28} color={colors.accentDark} />
+          </View>
           <Text variant="display">What are you studying?</Text>
           <Text variant="body" style={styles.subtitle}>
             Give your first subject a name — you can add more later.
@@ -61,7 +72,7 @@ export default function OnboardingScreen() {
             style={styles.field}
           />
           {error ? (
-            <Text variant="caption" style={styles.error}>
+            <Text variant="caption" style={[styles.error, { color: colors.error }]}>
               {error}
             </Text>
           ) : null}
@@ -79,19 +90,29 @@ export default function OnboardingScreen() {
             This just sets a starting point for your study plan — easy to change later.
           </Text>
           <View style={styles.options}>
-            {MINUTE_OPTIONS.map((minutes) => (
-              <Card
-                key={minutes}
-                onPress={() => setDailyMinutes(minutes)}
-                style={[styles.option, dailyMinutes === minutes && styles.optionSelected]}
-              >
-                <Text variant="title">{minutes} min</Text>
-                <Text variant="caption">per day</Text>
-              </Card>
-            ))}
+            {MINUTE_OPTIONS.map(({ minutes, sub }) => {
+              const selected = dailyMinutes === minutes;
+              return (
+                <Card
+                  key={minutes}
+                  onPress={() => setDailyMinutes(minutes)}
+                  style={[
+                    styles.option,
+                    selected && { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text variant="title" style={selected ? { color: colors.textOnPrimary } : undefined}>
+                    {minutes} min
+                  </Text>
+                  <Text variant="caption" style={selected ? { color: colors.textOnPrimary, opacity: 0.75 } : undefined}>
+                    {sub}
+                  </Text>
+                </Card>
+              );
+            })}
           </View>
           {error ? (
-            <Text variant="caption" style={styles.error}>
+            <Text variant="caption" style={[styles.error, { color: colors.error }]}>
               {error}
             </Text>
           ) : null}
@@ -109,6 +130,14 @@ const styles = StyleSheet.create({
   body: {
     marginTop: spacing.xxl,
   },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.lg,
+  },
   subtitle: {
     marginTop: spacing.sm,
     marginBottom: spacing.xl,
@@ -117,17 +146,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   options: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.md,
   },
   option: {
-    width: "47%",
-    alignItems: "center",
-  },
-  optionSelected: {
-    borderColor: colors.primary,
-    borderWidth: 2,
+    width: "100%",
   },
   action: {
     marginTop: spacing.xl,

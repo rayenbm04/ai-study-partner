@@ -12,13 +12,15 @@ import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { FlatList, StyleSheet, View } from "react-native";
 
-import { Card, Screen, Text } from "../../components/ui";
-import { colors, spacing } from "../../constants/theme";
+import { Card, Screen, Tag, Text } from "../../components/ui";
+import { radii, spacing } from "../../constants/theme";
 import { analyticsApi } from "../../lib/api";
 import type { SubjectAnalytics } from "../../lib/api";
+import { useTheme } from "../../lib/theme-context";
 
 export default function ProgressScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [subjects, setSubjects] = useState<SubjectAnalytics[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,17 +58,29 @@ export default function ProgressScreen() {
         renderItem={({ item }) => (
           <Card onPress={() => router.push(`/subject/${item.subject_id}`)} style={styles.card}>
             <View style={styles.row}>
-              <Text variant="title" style={styles.name}>
+              <Text variant="subtitle" style={styles.name}>
                 {item.subject_name}
               </Text>
-              <Text variant="title" style={{ color: colors.primary }}>
+              <Text variant="title" style={{ color: colors.accentDark }}>
                 {item.average_mastery !== null ? `${Math.round(item.average_mastery)}%` : "—"}
               </Text>
             </View>
-            <Text variant="caption">
-              {item.concepts_practiced}/{item.concepts_total} concepts practiced
-              {item.weak_concept_count > 0 ? ` · ${item.weak_concept_count} weak spot${item.weak_concept_count === 1 ? "" : "s"}` : ""}
-            </Text>
+            <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+              <View
+                style={[
+                  styles.barFill,
+                  { width: `${Math.max(4, item.average_mastery ?? 4)}%`, backgroundColor: colors.accent },
+                ]}
+              />
+            </View>
+            <View style={styles.metaRow}>
+              <Text variant="caption">
+                {item.concepts_practiced}/{item.concepts_total} concepts practiced
+              </Text>
+              {item.weak_concept_count > 0 ? (
+                <Tag label={`${item.weak_concept_count} weak spot${item.weak_concept_count === 1 ? "" : "s"}`} tone="error" />
+              ) : null}
+            </View>
           </Card>
         )}
       />
@@ -81,18 +95,33 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: 130,
   },
   card: {
-    marginBottom: spacing.md,
+    marginBottom: 0,
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
   },
   name: {
     flex: 1,
+  },
+  barTrack: {
+    height: 6,
+    borderRadius: radii.full,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: radii.full,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.md,
   },
 });

@@ -1,6 +1,6 @@
 /**
- * Subject detail — documents, a progress snapshot, and the entry point into
- * a quiz. Document upload isn't wired up on mobile yet (see
+ * Subject detail — documents, a progress snapshot, and entry points into a
+ * quiz or the AI Coach. Document upload isn't wired up on mobile yet (see
  * lib/api/documents.ts), so a subject with no ready documents shows a note
  * rather than a broken "generate quiz" button.
  */
@@ -10,14 +10,16 @@ import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 
-import { Button, Card, Screen, Text } from "../../components/ui";
-import { colors, spacing } from "../../constants/theme";
+import { Button, Card, IconButton, Screen, Tag, Text } from "../../components/ui";
+import { spacing } from "../../constants/theme";
 import { analyticsApi, documentsApi, quizzesApi, subjectsApi } from "../../lib/api";
 import type { Document, Subject, SubjectAnalytics } from "../../lib/api";
+import { useTheme } from "../../lib/theme-context";
 
 export default function SubjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { colors } = useTheme();
   const [subject, setSubject] = useState<Subject | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<SubjectAnalytics | null>(null);
@@ -56,7 +58,7 @@ export default function SubjectDetailScreen() {
     return (
       <Screen>
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.accent} />
         </View>
       </Screen>
     );
@@ -67,10 +69,13 @@ export default function SubjectDetailScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.headerRow}>
+          <IconButton name="chevron-back" onPress={() => router.back()} />
+        </View>
         <Text variant="display" style={styles.title}>
           {subject.name}
         </Text>
-        {subject.description ? <Text variant="body">{subject.description}</Text> : null}
+        {subject.description ? <Text variant="body" style={{ color: colors.textSecondary }}>{subject.description}</Text> : null}
 
         {stats ? (
           <Card style={styles.statsCard}>
@@ -82,7 +87,11 @@ export default function SubjectDetailScreen() {
           </Card>
         ) : null}
 
-        <Text variant="label" style={styles.sectionLabel}>
+        <View style={styles.actionsRow}>
+          <Button label="Ask the Coach" onPress={() => router.push(`/coach/${id}`)} style={styles.coachButton} />
+        </View>
+
+        <Text variant="title" style={styles.sectionLabel}>
           Documents
         </Text>
         {documents.length === 0 ? (
@@ -99,7 +108,7 @@ export default function SubjectDetailScreen() {
                 <Text variant="body" style={styles.docName}>
                   {doc.original_filename}
                 </Text>
-                <Text variant="caption">{doc.status}</Text>
+                <Tag label={doc.status} tone={doc.status === "ready" ? "sage" : "neutral"} />
               </View>
               {doc.status === "ready" ? (
                 <Button
@@ -140,8 +149,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scroll: {
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxxl,
+  },
+  headerRow: {
+    marginBottom: spacing.md,
   },
   title: {
     marginBottom: spacing.xs,
@@ -156,6 +168,10 @@ const styles = StyleSheet.create({
   stat: {
     alignItems: "center",
   },
+  actionsRow: {
+    marginTop: spacing.lg,
+  },
+  coachButton: {},
   sectionLabel: {
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
@@ -173,7 +189,7 @@ const styles = StyleSheet.create({
   },
   docAction: {
     marginTop: spacing.md,
-    height: 44,
+    height: 48,
   },
   processingNote: {
     marginTop: spacing.sm,

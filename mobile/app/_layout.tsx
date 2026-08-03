@@ -1,11 +1,12 @@
-import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
+import { useFonts, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold } from "@expo-google-fonts/figtree";
+import { Caprasimo_400Regular } from "@expo-google-fonts/caprasimo";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-import { colors } from "../constants/theme";
 import { AuthProvider, useAuth } from "../lib/auth-context";
+import { ThemeProvider, useTheme } from "../lib/theme-context";
 
 /**
  * Auth gating via Stack.Protected (guard props), not a useEffect +
@@ -20,6 +21,7 @@ import { AuthProvider, useAuth } from "../lib/auth-context";
  */
 function RootNavigator() {
   const { user, isLoading } = useAuth();
+  const { colors, isDark } = useTheme();
 
   // Nothing to route to yet — still checking secure storage for an
   // existing session. Deliberately render nothing rather than guessing.
@@ -27,7 +29,7 @@ function RootNavigator() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="(auth)" />
@@ -35,6 +37,7 @@ function RootNavigator() {
         <Stack.Protected guard={!!user}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
+          <Stack.Screen name="coach/[subjectId]" options={{ presentation: "modal" }} />
         </Stack.Protected>
       </Stack>
     </>
@@ -43,10 +46,11 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Figtree_400Regular,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
+    Caprasimo_400Regular,
   });
 
   if (!fontsLoaded) return null;
@@ -54,9 +58,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

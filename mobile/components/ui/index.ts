@@ -4,3 +4,6 @@ export * from "./Button";
 export * from "./TextField";
 export * from "./Card";
 export * from "./ProgressBar";
+export * from "./IconButton";
+export * from "./Avatar";
+export * from "./Tag";

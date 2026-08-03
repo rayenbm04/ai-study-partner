@@ -8,3 +8,4 @@ export * as quizzesApi from "./quizzes";
 export * as progressApi from "./progress";
 export * as studyPlansApi from "./studyPlans";
 export * as analyticsApi from "./analytics";
+export * as chatApi from "./chat";

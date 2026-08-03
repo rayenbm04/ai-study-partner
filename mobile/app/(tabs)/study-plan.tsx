@@ -10,16 +10,18 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
-import { Button, Card, Screen, Text } from "../../components/ui";
-import { colors, radii, spacing } from "../../constants/theme";
+import { Button, Card, Screen, Tag, Text } from "../../components/ui";
+import { radii, spacing } from "../../constants/theme";
 import { ApiError, studyPlansApi, subjectsApi } from "../../lib/api";
 import type { StudyPlan, Subject } from "../../lib/api";
+import { useTheme } from "../../lib/theme-context";
 
 const MINUTE_OPTIONS = [15, 30, 45, 60];
 
 export default function StudyPlanScreen() {
+  const { colors } = useTheme();
   const params = useLocalSearchParams<{ defaultDailyMinutes?: string }>();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
@@ -68,7 +70,7 @@ export default function StudyPlanScreen() {
       <Screen>
         <View style={styles.header}>
           <Text variant="display">{plan.name}</Text>
-          <Text variant="body" style={styles.subtitle}>
+          <Text variant="body" style={{ color: colors.textSecondary, marginTop: spacing.xs }}>
             {plan.items.length} sessions scheduled
           </Text>
         </View>
@@ -80,17 +82,18 @@ export default function StudyPlanScreen() {
             <Card style={styles.itemCard}>
               <View style={styles.itemRow}>
                 <Text variant="label">{item.scheduled_date}</Text>
-                <View style={styles.activityBadge}>
-                  <Text variant="caption" style={{ color: colors.primary }}>
-                    {item.activity_type}
-                  </Text>
-                </View>
+                <Tag label={item.activity_type} tone="accent" />
               </View>
               <Text variant="body">{item.duration_minutes} min</Text>
             </Card>
           )}
         />
-        <Button label="Generate a new plan" variant="secondary" onPress={() => setPlan(null)} />
+        <Button
+          label="Generate a new plan"
+          variant="secondary"
+          onPress={() => setPlan(null)}
+          style={styles.bottomAction}
+        />
       </Screen>
     );
   }
@@ -99,7 +102,7 @@ export default function StudyPlanScreen() {
     <Screen>
       <View style={styles.header}>
         <Text variant="display">Study Plan</Text>
-        <Text variant="body" style={styles.subtitle}>
+        <Text variant="body" style={{ color: colors.textSecondary, marginTop: spacing.xs }}>
           Pick the subjects to include and how much time you have each day.
         </Text>
       </View>
@@ -111,15 +114,16 @@ export default function StudyPlanScreen() {
         {subjects.map((subject) => {
           const selected = selectedSubjectIds.includes(subject.id);
           return (
-            <Card
+            <Pressable
               key={subject.id}
               onPress={() => toggleSubject(subject.id)}
-              style={[styles.chip, selected && styles.chipSelected]}
+              style={[
+                styles.chip,
+                { backgroundColor: selected ? colors.primary : colors.surface, shadowColor: colors.shadow },
+              ]}
             >
-              <Text variant="body" style={selected ? { color: colors.primary } : undefined}>
-                {subject.name}
-              </Text>
-            </Card>
+              <Text style={{ color: selected ? colors.textOnPrimary : colors.textPrimary }}>{subject.name}</Text>
+            </Pressable>
           );
         })}
       </View>
@@ -128,21 +132,25 @@ export default function StudyPlanScreen() {
         Daily study time
       </Text>
       <View style={styles.chipRow}>
-        {MINUTE_OPTIONS.map((minutes) => (
-          <Card
-            key={minutes}
-            onPress={() => setDailyMinutes(minutes)}
-            style={[styles.chip, dailyMinutes === minutes && styles.chipSelected]}
-          >
-            <Text variant="body" style={dailyMinutes === minutes ? { color: colors.primary } : undefined}>
-              {minutes} min
-            </Text>
-          </Card>
-        ))}
+        {MINUTE_OPTIONS.map((minutes) => {
+          const selected = dailyMinutes === minutes;
+          return (
+            <Pressable
+              key={minutes}
+              onPress={() => setDailyMinutes(minutes)}
+              style={[
+                styles.chip,
+                { backgroundColor: selected ? colors.primary : colors.surface, shadowColor: colors.shadow },
+              ]}
+            >
+              <Text style={{ color: selected ? colors.textOnPrimary : colors.textPrimary }}>{minutes} min</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {error ? (
-        <Text variant="caption" style={styles.error}>
+        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
           {error}
         </Text>
       ) : null}
@@ -163,9 +171,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.lg,
   },
-  subtitle: {
-    marginTop: spacing.xs,
-  },
   sectionLabel: {
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
@@ -176,35 +181,35 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   chip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: radii.full,
-  },
-  chipSelected: {
-    borderColor: colors.primary,
-    borderWidth: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 2,
   },
   error: {
     marginTop: spacing.lg,
   },
   generateButton: {
     marginTop: spacing.xl,
+    marginBottom: 110,
+  },
+  bottomAction: {
+    marginBottom: 110,
   },
   list: {
     gap: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: 130,
   },
   itemCard: {
-    marginBottom: spacing.md,
+    marginBottom: 0,
   },
   itemRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.xs,
-  },
-  activityBadge: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: radii.full,
-    paddingHorizontal: spacing.sm,
   },
 });

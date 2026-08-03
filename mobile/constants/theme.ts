@@ -1,54 +1,104 @@
 /**
- * Design tokens for AI Study Coach.
+ * Design tokens for AI Study Coach — "Organic" system.
  *
- * Palette direction (from design review): warm beige/white backgrounds,
- * violet as the primary interactive color, amber as the accent/highlight
- * color (due-today badges, streaks, "top pick" style callouts). Deliberately
- * no mascot/illustration system yet — icons only for now (see
- * docs/DESIGN.md in this folder... actually see the mobile README).
- *
- * Single font family (Inter) throughout, per the "modern sans-serif only"
- * decision — no serif/display font to load or keep visually consistent
- * across screen sizes.
+ * Warm cream/ink palette, terracotta-amber accent, olive-sage for success
+ * states. Caprasimo (display serif) for headings/big numbers, Figtree for
+ * everything else. Pill-shaped buttons/inputs, large soft-shadowed cards —
+ * no hard borders, ombres diffuses instead (see the design import this was
+ * pulled from). Light and dark palettes share the same key shape so
+ * ThemeContext (lib/theme-context.tsx) can switch between them at runtime.
  */
 
-export const colors = {
-  // Backgrounds — warm, not pure white/gray, per "beige-white" direction.
-  background: "#FAF6EF",
-  backgroundAlt: "#F3ECDF", // slightly deeper beige, for section backgrounds
-  surface: "#FFFFFF", // cards, sheets, inputs — sits on top of background
-  surfaceAlt: "#F6F1E7", // subtle card variant when a card sits on `surface`
+export type ColorScheme = { [K in keyof typeof lightColors]: string };
 
-  border: "#E7DECD",
-  borderStrong: "#D8CBB2",
+export const lightColors = {
+  background: "#F8F3EA",
+  backgroundAlt: "#F4EFE5",
+  surface: "#FFFFFF",
+  surfaceAlt: "#F4EFE5",
 
-  // Text
-  textPrimary: "#241F19",
-  textSecondary: "#6E6558",
-  textMuted: "#9C9284",
+  border: "#EFE6D6",
+  borderStrong: "#DCD2C0",
+
+  textPrimary: "#201E1D",
+  textSecondary: "#5F584D",
+  textMuted: "#8A8172",
   textOnPrimary: "#FFFFFF",
-  textOnAccent: "#241F19", // amber is light enough to need dark text on top
+  textOnAccent: "#201E1D",
 
-  // Primary — violet. Used for primary buttons, links, active tab, selection.
-  primary: "#6E4FE8",
-  primaryDark: "#5B3FD1", // pressed state
-  primaryLight: "#EFE9FD", // selected-row background, subtle highlight fill
+  // Primary — near-ink CTA pill, matching the mockup's main call-to-action
+  // buttons (never the amber accent, which stays a highlight color).
+  primary: "#201E1D",
+  primaryDark: "#000000",
+  primaryLight: "#FDF0DA",
 
-  // Accent — amber. Used for badges, streaks, "due today," highlights —
-  // never for a primary CTA, so it stays a highlight color, not a second
-  // primary competing with violet.
-  accent: "#F2A93B",
-  accentDark: "#D98F1F",
-  accentLight: "#FBEBD1",
+  // Accent — warm amber. Streaks, due-today badges, progress rings,
+  // selection outlines, the chat FAB.
+  accent: "#E0982B",
+  accentDark: "#A66A14",
+  accentLight: "#FDF0DA",
 
-  // Semantic — kept muted/warm so they sit next to amber+violet without
-  // clashing (avoid saturated stock green/red).
-  success: "#4C9A6A",
-  successLight: "#E4F2E8",
-  error: "#D9614C",
-  errorLight: "#FBE7E3",
-  warning: "#D98F1F",
+  // Secondary accent — olive sage, used for "mastered"/correct states.
+  sage: "#7A8A5E",
+  sageDark: "#4E5C36",
+  sageLight: "#E9EDE0",
+
+  success: "#7A8A5E",
+  successLight: "#E9EDE0",
+  error: "#C0553F",
+  errorLight: "#F9E7E1",
+  warning: "#A66A14",
+
+  shadow: "rgba(32,30,29,0.08)",
+  shadowStrong: "rgba(32,30,29,0.18)",
+  overlay: "rgba(20,18,17,0.44)",
+  cardBack: "#201E1D",
+  cardBackText: "#F8F3EA",
 } as const;
+
+export const darkColors: ColorScheme = {
+  background: "#151311",
+  backgroundAlt: "#1B1815",
+  surface: "#221F1C",
+  surfaceAlt: "#2B2723",
+
+  border: "#332E28",
+  borderStrong: "#443D34",
+
+  textPrimary: "#F4EEE3",
+  textSecondary: "#BEB4A5",
+  textMuted: "#8E8578",
+  textOnPrimary: "#1B1815",
+  textOnAccent: "#1B1815",
+
+  primary: "#E0982B",
+  primaryDark: "#C67139",
+  primaryLight: "#3A2C18",
+
+  accent: "#E0982B",
+  accentDark: "#EBB765",
+  accentLight: "#3A2C18",
+
+  sage: "#9FB182",
+  sageDark: "#B4C595",
+  sageLight: "#2A3124",
+
+  success: "#8FA36C",
+  successLight: "#25301E",
+  error: "#E08A72",
+  errorLight: "#3A211B",
+  warning: "#EBB765",
+
+  shadow: "rgba(0,0,0,0.45)",
+  shadowStrong: "rgba(0,0,0,0.6)",
+  overlay: "rgba(10,9,8,0.6)",
+  cardBack: "#E0982B",
+  cardBackText: "#1B1815",
+} as const;
+
+// Kept for any code that still imports the static default (light) palette
+// directly instead of useTheme(). Prefer useTheme() in components.
+export const colors = lightColors;
 
 export const fontSizes = {
   xs: 12,
@@ -58,6 +108,7 @@ export const fontSizes = {
   xl: 22,
   xxl: 28,
   display: 34,
+  hero: 42,
 } as const;
 
 export const fontWeights = {
@@ -67,13 +118,15 @@ export const fontWeights = {
   bold: "700",
 } as const;
 
-// Inter is loaded via @expo-google-fonts/inter in app/_layout.tsx; these are
-// the family names that package registers.
+// Figtree (body) + Caprasimo (display serif) are loaded via
+// @expo-google-fonts/* in app/_layout.tsx; these are the family names those
+// packages register.
 export const fontFamilies = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semibold: "Inter_600SemiBold",
-  bold: "Inter_700Bold",
+  regular: "Figtree_400Regular",
+  medium: "Figtree_500Medium",
+  semibold: "Figtree_600SemiBold",
+  bold: "Figtree_700Bold",
+  display: "Caprasimo_400Regular",
 } as const;
 
 export const spacing = {
@@ -88,18 +141,24 @@ export const spacing = {
 
 export const radii = {
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+  md: 16,
+  lg: 24,
+  xl: 32,
   full: 999,
 } as const;
 
+/** Soft, ink-tinted shadow — pass the active scheme's `shadow`/`shadowStrong`. */
+export function cardShadow(color: string) {
+  return {
+    shadowColor: color,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 4,
+  } as const;
+}
+
+// Legacy export kept for anything not yet migrated to useTheme().
 export const shadows = {
-  card: {
-    shadowColor: "#241F19",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
+  card: cardShadow(lightColors.shadow),
 } as const;

@@ -1,28 +1,31 @@
 /**
- * Home/Subjects tab — the student's subject list plus a quick cross-subject
- * overview (total flashcards due). Mirrors the Brilliant "learning path"
- * card pattern: icon, title, a stat instead of a static badge, using real
- * data from the analytics engine instead of anything canned.
+ * Home/Subjects tab — greeting, a due-flashcards hero card that drives
+ * straight into the Cards tab, and the subject list with a mastery bar per
+ * subject. A floating action button opens the AI Coach for a subject (picks
+ * automatically when there's only one, otherwise asks which).
  */
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Button, Card, Screen, Text } from "../../components/ui";
-import { colors, radii, spacing } from "../../constants/theme";
+import { Avatar, Button, Card, IconButton, Screen, Tag, Text } from "../../components/ui";
+import { radii, spacing } from "../../constants/theme";
 import { analyticsApi, subjectsApi } from "../../lib/api";
 import type { OverviewAnalytics, Subject } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useTheme } from "../../lib/theme-context";
 
 export default function SubjectsScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const router = useRouter();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [overview, setOverview] = useState<OverviewAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [subjectList, overviewData] = await Promise.all([subjectsApi.listSubjects(), analyticsApi.getOverview()]);
@@ -45,21 +48,30 @@ export default function SubjectsScreen() {
     setIsRefreshing(false);
   }
 
+  function openCoach() {
+    if (subjects.length === 0) return;
+    if (subjects.length === 1) {
+      router.push(`/coach/${subjects[0].id}`);
+      return;
+    }
+    setPickerOpen(true);
+  }
+
   const analyticsBySubject = new Map((overview?.subjects ?? []).map((s) => [s.subject_id, s]));
+  const dueCount = overview?.total_flashcards_due ?? 0;
 
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="display">Hi {user?.firstname ?? "there"}</Text>
-        {overview && overview.total_flashcards_due > 0 ? (
-          <Text variant="body" style={styles.dueSummary}>
-            {overview.total_flashcards_due} flashcard{overview.total_flashcards_due === 1 ? "" : "s"} due today
-          </Text>
-        ) : (
-          <Text variant="body" style={styles.dueSummary}>
-            You're all caught up on reviews.
-          </Text>
-        )}
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text variant="label">Hello</Text>
+            <Text variant="display" style={styles.name}>
+              {user?.firstname ?? "there"}
+            </Text>
+          </View>
+          <Avatar label={user?.firstname ?? "?"} />
+        </View>
       </View>
 
       <FlatList
@@ -67,6 +79,35 @@ export default function SubjectsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+        ListHeaderComponent={
+          <>
+            <Card style={[styles.heroCard, { backgroundColor: colors.surface }]}>
+              <View style={styles.heroRow}>
+                <View style={[styles.heroIcon, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="flash" size={26} color={colors.accentDark} />
+                </View>
+                <View style={styles.heroText}>
+                  <Text variant="label">TODAY'S MISSION</Text>
+                  <Text variant="title" style={styles.heroTitle}>
+                    {dueCount > 0 ? `${dueCount} card${dueCount === 1 ? "" : "s"} due` : "All caught up"}
+                  </Text>
+                  <Text variant="caption">
+                    {dueCount > 0 ? "A quick review keeps your streak of mastery going." : "Nothing due today — nice work."}
+                  </Text>
+                </View>
+              </View>
+              <Button
+                label={dueCount > 0 ? "Continue reviewing" : "Review anyway"}
+                onPress={() => router.push("/(tabs)/cards")}
+                style={styles.heroButton}
+              />
+            </Card>
+
+            <Text variant="title" style={styles.sectionLabel}>
+              Your subjects
+            </Text>
+          </>
+        }
         ListEmptyComponent={
           !isLoading ? (
             <Card style={styles.emptyCard}>
@@ -74,42 +115,92 @@ export default function SubjectsScreen() {
               <Text variant="body" style={styles.emptyBody}>
                 Add your first subject to start uploading material and generating study aids.
               </Text>
+              <Button
+                label="+ New subject"
+                variant="secondary"
+                onPress={() => router.push("/subject/new")}
+                style={styles.newButton}
+              />
             </Card>
+          ) : null
+        }
+        ListFooterComponent={
+          subjects.length > 0 ? (
+            <Button
+              label="+ New subject"
+              variant="secondary"
+              onPress={() => router.push("/subject/new")}
+              style={styles.newButton}
+            />
           ) : null
         }
         renderItem={({ item }) => {
           const stats = analyticsBySubject.get(item.id);
+          const mastery = stats?.average_mastery ?? null;
           return (
             <Card onPress={() => router.push(`/subject/${item.id}`)} style={styles.card}>
               <View style={styles.cardRow}>
-                <View style={styles.iconWrap}>
-                  <Ionicons name="book" size={22} color={colors.primary} />
-                </View>
+                <Avatar label={item.name} size={44} />
                 <View style={styles.cardText}>
-                  <Text variant="title">{item.name}</Text>
+                  <Text variant="subtitle">{item.name}</Text>
                   {stats ? (
                     <Text variant="caption">
                       {stats.concepts_practiced}/{stats.concepts_total} concepts practiced
-                      {stats.average_mastery !== null ? ` · ${Math.round(stats.average_mastery)}% mastery` : ""}
                     </Text>
                   ) : (
                     <Text variant="caption">No documents yet</Text>
                   )}
                 </View>
-                {stats && stats.flashcards_due_count > 0 ? (
-                  <View style={styles.dueBadge}>
-                    <Text variant="caption" style={styles.dueBadgeText}>
-                      {stats.flashcards_due_count} due
-                    </Text>
-                  </View>
-                ) : null}
+                <Text variant="title" style={{ color: colors.accentDark }}>
+                  {mastery !== null ? `${Math.round(mastery)}%` : "—"}
+                </Text>
               </View>
+              <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.barFill,
+                    { width: `${Math.max(4, mastery ?? 4)}%`, backgroundColor: colors.accent },
+                  ]}
+                />
+              </View>
+              {stats && stats.flashcards_due_count > 0 ? (
+                <Tag label={`${stats.flashcards_due_count} due`} tone="accent" style={styles.dueTag} />
+              ) : null}
             </Card>
           );
         }}
       />
 
-      <Button label="+ New subject" onPress={() => router.push("/subject/new")} style={styles.newButton} />
+      <Pressable
+        onPress={openCoach}
+        style={[styles.fab, { backgroundColor: colors.accent, shadowColor: colors.accent }]}
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color={colors.textOnAccent} />
+      </Pressable>
+
+      {pickerOpen ? (
+        <>
+          <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={() => setPickerOpen(false)} />
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+            <Text variant="display" style={styles.sheetTitle}>
+              Talk about which subject?
+            </Text>
+            {subjects.map((s) => (
+              <Card
+                key={s.id}
+                onPress={() => {
+                  setPickerOpen(false);
+                  router.push(`/coach/${s.id}`);
+                }}
+                style={styles.sheetRow}
+              >
+                <Text variant="subtitle">{s.name}</Text>
+              </Card>
+            ))}
+          </View>
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -117,51 +208,126 @@ export default function SubjectsScreen() {
 const styles = StyleSheet.create({
   header: {
     marginTop: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
-  dueSummary: {
-    marginTop: spacing.xs,
-    color: colors.textSecondary,
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerText: {
+    flex: 1,
+  },
+  name: {
+    marginTop: spacing.xs / 2,
   },
   list: {
     gap: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: 130,
+  },
+  heroCard: {
+    marginBottom: spacing.md,
+  },
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  heroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroText: {
+    flex: 1,
+  },
+  heroTitle: {
+    marginTop: spacing.xs / 2,
+  },
+  heroButton: {
+    marginTop: spacing.lg,
+  },
+  sectionLabel: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
   },
   card: {
-    marginBottom: spacing.md,
+    marginBottom: 0,
   },
   cardRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.md,
-    backgroundColor: colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   cardText: {
     flex: 1,
   },
-  dueBadge: {
-    backgroundColor: colors.accentLight,
+  barTrack: {
+    height: 6,
     borderRadius: radii.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
+    marginTop: spacing.md,
+    overflow: "hidden",
   },
-  dueBadgeText: {
-    color: colors.accentDark,
+  barFill: {
+    height: "100%",
+    borderRadius: radii.full,
+  },
+  dueTag: {
+    marginTop: spacing.sm,
   },
   emptyCard: {
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
   },
   emptyBody: {
     marginTop: spacing.xs,
   },
   newButton: {
+    marginTop: spacing.sm,
+  },
+  fab: {
+    position: "absolute",
+    right: spacing.lg,
+    bottom: 96,
+    width: 60,
+    height: 60,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  sheetHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: radii.full,
+    alignSelf: "center",
     marginBottom: spacing.lg,
+  },
+  sheetTitle: {
+    marginBottom: spacing.md,
+  },
+  sheetRow: {
+    marginBottom: 0,
   },
 });

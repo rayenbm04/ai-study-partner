@@ -6,9 +6,11 @@ import { Button, Screen, Text, TextField } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useTheme } from "../../lib/theme-context";
 
 export default function RegisterScreen() {
   const { register } = useAuth();
+  const { colors } = useTheme();
   const router = useRouter();
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
@@ -70,7 +72,7 @@ export default function RegisterScreen() {
           At least 8 characters.
         </Text>
         {error ? (
-          <Text variant="caption" style={styles.error}>
+          <Text variant="caption" style={[styles.error, { color: colors.error }]}>
             {error}
           </Text>
         ) : null}
@@ -107,6 +109,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     marginTop: spacing.xs,
+    marginLeft: spacing.sm,
   },
   error: {
     marginTop: spacing.md,

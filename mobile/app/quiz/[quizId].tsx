@@ -1,7 +1,7 @@
 /**
  * Quiz-taking screen — the step-by-step, one-question-at-a-time pattern
- * pulled from the Brilliant reference screens: progress bar up top, the
- * question stated plainly, answer options as the main content, a fixed
+ * pulled from the Brilliant reference screens: progress segments up top,
+ * the question stated plainly, answer options as the main content, a fixed
  * action bar at the bottom. Correct/incorrect is never shown per-question
  * (the backend deliberately withholds it — AnswerAckResponse has no
  * is_correct) — full results only appear after the whole attempt is
@@ -10,15 +10,18 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { Button, Card, ProgressBar, Screen, Text, TextField } from "../../components/ui";
-import { colors, radii, spacing } from "../../constants/theme";
+import { Button, IconButton, Screen, Text, TextField } from "../../components/ui";
+import { radii, spacing } from "../../constants/theme";
 import { quizzesApi } from "../../lib/api";
 import type { Quiz, QuizAttemptResult } from "../../lib/api";
+import { useTheme } from "../../lib/theme-context";
 
 export default function QuizAttemptScreen() {
   const { quizId } = useLocalSearchParams<{ quizId: string }>();
   const router = useRouter();
+  const { colors } = useTheme();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export default function QuizAttemptScreen() {
     return (
       <Screen>
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.accent} />
         </View>
       </Screen>
     );
@@ -86,26 +89,49 @@ export default function QuizAttemptScreen() {
 
   return (
     <Screen>
-      <View style={styles.progressWrap}>
-        <ProgressBar total={quiz.questions.length} completed={currentIndex} />
+      <View style={styles.progressRow}>
+        <IconButton name="close" onPress={() => router.back()} size={40} />
+        <View style={styles.segments}>
+          {quiz.questions.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.segment, { backgroundColor: i <= currentIndex ? colors.accent : colors.border }]}
+            />
+          ))}
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <Text variant="title">{currentQuestion.question}</Text>
+        <Text variant="label" style={{ color: colors.accentDark }}>
+          Question {currentIndex + 1} of {quiz.questions.length}
+        </Text>
+        <Text variant="display" style={styles.question}>
+          {currentQuestion.question}
+        </Text>
 
         {showsOptions ? (
           <View style={styles.options}>
-            {currentQuestion.options!.map((option) => (
-              <Pressable
-                key={option}
-                onPress={() => setCurrentAnswer(option)}
-                style={[styles.optionRow, currentAnswer === option && styles.optionRowSelected]}
-              >
-                <Text variant="body" style={currentAnswer === option ? { color: colors.primary } : undefined}>
-                  {option}
-                </Text>
-              </Pressable>
-            ))}
+            {currentQuestion.options!.map((option) => {
+              const selected = currentAnswer === option;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setCurrentAnswer(option)}
+                  style={[
+                    styles.optionRow,
+                    {
+                      backgroundColor: colors.surface,
+                      shadowColor: colors.shadow,
+                      borderColor: selected ? colors.accent : "transparent",
+                    },
+                  ]}
+                >
+                  <Text variant="body" style={{ fontWeight: selected ? "600" : "400" }}>
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           <TextField
@@ -130,17 +156,43 @@ export default function QuizAttemptScreen() {
 }
 
 function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: () => void }) {
+  const { colors } = useTheme();
+  const score = result.score !== null ? Math.round(result.score) : null;
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.resultsScroll}>
-        <Text variant="display">Score: {result.score !== null ? Math.round(result.score) : "—"}%</Text>
+        <View style={styles.scoreWrap}>
+          <View style={[styles.scoreRing, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+            <Text variant="hero">{score !== null ? `${score}%` : "—"}</Text>
+          </View>
+          <Text variant="display" style={styles.scoreTitle}>
+            Nice work
+          </Text>
+        </View>
 
         {result.answers.map((answer) => (
-          <Card
+          <View
             key={answer.question_id}
-            style={[styles.resultCard, answer.is_correct ? styles.resultCorrect : styles.resultIncorrect]}
+            style={[
+              styles.resultCard,
+              {
+                backgroundColor: colors.surface,
+                shadowColor: colors.shadow,
+                borderLeftColor: answer.is_correct ? colors.sage : colors.error,
+              },
+            ]}
           >
-            <Text variant="body">{answer.question}</Text>
+            <View style={styles.resultHeader}>
+              <Ionicons
+                name={answer.is_correct ? "checkmark-circle" : "close-circle"}
+                size={18}
+                color={answer.is_correct ? colors.sage : colors.error}
+              />
+              <Text variant="body" style={styles.resultQuestion}>
+                {answer.question}
+              </Text>
+            </View>
             <Text variant="caption" style={styles.resultLabel}>
               Your answer: {answer.student_answer ?? "—"}
             </Text>
@@ -150,11 +202,11 @@ function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: ()
               </Text>
             ) : null}
             {answer.explanation ? (
-              <Text variant="caption" style={styles.resultExplanation}>
+              <Text variant="caption" style={[styles.resultExplanation, { color: colors.textSecondary }]}>
                 {answer.explanation}
               </Text>
             ) : null}
-          </Card>
+          </View>
         ))}
       </ScrollView>
       <Button label="Done" onPress={onDone} style={styles.action} />
@@ -168,46 +220,84 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  progressWrap: {
-    marginTop: spacing.lg,
+  progressRow: {
+    marginTop: spacing.sm,
     marginBottom: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  segments: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 5,
+  },
+  segment: {
+    flex: 1,
+    height: 6,
+    borderRadius: radii.full,
   },
   body: {
     paddingBottom: spacing.xl,
+  },
+  question: {
+    marginTop: spacing.md,
   },
   options: {
     marginTop: spacing.xl,
     gap: spacing.md,
   },
   optionRow: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-  },
-  optionRowSelected: {
-    borderColor: colors.primary,
+    borderRadius: radii.lg,
     borderWidth: 2,
+    padding: spacing.lg,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
   },
   freeTextInput: {
     marginTop: spacing.xl,
   },
   action: {
-    marginBottom: spacing.lg,
+    marginBottom: 24,
   },
   resultsScroll: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  resultCard: {
+  scoreWrap: {
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  scoreRing: {
+    width: 148,
+    height: 148,
+    borderRadius: radii.full,
+    borderWidth: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scoreTitle: {
     marginTop: spacing.lg,
   },
-  resultCorrect: {
-    borderColor: colors.success,
+  resultCard: {
+    marginTop: spacing.md,
+    borderRadius: radii.lg,
+    borderLeftWidth: 4,
+    padding: spacing.lg,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 2,
   },
-  resultIncorrect: {
-    borderColor: colors.error,
+  resultHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  resultQuestion: {
+    flex: 1,
   },
   resultLabel: {
     marginTop: spacing.sm,

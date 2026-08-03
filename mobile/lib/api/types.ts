@@ -162,6 +162,30 @@ export type OverviewAnalytics = {
   subjects: SubjectAnalytics[];
 };
 
+export type Citation = {
+  document_id: string;
+  document_filename: string;
+  chunk_id: string;
+  page: number | null;
+  section_title: string | null;
+};
+
+export type Message = {
+  id: string;
+  conversation_id: string;
+  role: string;
+  content: string;
+  citations: Citation[];
+  created_at: string;
+};
+
+export type Conversation = {
+  id: string;
+  subject_id: string;
+  title: string | null;
+  created_at: string;
+};
+
 export type Document = {
   id: string;
   subject_id: string;

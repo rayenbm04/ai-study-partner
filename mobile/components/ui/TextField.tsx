@@ -1,14 +1,17 @@
 import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 
-import { colors, fontFamilies, fontSizes, radii, spacing } from "../../constants/theme";
+import { fontFamilies, fontSizes, radii, spacing } from "../../constants/theme";
+import { useTheme } from "../../lib/theme-context";
 import { Text } from "./Text";
 
 export function TextField({
   label,
   error,
   style,
+  multiline,
   ...props
 }: TextInputProps & { label?: string; error?: string | null }) {
+  const { colors } = useTheme();
   return (
     <View style={style}>
       {label ? (
@@ -18,11 +21,20 @@ export function TextField({
       ) : null}
       <TextInput
         placeholderTextColor={colors.textMuted}
-        style={[styles.input, error ? styles.inputError : null]}
+        multiline={multiline}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.surfaceAlt,
+            color: colors.textPrimary,
+            borderColor: error ? colors.error : "transparent",
+          },
+          multiline && styles.multiline,
+        ]}
         {...props}
       />
       {error ? (
-        <Text variant="caption" style={styles.error}>
+        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
           {error}
         </Text>
       ) : null}
@@ -33,23 +45,24 @@ export function TextField({
 const styles = StyleSheet.create({
   label: {
     marginBottom: spacing.xs,
+    marginLeft: spacing.sm,
   },
   input: {
-    height: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
+    minHeight: 56,
+    borderRadius: radii.full,
+    borderWidth: 1.5,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     fontSize: fontSizes.base,
     fontFamily: fontFamilies.regular,
-    color: colors.textPrimary,
   },
-  inputError: {
-    borderColor: colors.error,
+  multiline: {
+    borderRadius: radii.lg,
+    minHeight: 90,
+    textAlignVertical: "top",
   },
   error: {
     marginTop: spacing.xs,
-    color: colors.error,
+    marginLeft: spacing.sm,
   },
 });
