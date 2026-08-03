@@ -17,8 +17,8 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { Card, IconButton, Screen, Tag, Text } from "../../components/ui";
 import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { progressApi, subjectsApi } from "../../lib/api";
-import type { ColorScheme } from "../../constants/theme";
 import type { ConceptMastery, Subject, WeakConcept } from "../../lib/api";
+import { flattenConceptNames, masteryColor } from "../../lib/progress-utils";
 import { useTheme } from "../../lib/theme-context";
 
 const REASON_LABEL: Record<WeakConcept["reason"], string> = {
@@ -26,20 +26,6 @@ const REASON_LABEL: Record<WeakConcept["reason"], string> = {
   slow_response: "Slow to answer",
   decay: "Fading from memory",
 };
-
-function masteryColor(colors: ColorScheme, score: number | null): string {
-  if (score === null) return colors.textMuted;
-  if (score >= 70) return colors.sage;
-  if (score >= 40) return colors.accent;
-  return colors.error;
-}
-
-function flattenNames(nodes: ConceptMastery[], out: Map<string, string>) {
-  for (const node of nodes) {
-    out.set(node.concept_id, node.name);
-    if (node.children.length > 0) flattenNames(node.children, out);
-  }
-}
 
 export default function ConceptMapScreen() {
   const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
@@ -83,8 +69,7 @@ export default function ConceptMapScreen() {
     );
   }
 
-  const namesById = new Map<string, string>();
-  flattenNames(tree, namesById);
+  const namesById = flattenConceptNames(tree);
 
   return (
     <Screen>

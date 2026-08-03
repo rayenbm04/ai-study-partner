@@ -27,10 +27,11 @@ import { useTheme } from "../../lib/theme-context";
 const SUGGESTED_PROMPTS = ["Explain this chapter", "Summarize in 5 points", "Quiz me on this"];
 
 export default function CoachScreen() {
-  const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
+  const { subjectId, prompt } = useLocalSearchParams<{ subjectId: string; prompt?: string }>();
   const router = useRouter();
   const { colors } = useTheme();
   const listRef = useRef<FlatList<Message>>(null);
+  const autoSentRef = useRef(false);
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -88,6 +89,16 @@ export default function CoachScreen() {
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     }
   }
+
+  // Arriving from a "Review now" gap card (Progress tab) with a concept
+  // already picked — auto-ask it once the empty-conversation check has had
+  // a chance to load, but only ever once per screen instance.
+  useEffect(() => {
+    if (isLoading || autoSentRef.current || !prompt || messages.length > 0) return;
+    autoSentRef.current = true;
+    send(prompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, prompt, messages.length]);
 
   return (
     <Screen>

@@ -7,3 +7,5 @@ export * from "./ProgressBar";
 export * from "./IconButton";
 export * from "./Avatar";
 export * from "./Tag";
+export * from "./RingProgress";
+export * from "./AnimatedNumber";
