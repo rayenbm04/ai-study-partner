@@ -12,6 +12,7 @@ class Subject:
     icon: str | None
     created_at: datetime
     archived_at: datetime | None
+    curriculum_subject_id: str | None = None
 
     @property
     def is_archived(self) -> bool:

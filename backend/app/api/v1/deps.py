@@ -16,6 +16,7 @@ from app.infrastructure.storage.local_storage import LocalStorage
 from app.repositories.chunk_repo import SqlAlchemyChunkRepository
 from app.repositories.concept_repo import SqlAlchemyConceptRepository
 from app.repositories.conversation_repo import SqlAlchemyConversationRepository
+from app.repositories.curriculum_repo import SqlAlchemyCurriculumRepository
 from app.repositories.document_repo import SqlAlchemyDocumentRepository
 from app.repositories.embedding_repo import SqlAlchemyEmbeddingRepository
 from app.repositories.flashcard_repo import SqlAlchemyFlashcardRepository
@@ -65,6 +66,10 @@ def get_subject_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemySubje
 
 def get_document_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyDocumentRepository:
     return SqlAlchemyDocumentRepository(session)
+
+
+def get_curriculum_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyCurriculumRepository:
+    return SqlAlchemyCurriculumRepository(session)
 
 
 def get_chunk_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyChunkRepository:

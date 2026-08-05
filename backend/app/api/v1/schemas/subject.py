@@ -17,6 +17,7 @@ class SubjectUpdate(BaseModel):
     description: str | None = None
     color: str | None = Field(default=None, max_length=20)
     icon: str | None = Field(default=None, max_length=50)
+    curriculum_subject_id: str | None = None
 
 
 class SubjectResponse(BaseModel):
@@ -27,6 +28,7 @@ class SubjectResponse(BaseModel):
     icon: str | None
     created_at: datetime
     archived_at: datetime | None
+    curriculum_subject_id: str | None
 
     @classmethod
     def from_entity(cls, subject: Subject) -> "SubjectResponse":
@@ -38,4 +40,5 @@ class SubjectResponse(BaseModel):
             icon=subject.icon,
             created_at=subject.created_at,
             archived_at=subject.archived_at,
+            curriculum_subject_id=subject.curriculum_subject_id,
         )

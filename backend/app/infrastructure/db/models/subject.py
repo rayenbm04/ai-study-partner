@@ -23,5 +23,8 @@ class SubjectModel(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    curriculum_subject_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("curriculum_subjects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     user: Mapped["UserModel"] = relationship(back_populates="subjects")

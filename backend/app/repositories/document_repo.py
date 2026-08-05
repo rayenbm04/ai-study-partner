@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +20,11 @@ def _to_entity(model: DocumentModel) -> Document:
         page_count=model.page_count,
         error_message=model.error_message,
         uploaded_at=model.uploaded_at,
+        document_type=model.document_type,
+        chapter_id=model.chapter_id,
+        lesson_id=model.lesson_id,
+        classification_confidence=model.classification_confidence,
+        classified_at=model.classified_at,
     )
 
 
@@ -76,6 +83,17 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
         model = await self._get_model_or_raise(document_id)
         model.status = "failed"
         model.error_message = error_message
+        await self._session.flush()
+
+    async def set_classification(
+        self, document_id: str, *, document_type: str, chapter_id: str | None, lesson_id: str | None, confidence: float
+    ) -> None:
+        model = await self._get_model_or_raise(document_id)
+        model.document_type = document_type
+        model.chapter_id = chapter_id
+        model.lesson_id = lesson_id
+        model.classification_confidence = confidence
+        model.classified_at = datetime.now(timezone.utc)
         await self._session.flush()
 
     async def delete(self, document_id: str) -> None:

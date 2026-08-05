@@ -19,11 +19,14 @@ from app.infrastructure.storage.local_storage import LocalStorage
 from app.repositories.chunk_repo import SqlAlchemyChunkRepository
 from app.repositories.concept_chunk_repo import SqlAlchemyConceptChunkRepository
 from app.repositories.concept_repo import SqlAlchemyConceptRepository
+from app.repositories.curriculum_repo import SqlAlchemyCurriculumRepository
 from app.repositories.document_repo import SqlAlchemyDocumentRepository
 from app.repositories.embedding_repo import SqlAlchemyEmbeddingRepository
+from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.embeddings.factory import build_embedding_provider
 from app.services.knowledge_base.concept_tagger import ConceptTagger
+from app.services.knowledge_base.document_classifier import DocumentClassifier
 from app.services.knowledge_base.ingestion_pipeline import IngestionPipeline
 from app.services.llm.base import LLMProvider
 from app.services.llm.factory import build_llm_provider
@@ -46,11 +49,13 @@ async def ingest_document_task(
     resolved_embedder = embedding_provider or build_embedding_provider(settings)
 
     async with session_factory() as session:
+        document_repo = SqlAlchemyDocumentRepository(session)
         pipeline = IngestionPipeline(
-            document_repo=SqlAlchemyDocumentRepository(session),
+            document_repo=document_repo,
             chunk_repo=SqlAlchemyChunkRepository(session),
             concept_chunk_repo=SqlAlchemyConceptChunkRepository(session),
             embedding_repo=SqlAlchemyEmbeddingRepository(session),
+            subject_repo=SqlAlchemySubjectRepository(session),
             storage=resolved_storage,
             embedding_provider=resolved_embedder,
             llm_provider=resolved_llm,
@@ -61,9 +66,16 @@ async def ingest_document_task(
                 relevance_threshold=settings.concept_tag_relevance_threshold,
                 max_new_concepts=settings.max_new_concepts_per_chunk,
             ),
+            document_classifier=DocumentClassifier(
+                llm_provider=resolved_llm,
+                curriculum_repo=SqlAlchemyCurriculumRepository(session),
+                document_repo=document_repo,
+                confidence_threshold=settings.classification_confidence_threshold,
+            ),
             chunk_parent_chars=settings.chunk_parent_chars,
             chunk_child_chars=settings.chunk_child_chars,
             chunk_overlap_chars=settings.chunk_overlap_chars,
+            classification_max_source_chars=settings.classification_max_source_chars,
         )
         try:
             await pipeline.run(document_id)

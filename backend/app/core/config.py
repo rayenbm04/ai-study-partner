@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     concept_tag_relevance_threshold: float = 0.5
     max_new_concepts_per_chunk: int = 3
 
+    # Document classification (type + curriculum chapter/lesson placement).
+    # Runs once per document on parent-chunk text, capped the same way
+    # summary/flashcard/quiz source assembly is capped. Below the confidence
+    # threshold the chapter/lesson match is dropped but document_type (a
+    # forced choice, not a similarity match) is always kept.
+    classification_max_source_chars: int = 6000
+    classification_confidence_threshold: float = 0.5
+
     # RAG chat (Phase 4). Each technique is its own flag so a slower/cheaper
     # free-tier LLM can have some of them switched off without code changes.
     rag_enable_hyde: bool = True

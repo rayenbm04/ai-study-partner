@@ -38,6 +38,11 @@ async def test_upload_document_ingests_synchronously_in_tests(client):
     assert body["status"] == "ready"
     assert body["page_count"] is not None
     assert body["error_message"] is None
+    # The test fixture's fake LLM response has no "document_type" key, so
+    # classification defensively falls back to "other" rather than raising.
+    assert body["document_type"] == "other"
+    assert body["chapter_id"] is None
+    assert body["classified_at"] is not None
 
 
 async def test_upload_image_ingests_via_vision_fallback(client):

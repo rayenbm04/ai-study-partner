@@ -5,6 +5,15 @@ from app.infrastructure.db.models.concept import ConceptModel  # noqa: F401
 from app.infrastructure.db.models.concept_chunk import ConceptChunkModel  # noqa: F401
 from app.infrastructure.db.models.concept_prerequisite import ConceptPrerequisiteModel  # noqa: F401
 from app.infrastructure.db.models.conversation import ConversationModel  # noqa: F401
+from app.infrastructure.db.models.curriculum import (  # noqa: F401
+    AcademicLevelModel,
+    ChapterModel,
+    CountryModel,
+    CurriculumSubjectModel,
+    EducationSystemModel,
+    LessonModel,
+    SectionModel,
+)
 from app.infrastructure.db.models.document import DocumentModel  # noqa: F401
 from app.infrastructure.db.models.embedding import EmbeddingModel  # noqa: F401
 from app.infrastructure.db.models.flashcard import FlashcardModel  # noqa: F401

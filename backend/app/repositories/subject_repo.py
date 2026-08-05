@@ -19,6 +19,7 @@ def _to_entity(model: SubjectModel) -> Subject:
         icon=model.icon,
         created_at=model.created_at,
         archived_at=model.archived_at,
+        curriculum_subject_id=model.curriculum_subject_id,
     )
 
 

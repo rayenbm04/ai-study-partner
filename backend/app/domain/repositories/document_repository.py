@@ -30,4 +30,9 @@ class DocumentRepository(ABC):
     async def mark_failed(self, document_id: str, *, error_message: str) -> None: ...
 
     @abstractmethod
+    async def set_classification(
+        self, document_id: str, *, document_type: str, chapter_id: str | None, lesson_id: str | None, confidence: float
+    ) -> None: ...
+
+    @abstractmethod
     async def delete(self, document_id: str) -> None: ...

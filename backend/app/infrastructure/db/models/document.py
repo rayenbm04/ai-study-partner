@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.base import Base
@@ -23,5 +23,14 @@ class DocumentModel(Base):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+    document_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    chapter_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("curriculum_chapters.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    lesson_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("curriculum_lessons.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    classification_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     chunks: Mapped[list["ChunkModel"]] = relationship(back_populates="document", cascade="all, delete-orphan")

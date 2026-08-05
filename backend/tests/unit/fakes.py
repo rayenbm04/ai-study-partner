@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from app.domain.entities.chunk import Chunk
 from app.domain.entities.concept import Concept
 from app.domain.entities.conversation import Conversation
+from app.domain.entities.curriculum import AcademicLevel, Chapter, Country, CurriculumSubject, EducationSystem, Lesson, Section
 from app.domain.entities.document import Document
 from app.domain.entities.flashcard import Flashcard, FlashcardReview
 from app.domain.entities.message import Message
@@ -23,6 +24,7 @@ from app.domain.repositories.chunk_repository import ChunkRepository
 from app.domain.repositories.concept_chunk_repository import ConceptChunkRepository
 from app.domain.repositories.concept_repository import ConceptRepository
 from app.domain.repositories.conversation_repository import ConversationRepository
+from app.domain.repositories.curriculum_repository import CurriculumRepository
 from app.domain.repositories.document_repository import DocumentRepository
 from app.domain.repositories.embedding_repository import EmbeddingRepository
 from app.domain.repositories.flashcard_repository import FlashcardRepository
@@ -186,8 +188,103 @@ class FakeDocumentRepository(DocumentRepository):
     async def mark_failed(self, document_id, *, error_message):
         self._by_id[document_id] = replace(self._by_id[document_id], status="failed", error_message=error_message)
 
+    async def set_classification(self, document_id, *, document_type, chapter_id, lesson_id, confidence):
+        self._by_id[document_id] = replace(
+            self._by_id[document_id],
+            document_type=document_type,
+            chapter_id=chapter_id,
+            lesson_id=lesson_id,
+            classification_confidence=confidence,
+            classified_at=datetime.now(timezone.utc),
+        )
+
     async def delete(self, document_id):
         self._by_id.pop(document_id, None)
+
+
+class FakeCurriculumRepository(CurriculumRepository):
+    def __init__(self):
+        self._countries: dict[str, Country] = {}
+        self._education_systems: dict[str, EducationSystem] = {}
+        self._academic_levels: dict[str, AcademicLevel] = {}
+        self._sections: dict[str, Section] = {}
+        self._subjects: dict[str, CurriculumSubject] = {}
+        self._chapters: dict[str, Chapter] = {}
+        self._lessons: dict[str, Lesson] = {}
+
+    async def list_countries(self):
+        return list(self._countries.values())
+
+    async def create_country(self, *, name, code):
+        country = Country(id=str(uuid.uuid4()), name=name, code=code, created_at=datetime.now(timezone.utc))
+        self._countries[country.id] = country
+        return country
+
+    async def list_education_systems(self, country_id):
+        return [s for s in self._education_systems.values() if s.country_id == country_id]
+
+    async def create_education_system(self, *, country_id, name):
+        system = EducationSystem(id=str(uuid.uuid4()), country_id=country_id, name=name, created_at=datetime.now(timezone.utc))
+        self._education_systems[system.id] = system
+        return system
+
+    async def list_academic_levels(self, education_system_id):
+        return [lvl for lvl in self._academic_levels.values() if lvl.education_system_id == education_system_id]
+
+    async def create_academic_level(self, *, education_system_id, name, order_index):
+        level = AcademicLevel(
+            id=str(uuid.uuid4()), education_system_id=education_system_id, name=name, order_index=order_index,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._academic_levels[level.id] = level
+        return level
+
+    async def list_sections(self, academic_level_id):
+        return [s for s in self._sections.values() if s.academic_level_id == academic_level_id]
+
+    async def create_section(self, *, academic_level_id, name):
+        section = Section(id=str(uuid.uuid4()), academic_level_id=academic_level_id, name=name, created_at=datetime.now(timezone.utc))
+        self._sections[section.id] = section
+        return section
+
+    async def list_subjects(self, academic_level_id, *, section_id=None):
+        subjects = [s for s in self._subjects.values() if s.academic_level_id == academic_level_id]
+        if section_id is not None:
+            subjects = [s for s in subjects if s.section_id == section_id]
+        return subjects
+
+    async def get_subject(self, curriculum_subject_id):
+        return self._subjects.get(curriculum_subject_id)
+
+    async def create_subject(self, *, academic_level_id, section_id, name):
+        subject = CurriculumSubject(
+            id=str(uuid.uuid4()), academic_level_id=academic_level_id, section_id=section_id, name=name,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._subjects[subject.id] = subject
+        return subject
+
+    async def list_chapters(self, curriculum_subject_id):
+        return [c for c in self._chapters.values() if c.curriculum_subject_id == curriculum_subject_id]
+
+    async def create_chapter(self, *, curriculum_subject_id, name, order_index):
+        chapter = Chapter(
+            id=str(uuid.uuid4()), curriculum_subject_id=curriculum_subject_id, name=name, order_index=order_index,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._chapters[chapter.id] = chapter
+        return chapter
+
+    async def list_lessons(self, chapter_id):
+        return [lesson for lesson in self._lessons.values() if lesson.chapter_id == chapter_id]
+
+    async def create_lesson(self, *, chapter_id, name, order_index):
+        lesson = Lesson(
+            id=str(uuid.uuid4()), chapter_id=chapter_id, name=name, order_index=order_index,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._lessons[lesson.id] = lesson
+        return lesson
 
 
 class FakeChunkRepository(ChunkRepository):
