@@ -147,3 +147,31 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
   return (await response.json()) as T;
 }
+
+/** Sibling to apiRequest for multipart/form-data uploads (file uploads only
+ * — always POST). Content-Type is deliberately left unset so fetch sets its
+ * own multipart boundary; everything else (auth header, 401-refresh-retry,
+ * error parsing) mirrors apiRequest exactly. */
+export async function apiUpload<T>(path: string, formData: FormData, _isRetry = false): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = await getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (response.status === 401 && !_isRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      return apiUpload<T>(path, formData, true);
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await parseErrorMessage(response));
+  }
+  return (await response.json()) as T;
+}

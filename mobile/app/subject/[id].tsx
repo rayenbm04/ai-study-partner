@@ -1,22 +1,32 @@
 /**
  * Subject detail — documents, a progress snapshot, and entry points into a
- * quiz, a timed exam, an AI-generated summary, or the AI Coach. Document
- * upload isn't wired up on mobile yet (see lib/api/documents.ts), so a
- * subject with no ready documents shows a note rather than broken actions.
+ * quiz, a timed exam, an AI-generated summary, or the AI Coach. Uploaded
+ * documents are classified by type (exam/résumé/TD/TP/cours) server-side
+ * during ingestion, hence the polling effect below — a document sits at
+ * pending/processing for a bit before that badge is available.
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { Button, Card, IconButton, Screen, Tag, Text } from "../../components/ui";
 import { fontFamilies, radii, spacing } from "../../constants/theme";
-import { analyticsApi, documentsApi, examsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
-import type { Document, Subject, SubjectAnalytics, Summary, SummaryType } from "../../lib/api";
+import { ApiError, analyticsApi, documentsApi, examsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
+import type { Document, DocumentType, Subject, SubjectAnalytics, Summary, SummaryType } from "../../lib/api";
 import { useTheme } from "../../lib/theme-context";
 
 const EXAM_DURATIONS = [15, 30, 45, 60];
+
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  exam: "Exam",
+  resume: "Résumé",
+  td: "TD",
+  tp: "TP",
+  cours: "Cours",
+  other: "Other",
+};
 
 const SUMMARY_TYPES: { type: SummaryType; label: string }[] = [
   { type: "short", label: "Short" },
@@ -36,6 +46,8 @@ export default function SubjectDetailScreen() {
   const [stats, setStats] = useState<SubjectAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [examSheetDocId, setExamSheetDocId] = useState<string | null>(null);
   const [isGeneratingExam, setIsGeneratingExam] = useState(false);
@@ -61,6 +73,35 @@ export default function SubjectDetailScreen() {
       };
     }, [id])
   );
+
+  // Ingestion (extraction, chunking, classification) runs as a background
+  // task after upload, so a freshly uploaded document sits at
+  // "pending"/"processing" for a bit — poll until it settles so the status
+  // tag and classification badge update without the user having to leave
+  // and refocus the screen.
+  useEffect(() => {
+    const isSettling = documents.some((d) => d.status === "pending" || d.status === "processing");
+    if (!isSettling) return;
+    const interval = setInterval(() => {
+      documentsApi.listDocuments(id).then(setDocuments);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [id, documents]);
+
+  async function handleUpload() {
+    setUploadError(null);
+    const file = await documentsApi.pickDocument();
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const document = await documentsApi.uploadDocument(id, file);
+      setDocuments((prev) => [document, ...prev]);
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : "Couldn't upload that file. Try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   async function handleGenerateQuiz(documentId: string) {
     setGeneratingFor(documentId);
@@ -143,14 +184,35 @@ export default function SubjectDetailScreen() {
           <Button label="Ask the Coach" onPress={() => router.push(`/coach/${id}`)} style={styles.coachButton} />
         </View>
 
-        <Text variant="title" style={styles.sectionLabel}>
-          Documents
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text variant="title">Documents</Text>
+          <IconButton name="add" onPress={handleUpload} size={36} />
+        </View>
+        {isUploading ? (
+          <View style={styles.uploadingRow}>
+            <ActivityIndicator color={colors.accent} size="small" />
+            <Text variant="caption" style={{ color: colors.textSecondary }}>
+              Uploading…
+            </Text>
+          </View>
+        ) : null}
+        {uploadError ? (
+          <Text variant="caption" style={[styles.uploadError, { color: colors.error }]}>
+            {uploadError}
+          </Text>
+        ) : null}
         {documents.length === 0 ? (
           <Card>
-            <Text variant="body">
-              No documents yet. Upload from the web app for now — mobile upload is coming soon.
+            <Text variant="body" style={styles.emptyDocsText}>
+              No documents yet. Upload an exam, résumé, TD, TP, or course file to get started.
             </Text>
+            <Button
+              label="Upload a document"
+              variant="secondary"
+              onPress={handleUpload}
+              loading={isUploading}
+              style={styles.emptyUploadButton}
+            />
           </Card>
         ) : (
           documents.map((doc) => (
@@ -160,7 +222,10 @@ export default function SubjectDetailScreen() {
                 <Text variant="body" style={styles.docName}>
                   {doc.original_filename}
                 </Text>
-                <Tag label={doc.status} tone={doc.status === "ready" ? "sage" : "neutral"} />
+                <View style={styles.docTags}>
+                  <Tag label={doc.status} tone={doc.status === "ready" ? "sage" : "neutral"} />
+                  {doc.document_type ? <Tag label={DOCUMENT_TYPE_LABELS[doc.document_type]} tone="accent" /> : null}
+                </View>
               </View>
               {doc.status === "ready" ? (
                 <View style={styles.docActions}>
@@ -355,10 +420,26 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   coachButton: {},
-  sectionLabel: {
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
   },
+  uploadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  uploadError: {
+    marginBottom: spacing.sm,
+  },
+  emptyDocsText: {
+    marginBottom: spacing.md,
+  },
+  emptyUploadButton: {},
   docCard: {
     marginBottom: spacing.md,
   },
@@ -366,6 +447,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+  },
+  docTags: {
+    flexDirection: "row",
+    gap: spacing.xs,
   },
   docName: {
     flex: 1,

@@ -1,16 +1,24 @@
-# LLM & Embedding Providers — Cloud-Only, Free-Tier-First
+# LLM & Embedding Providers — Cloud-First, With a Card-Free Local Fallback
 
-Decision: no local inference anywhere in the pipeline (no Ollama, no on-disk weights).
-Every chat, extraction/vision, and embedding call goes to a cloud API, starting on free
-tiers, with a paid upgrade path that requires no code changes — only a model-name change,
-because `services/llm/` and `services/embeddings/` sit behind a provider interface.
+Decision: cloud APIs by default (no Ollama, no on-disk weights) for chat/vision, starting
+on free tiers, with a paid upgrade path that requires no code changes — only a model-name
+change, because `services/llm/` and `services/embeddings/` sit behind a provider interface.
+
+**Update, late 2026**: Google started requiring a billing account on file for Gemini's free
+tier (the tier itself still doesn't charge, but the account must have a card attached) —
+a dealbreaker for anyone who can't/won't add one. `EMBEDDING_PROVIDER=local` runs an
+open-source `sentence-transformers` model (`all-mpnet-base-v2`, 768-dim — matches
+`EMBEDDING_DIMENSION` exactly, no migration needed) on the backend's own CPU instead: no
+key, no card, no network call once the model is cached after first use. Pair it with
+`LLM_PROVIDER=groq` for chat (Groq's free tier has never required a card) to run the whole
+pipeline without any billing account anywhere. See `app/services/embeddings/local_embedder.py`.
 
 ## Recommendation
 
 | Role | Provider | Why |
 |---|---|---|
 | Default chat + vision (tutoring, summaries, concept tagging, quiz/exam generation, image/slide extraction) | **Google Gemini** (`gemini-2.5-flash`) | Free tier: ~1,500 requests/day, no credit card, no expiry. Natively multimodal, so it replaces the local vision model the fork used for scanned pages and diagrams — one provider instead of a separate vision pipeline. |
-| Default embeddings | **Google Gemini Embedding** (`gemini-embedding-001`) | Free tier: 1,500 requests/day, 10M tokens/min — same account as chat, one API key, no separate embedding vendor to manage. |
+| Default embeddings | **Google Gemini Embedding** (`gemini-embedding-001`), or **local `sentence-transformers`** (`EMBEDDING_PROVIDER=local`) if you don't want a billing account on file | Gemini: 1,500 requests/day, 10M tokens/min, same account as chat. Local: genuinely free forever, no key, no card, runs on the backend's own CPU — see the update note above. |
 | High-volume / bulk generation fallback (flashcard batches, quiz batches, retry queue when Gemini's daily quota is hit) | **Groq** (`llama-3.3-70b-versatile`) | Free tier, no credit card, and the fastest inference available at any price — 700+ tokens/sec on custom LPU hardware. Good enough quality for flashcard Q&A and MCQ generation where speed matters more than frontier reasoning. |
 | Aggregation layer + the paid upgrade path | **OpenRouter** | One API key routes to 28+ models, including a free pool (DeepSeek R1, Llama 3.3 70B, Qwen3, Gemma 3, Gemini Flash) for overflow/failover, and the exact same integration reaches paid Claude or GPT-4o the moment budget allows — just change `OPENROUTER_CHAT_MODEL` in `.env`, nothing else. |
 

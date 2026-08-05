@@ -24,6 +24,7 @@ export type Subject = {
   icon: string | null;
   created_at: string;
   archived_at: string | null;
+  curriculum_subject_id: string | null;
 };
 
 export type QuestionType = "mcq" | "true_false" | "short_answer" | "calculation" | "fill_blank";
@@ -198,6 +199,8 @@ export type Summary = {
   updated_at: string;
 };
 
+export type DocumentType = "exam" | "resume" | "td" | "tp" | "cours" | "other";
+
 export type Document = {
   id: string;
   subject_id: string;
@@ -207,4 +210,9 @@ export type Document = {
   page_count: number | null;
   error_message: string | null;
   uploaded_at: string;
+  document_type: DocumentType | null;
+  chapter_id: string | null;
+  lesson_id: string | null;
+  classification_confidence: number | null;
+  classified_at: string | null;
 };

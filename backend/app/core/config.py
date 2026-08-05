@@ -1,7 +1,11 @@
 """Application settings, loaded from environment variables / .env.
 
-Everything LLM-related is a cloud API key + model name — there is no local
-inference anywhere in this pipeline (no Ollama, no on-disk model weights).
+LLM/chat is always a cloud API key + model name. Embeddings default to a
+cloud API too (Gemini) but can fall back to a local sentence-transformers
+model (EMBEDDING_PROVIDER=local) — some "free" cloud embedding tiers now
+require a billing account on file even though the tier itself doesn't
+charge, which the local option sidesteps entirely (no key, no card, no
+network call after the model is cached).
 """
 from functools import lru_cache
 
@@ -22,9 +26,9 @@ class Settings(BaseSettings):
 
     allowed_origins: str = "http://localhost:5173"
 
-    # LLM providers (cloud-only). See docs/LLM_PROVIDERS.md.
+    # LLM providers. See docs/LLM_PROVIDERS.md.
     llm_provider: str = "gemini"          # gemini | groq | openrouter | openai
-    embedding_provider: str = "gemini"    # gemini only, for now — see docs/LLM_PROVIDERS.md
+    embedding_provider: str = "gemini"    # gemini | local — see docs/LLM_PROVIDERS.md
 
     gemini_api_key: str = ""
     gemini_chat_model: str = "gemini-2.5-flash"
@@ -33,6 +37,11 @@ class Settings(BaseSettings):
     # Google's recommended quality/storage balance. Must match the pgvector
     # column width in the embeddings table migration if changed.
     embedding_dimension: int = 768
+
+    # Local embedding fallback (EMBEDDING_PROVIDER=local) — no key, no card.
+    # all-mpnet-base-v2 outputs 768-dim vectors, matching embedding_dimension
+    # above exactly, so no migration is needed when switching to it.
+    local_embedding_model: str = "sentence-transformers/all-mpnet-base-v2"
 
     groq_api_key: str = ""
     groq_chat_model: str = "llama-3.3-70b-versatile"

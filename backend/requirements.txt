@@ -44,3 +44,9 @@ pillow==12.3.0  # floor set by pdfplumber/reportlab — needed for the PDF visio
 # HTTP layer for each provider.
 google-genai==2.16.0
 openai==2.52.0
+
+# Local embedding fallback (EMBEDDING_PROVIDER=local) — for when a cloud
+# embedding API's "free" tier requires a billing account on file anyway.
+# Pulls in torch (CPU build); first run downloads the model weights, cached
+# afterward — no network call needed once cached.
+sentence-transformers==3.3.1
