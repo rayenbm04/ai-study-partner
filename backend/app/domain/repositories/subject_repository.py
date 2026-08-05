@@ -29,3 +29,10 @@ class SubjectRepository(ABC):
 
     @abstractmethod
     async def archive(self, subject_id: str) -> None: ...
+
+    @abstractmethod
+    async def delete_all_for_user(self, user_id: str) -> None:
+        """Hard delete, not archive — used by account reset. Cascades
+        documents/chunks/embeddings/concepts/summaries/flashcards/quizzes/
+        conversations/study_plan_items at the DB level via their FKs."""
+        ...

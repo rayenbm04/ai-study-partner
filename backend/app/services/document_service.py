@@ -59,6 +59,11 @@ class DocumentService:
         await self._subjects.get_owned(user_id, document.subject_id)  # 404s if this user doesn't own the subject
         return document
 
+    async def read_content(self, user_id: str, document_id: str) -> tuple[Document, bytes]:
+        document = await self.get_owned(user_id, document_id)
+        content = await self._storage.read(document.storage_path)
+        return document, content
+
     async def delete(self, user_id: str, document_id: str) -> None:
         document = await self.get_owned(user_id, document_id)
         await self._storage.delete(document.storage_path)

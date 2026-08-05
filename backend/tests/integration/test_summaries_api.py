@@ -143,6 +143,46 @@ async def test_summary_isolated_between_users(client):
     assert resp.status_code == 404
 
 
+async def test_list_summaries_returns_all_generated_types(client):
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+    document_id = await _upload_and_ingest(client, headers, subject_id)
+
+    _override_summary_llm(client, response="short version")
+    await client.post(
+        f"/api/v1/subjects/{subject_id}/summaries",
+        headers=headers,
+        json={"document_id": document_id, "summary_type": "short"},
+    )
+    _override_summary_llm(client, response="bullet version")
+    await client.post(
+        f"/api/v1/subjects/{subject_id}/summaries",
+        headers=headers,
+        json={"document_id": document_id, "summary_type": "bullet"},
+    )
+
+    resp = await client.get(f"/api/v1/documents/{document_id}/summaries", headers=headers)
+    assert resp.status_code == 200
+    types = {s["summary_type"] for s in resp.json()}
+    assert types == {"short", "bullet"}
+
+
+async def test_list_summaries_isolated_between_users(client):
+    alice_headers = await _register_and_login(client, "alice@example.com")
+    bob_headers = await _register_and_login(client, "bob@example.com")
+    subject_id = await _create_subject(client, alice_headers)
+    document_id = await _upload_and_ingest(client, alice_headers, subject_id)
+    _override_summary_llm(client, response="alice's summary")
+    await client.post(
+        f"/api/v1/subjects/{subject_id}/summaries",
+        headers=alice_headers,
+        json={"document_id": document_id, "summary_type": "short"},
+    )
+
+    resp = await client.get(f"/api/v1/documents/{document_id}/summaries", headers=bob_headers)
+    assert resp.status_code == 404
+
+
 async def test_generate_requires_auth(client):
     resp = await client.post(
         "/api/v1/subjects/some-id/summaries", json={"document_id": "doc-1", "summary_type": "short"}

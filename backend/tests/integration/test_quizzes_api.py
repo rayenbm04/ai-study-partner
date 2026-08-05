@@ -158,6 +158,39 @@ async def test_quiz_isolated_between_users(client):
     assert attempt_resp.status_code == 404
 
 
+async def test_list_quizzes_returns_generated_quizzes_with_question_count(client):
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+    document_id = await _upload_and_ingest(client, headers, subject_id)
+    _override_llm(client, response=_TWO_MCQ_RESPONSE)
+
+    await client.post(
+        f"/api/v1/subjects/{subject_id}/quizzes/generate", headers=headers, json={"document_id": document_id},
+    )
+
+    resp = await client.get(f"/api/v1/subjects/{subject_id}/quizzes", headers=headers)
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) == 1
+    assert items[0]["kind"] == "quiz"
+    assert items[0]["question_count"] == 2
+    assert "questions" not in items[0]  # lightweight list item, not the full QuizResponse
+
+
+async def test_list_quizzes_isolated_between_users(client):
+    alice_headers = await _register_and_login(client, "alice@example.com")
+    bob_headers = await _register_and_login(client, "bob@example.com")
+    subject_id = await _create_subject(client, alice_headers)
+    document_id = await _upload_and_ingest(client, alice_headers, subject_id)
+    _override_llm(client, response=_TWO_MCQ_RESPONSE)
+    await client.post(
+        f"/api/v1/subjects/{subject_id}/quizzes/generate", headers=alice_headers, json={"document_id": document_id},
+    )
+
+    resp = await client.get(f"/api/v1/subjects/{subject_id}/quizzes", headers=bob_headers)
+    assert resp.status_code == 404
+
+
 async def test_generate_requires_auth(client):
     resp = await client.post("/api/v1/subjects/some-id/quizzes/generate", json={"document_id": "doc-1"})
     assert resp.status_code == 403

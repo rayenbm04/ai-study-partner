@@ -31,6 +31,13 @@ function getApiBaseUrl(): string {
   return url.replace(/\/+$/, "");
 }
 
+/** For call sites that need the absolute URL directly (e.g. a native file
+ * download or an authenticated `fetch` outside apiRequest/apiUpload) rather
+ * than going through this module's own request helpers. */
+export function apiUrl(path: string): string {
+  return `${getApiBaseUrl()}${path}`;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {

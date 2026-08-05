@@ -1,11 +1,23 @@
+import mimetypes
+import re
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
+from fastapi.responses import Response
 
-from app.api.v1.deps import get_current_user, get_document_service, get_ingestion_runner
+from app.api.v1.deps import get_current_user, get_current_user_from_header_or_query, get_document_service, get_ingestion_runner
 from app.api.v1.schemas.document import DocumentResponse
 from app.domain.entities.user import User
 from app.services.document_service import DocumentService
+
+# mimetypes doesn't reliably know markdown across platforms/Python versions —
+# every other extension the backend supports is covered by the stdlib db.
+_EXTRA_MIME_TYPES = {".md": "text/markdown"}
+
+# original_filename is stored as-uploaded (unsanitized — only the on-disk
+# path is sanitized, see LocalStorage._safe_filename), so it has to be
+# cleaned before landing in a header value to rule out CRLF/quote injection.
+_UNSAFE_HEADER_CHARS = re.compile(r'[\r\n"]+')
 
 router = APIRouter(tags=["documents"])
 
@@ -40,6 +52,22 @@ async def list_documents(
 ) -> list[DocumentResponse]:
     documents = await service.list_for_subject(current_user.id, subject_id)
     return [DocumentResponse.from_entity(d) for d in documents]
+
+
+@router.get("/documents/{document_id}/content")
+async def get_document_content(
+    document_id: str,
+    current_user: User = Depends(get_current_user_from_header_or_query),
+    service: DocumentService = Depends(get_document_service),
+) -> Response:
+    document, content = await service.read_content(current_user.id, document_id)
+    media_type = _EXTRA_MIME_TYPES.get(document.file_type) or mimetypes.guess_type(document.original_filename)[0]
+    safe_filename = _UNSAFE_HEADER_CHARS.sub("_", document.original_filename)
+    return Response(
+        content=content,
+        media_type=media_type or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+    )
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)

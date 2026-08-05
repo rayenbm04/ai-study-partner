@@ -1,5 +1,9 @@
 import { apiRequest } from "./client";
-import type { Difficulty, Quiz, QuizAttempt, QuizAttemptResult, QuestionType } from "./types";
+import type { Difficulty, Quiz, QuizAttempt, QuizAttemptResult, QuizListItem, QuestionType } from "./types";
+
+export async function listQuizzesForSubject(subjectId: string): Promise<QuizListItem[]> {
+  return apiRequest<QuizListItem[]>(`/api/v1/subjects/${subjectId}/quizzes`);
+}
 
 export async function generateQuiz(
   subjectId: string,

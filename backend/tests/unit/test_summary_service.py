@@ -237,6 +237,26 @@ async def test_source_text_assembled_in_page_order():
     assert prompt.index("first page content") < prompt.index("second page content") < prompt.index("third page content")
 
 
+async def test_list_for_document_returns_all_generated_types():
+    llm = FakeLLMProvider(responses=["short version", "bullet version"])
+    service, subject_repo, document_repo, chunk_repo, *_ = await _build(llm=llm)
+    subject, document = await _seed_ready_document(subject_repo, document_repo, chunk_repo)
+    await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id, summary_type="short")
+    await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id, summary_type="bullet")
+
+    summaries = await service.list_for_document(user_id="user-1", document_id=document.id)
+
+    assert {s.summary_type for s in summaries} == {"short", "bullet"}
+
+
+async def test_list_for_document_raises_when_not_owned():
+    service, subject_repo, document_repo, chunk_repo, *_ = await _build(llm=FakeLLMProvider(response="x"))
+    subject, document = await _seed_ready_document(subject_repo, document_repo, chunk_repo, user_id="user-1")
+
+    with pytest.raises(SubjectNotFoundError):
+        await service.list_for_document(user_id="someone-else", document_id=document.id)
+
+
 async def test_source_text_truncated_beyond_max_source_chars():
     llm = FakeLLMProvider(response="ok")
     service, subject_repo, document_repo, chunk_repo, *_ = await _build(llm=llm, max_source_chars=10)

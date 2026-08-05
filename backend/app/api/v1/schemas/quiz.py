@@ -70,6 +70,36 @@ class QuizResponse(BaseModel):
         )
 
 
+class QuizListItemResponse(BaseModel):
+    """Lighter than QuizResponse for browsing past quizzes/exams — omits
+    questions entirely so listing a subject's history doesn't pay for an
+    N+1 full-question fetch per item just to show a title and a date."""
+
+    id: str
+    subject_id: str
+    title: str
+    kind: str
+    difficulty: str
+    topics: list[str]
+    duration_minutes: int | None
+    created_at: datetime
+    question_count: int
+
+    @classmethod
+    def from_entity(cls, quiz: Quiz, question_count: int) -> "QuizListItemResponse":
+        return cls(
+            id=quiz.id,
+            subject_id=quiz.subject_id,
+            title=quiz.title,
+            kind=quiz.kind,
+            difficulty=quiz.difficulty,
+            topics=quiz.topics,
+            duration_minutes=quiz.duration_minutes,
+            created_at=quiz.created_at,
+            question_count=question_count,
+        )
+
+
 class AttemptResponse(BaseModel):
     id: str
     quiz_id: str

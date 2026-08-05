@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.study_plan import StudyPlan, StudyPlanItem, StudyPlanItemDraft
@@ -80,3 +80,7 @@ class SqlAlchemyStudyPlanRepository(StudyPlanRepository):
         await self._session.flush()
         await self._session.refresh(model)
         return _item_to_entity(model)
+
+    async def delete_all_for_user(self, user_id: str) -> None:
+        await self._session.execute(delete(StudyPlanModel).where(StudyPlanModel.user_id == user_id))
+        await self._session.flush()

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import SubjectNotFoundError
@@ -75,4 +75,8 @@ class SqlAlchemySubjectRepository(SubjectRepository):
         if model is None:
             raise SubjectNotFoundError(subject_id)
         model.archived_at = datetime.now(timezone.utc)
+        await self._session.flush()
+
+    async def delete_all_for_user(self, user_id: str) -> None:
+        await self._session.execute(delete(SubjectModel).where(SubjectModel.user_id == user_id))
         await self._session.flush()

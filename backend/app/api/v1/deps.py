@@ -32,6 +32,7 @@ from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.repositories.summary_repo import SqlAlchemySummaryRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
 from app.repositories.weak_concept_repo import SqlAlchemyWeakConceptRepository
+from app.services.account_service import AccountService
 from app.services.analytics_engine.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.document_service import DocumentService
@@ -50,6 +51,7 @@ from app.services.subject_service import SubjectService
 from app.services.summary_engine.summary_service import SummaryService
 
 _bearer_scheme = HTTPBearer()
+_optional_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_user_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyUserRepository:
@@ -334,6 +336,17 @@ def get_analytics_service(
     )
 
 
+def get_account_service(
+    subject_repo: SqlAlchemySubjectRepository = Depends(get_subject_repo),
+    document_repo: SqlAlchemyDocumentRepository = Depends(get_document_repo),
+    study_plan_repo: SqlAlchemyStudyPlanRepository = Depends(get_study_plan_repo),
+    storage: StoragePort = Depends(get_storage),
+) -> AccountService:
+    return AccountService(
+        subject_repo=subject_repo, document_repo=document_repo, study_plan_repo=study_plan_repo, storage=storage
+    )
+
+
 def get_ingestion_runner() -> Callable[[str], Awaitable[None]]:
     """Route handlers depend on this (not on ingest_document_task directly) so
     tests can override app.dependency_overrides[get_ingestion_runner] with a
@@ -342,12 +355,9 @@ def get_ingestion_runner() -> Callable[[str], Awaitable[None]]:
     return ingest_document_task
 
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
-    user_repo: SqlAlchemyUserRepository = Depends(get_user_repo),
-) -> User:
+async def _resolve_user_from_token(token: str, user_repo: SqlAlchemyUserRepository) -> User:
     try:
-        payload = decode_access_token(credentials.credentials)
+        payload = decode_access_token(token)
     except TokenError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
@@ -355,3 +365,29 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User no longer exists.")
     return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repo),
+) -> User:
+    return await _resolve_user_from_token(credentials.credentials, user_repo)
+
+
+async def get_current_user_from_header_or_query(
+    token: str | None = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_optional_bearer_scheme),
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repo),
+) -> User:
+    """Same auth as get_current_user, but also accepts the access token via a
+    `?token=` query param. Used only by the document content/preview route —
+    a plain browser navigation (window.open, <a href>) can't attach an
+    Authorization header, and popup blockers reject window.open() calls made
+    after any async work (fetch+blob), so previewing a document on web has to
+    be one synchronous window.open() with the token already in the URL. The
+    token is short-lived (ACCESS_TOKEN_EXPIRE_MINUTES) and scoped to this
+    user's own resources, same trade-off signed/token URLs make elsewhere."""
+    bearer_token = credentials.credentials if credentials else token
+    if not bearer_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return await _resolve_user_from_token(bearer_token, user_repo)

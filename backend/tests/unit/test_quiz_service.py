@@ -8,6 +8,7 @@ from app.core.exceptions import (
     QuizAttemptNotFoundError,
     QuizNotFoundError,
     QuizQuestionNotFoundError,
+    SubjectNotFoundError,
 )
 from app.domain.entities.chunk import ChunkDraft
 from app.services.document_service import DocumentService
@@ -101,6 +102,26 @@ async def test_generate_creates_quiz_and_persists_questions():
     assert quiz.kind == "quiz"
     questions = await quiz_repo.list_questions(quiz.id)
     assert len(questions) == 2
+
+
+async def test_list_for_subject_returns_generated_quizzes():
+    llm = FakeLLMProvider(response=_TWO_MCQ_RESPONSE)
+    service, subject_repo, document_repo, chunk_repo, quiz_repo, *_ = await _build(llm=llm)
+    subject, document = await _seed_ready_document(subject_repo, document_repo, chunk_repo)
+    await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id)
+    await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id, kind="exam")
+
+    quizzes = await service.list_for_subject(user_id="user-1", subject_id=subject.id)
+
+    assert {q.kind for q in quizzes} == {"quiz", "exam"}
+
+
+async def test_list_for_subject_raises_when_not_owned():
+    service, subject_repo, document_repo, chunk_repo, *_ = await _build(llm=FakeLLMProvider(response=_TWO_MCQ_RESPONSE))
+    subject, document = await _seed_ready_document(subject_repo, document_repo, chunk_repo, user_id="user-1")
+
+    with pytest.raises(SubjectNotFoundError):
+        await service.list_for_subject(user_id="someone-else", subject_id=subject.id)
 
 
 async def test_generate_raises_when_document_belongs_to_different_subject():

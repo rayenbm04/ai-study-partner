@@ -26,7 +26,8 @@
     "scheme": "aistudycoach",
     "newArchEnabled": true,
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-sharing"
     ]
   }
 }

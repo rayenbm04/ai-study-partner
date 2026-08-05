@@ -116,6 +116,10 @@ class QuizService:
     async def get_questions(self, quiz_id: str) -> list[QuizQuestion]:
         return await self._quizzes.list_questions(quiz_id)
 
+    async def list_for_subject(self, *, user_id: str, subject_id: str) -> list[Quiz]:
+        await self._subjects.get_owned(user_id, subject_id)  # 404s if not owned
+        return await self._quizzes.list_by_subject(subject_id)
+
     async def start_attempt(self, *, user_id: str, quiz_id: str) -> QuizAttempt:
         await self.get_owned(user_id=user_id, quiz_id=quiz_id)
         return await self._attempts.create(quiz_id=quiz_id, user_id=user_id)

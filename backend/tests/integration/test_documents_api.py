@@ -120,6 +120,71 @@ async def test_document_access_isolated_between_users(client):
     assert bob_resp.status_code == 404
 
 
+async def test_get_document_content_returns_raw_bytes(client):
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+    upload_resp = await client.post(
+        f"/api/v1/subjects/{subject_id}/documents",
+        headers=headers,
+        files={"file": ("notes.txt", _SAMPLE_TEXT, "text/plain")},
+    )
+    document_id = upload_resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/documents/{document_id}/content", headers=headers)
+    assert resp.status_code == 200
+    assert resp.content == _SAMPLE_TEXT
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert 'filename="notes.txt"' in resp.headers["content-disposition"]
+
+
+async def test_get_document_content_accepts_token_query_param(client):
+    # A plain browser navigation (window.open, <a href>) can't attach an
+    # Authorization header, so this route also accepts the access token via
+    # ?token= — see get_current_user_from_header_or_query.
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+    upload_resp = await client.post(
+        f"/api/v1/subjects/{subject_id}/documents",
+        headers=headers,
+        files={"file": ("notes.txt", _SAMPLE_TEXT, "text/plain")},
+    )
+    document_id = upload_resp.json()["id"]
+    token = headers["Authorization"].removeprefix("Bearer ")
+
+    resp = await client.get(f"/api/v1/documents/{document_id}/content", params={"token": token})
+    assert resp.status_code == 200
+    assert resp.content == _SAMPLE_TEXT
+
+
+async def test_get_document_content_requires_auth_header_or_token(client):
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+    upload_resp = await client.post(
+        f"/api/v1/subjects/{subject_id}/documents",
+        headers=headers,
+        files={"file": ("notes.txt", _SAMPLE_TEXT, "text/plain")},
+    )
+    document_id = upload_resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/documents/{document_id}/content")
+    assert resp.status_code == 401
+
+
+async def test_get_document_content_requires_ownership(client):
+    alice_headers = await _register_and_login(client, "alice@example.com")
+    bob_headers = await _register_and_login(client, "bob@example.com")
+    subject_id = await _create_subject(client, alice_headers)
+    upload_resp = await client.post(
+        f"/api/v1/subjects/{subject_id}/documents",
+        headers=alice_headers,
+        files={"file": ("notes.txt", _SAMPLE_TEXT, "text/plain")},
+    )
+    document_id = upload_resp.json()["id"]
+
+    resp = await client.get(f"/api/v1/documents/{document_id}/content", headers=bob_headers)
+    assert resp.status_code == 404
+
+
 async def test_delete_document(client):
     headers = await _register_and_login(client, "alice@example.com")
     subject_id = await _create_subject(client, headers)

@@ -137,6 +137,10 @@ class SummaryService:
             raise SummaryNotFoundError(document.id, summary_type)
         return summary
 
+    async def list_for_document(self, *, user_id: str, document_id: str) -> list[Summary]:
+        document = await self._documents.get_owned(user_id, document_id)  # 404s if not owned
+        return await self._summaries.list_by_document(document.id)
+
     def _validate_type(self, summary_type: str) -> None:
         if summary_type not in SUMMARY_TYPES:
             raise InvalidSummaryTypeError(summary_type, SUMMARY_TYPES)

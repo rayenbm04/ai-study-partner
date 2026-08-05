@@ -30,3 +30,13 @@ async def get_summary(
 ) -> SummaryResponse:
     summary = await service.get_cached(user_id=current_user.id, document_id=document_id, summary_type=summary_type)
     return SummaryResponse.from_entity(summary)
+
+
+@router.get("/documents/{document_id}/summaries", response_model=list[SummaryResponse])
+async def list_summaries(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    service: SummaryService = Depends(get_summary_service),
+) -> list[SummaryResponse]:
+    summaries = await service.list_for_document(user_id=current_user.id, document_id=document_id)
+    return [SummaryResponse.from_entity(s) for s in summaries]

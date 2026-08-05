@@ -15,3 +15,7 @@ export async function generateSummary(
 export async function getCachedSummary(documentId: string, summaryType: SummaryType): Promise<Summary> {
   return apiRequest<Summary>(`/api/v1/documents/${documentId}/summary?summary_type=${summaryType}`);
 }
+
+export async function listSummariesForDocument(documentId: string): Promise<Summary[]> {
+  return apiRequest<Summary[]>(`/api/v1/documents/${documentId}/summaries`);
+}

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.routes.account import router as account_router
 from app.api.v1.routes.analytics import router as analytics_router
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.chat import router as chat_router
@@ -26,3 +27,4 @@ api_router.include_router(exams_router)
 api_router.include_router(progress_router)
 api_router.include_router(study_plans_router)
 api_router.include_router(analytics_router)
+api_router.include_router(account_router)

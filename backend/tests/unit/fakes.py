@@ -150,6 +150,10 @@ class FakeSubjectRepository(SubjectRepository):
         subject = self._by_id[subject_id]
         self._by_id[subject_id] = replace(subject, archived_at=datetime.now(timezone.utc))
 
+    async def delete_all_for_user(self, user_id):
+        for subject_id in [s.id for s in self._by_id.values() if s.user_id == user_id]:
+            del self._by_id[subject_id]
+
 
 class FakeDocumentRepository(DocumentRepository):
     def __init__(self):
@@ -856,3 +860,10 @@ class FakeStudyPlanRepository(StudyPlanRepository):
         updated = replace(self._items_by_id[item_id], status=status)
         self._items_by_id[item_id] = updated
         return updated
+
+    async def delete_all_for_user(self, user_id):
+        removed_plan_ids = {p.id for p in self._plans_by_id.values() if p.user_id == user_id}
+        for plan_id in removed_plan_ids:
+            del self._plans_by_id[plan_id]
+        for item_id in [i.id for i in self._items_by_id.values() if i.study_plan_id in removed_plan_ids]:
+            del self._items_by_id[item_id]

@@ -15,6 +15,7 @@ import { Button, Card, IconButton, Screen, Tag, Text } from "../../components/ui
 import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { ApiError, analyticsApi, documentsApi, examsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
 import type { Document, DocumentType, Subject, SubjectAnalytics, Summary, SummaryType } from "../../lib/api";
+import { confirmDestructiveAction } from "../../lib/confirm";
 import { useTheme } from "../../lib/theme-context";
 
 const EXAM_DURATIONS = [15, 30, 45, 60];
@@ -47,7 +48,7 @@ export default function SubjectDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
 
   const [examSheetDocId, setExamSheetDocId] = useState<string | null>(null);
   const [isGeneratingExam, setIsGeneratingExam] = useState(false);
@@ -89,7 +90,7 @@ export default function SubjectDetailScreen() {
   }, [id, documents]);
 
   async function handleUpload() {
-    setUploadError(null);
+    setDocumentError(null);
     const file = await documentsApi.pickDocument();
     if (!file) return;
     setIsUploading(true);
@@ -97,9 +98,27 @@ export default function SubjectDetailScreen() {
       const document = await documentsApi.uploadDocument(id, file);
       setDocuments((prev) => [document, ...prev]);
     } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : "Couldn't upload that file. Try again.");
+      setDocumentError(err instanceof ApiError ? err.message : "Couldn't upload that file. Try again.");
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function handleDelete(document: Document) {
+    const confirmed = await confirmDestructiveAction(
+      "Delete this document?",
+      `"${document.original_filename}" and anything generated from it (summaries, quizzes, exams) will be permanently removed.`
+    );
+    if (!confirmed) return;
+    await documentsApi.deleteDocument(document.id);
+    setDocuments((prev) => prev.filter((d) => d.id !== document.id));
+  }
+
+  async function handlePreview(document: Document) {
+    try {
+      await documentsApi.previewDocument(document);
+    } catch {
+      setDocumentError("Couldn't open that document. Try again.");
     }
   }
 
@@ -183,6 +202,12 @@ export default function SubjectDetailScreen() {
         <View style={styles.actionsRow}>
           <Button label="Ask the Coach" onPress={() => router.push(`/coach/${id}`)} style={styles.coachButton} />
         </View>
+        <Pressable style={styles.materialsLink} onPress={() => router.push(`/materials/${id}`)}>
+          <Text variant="caption" style={{ color: colors.accentDark }}>
+            View saved summaries, quizzes & exams
+          </Text>
+          <Ionicons name="chevron-forward" size={13} color={colors.accentDark} />
+        </Pressable>
 
         <View style={styles.sectionHeaderRow}>
           <Text variant="title">Documents</Text>
@@ -196,9 +221,9 @@ export default function SubjectDetailScreen() {
             </Text>
           </View>
         ) : null}
-        {uploadError ? (
-          <Text variant="caption" style={[styles.uploadError, { color: colors.error }]}>
-            {uploadError}
+        {documentError ? (
+          <Text variant="caption" style={[styles.documentError, { color: colors.error }]}>
+            {documentError}
           </Text>
         ) : null}
         {documents.length === 0 ? (
@@ -219,13 +244,18 @@ export default function SubjectDetailScreen() {
             <Card key={doc.id} style={styles.docCard}>
               <View style={styles.docRow}>
                 <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
-                <Text variant="body" style={styles.docName}>
-                  {doc.original_filename}
-                </Text>
+                <Pressable style={styles.docName} onPress={() => handlePreview(doc)} hitSlop={4}>
+                  <Text variant="body" numberOfLines={1}>
+                    {doc.original_filename}
+                  </Text>
+                </Pressable>
                 <View style={styles.docTags}>
                   <Tag label={doc.status} tone={doc.status === "ready" ? "sage" : "neutral"} />
                   {doc.document_type ? <Tag label={DOCUMENT_TYPE_LABELS[doc.document_type]} tone="accent" /> : null}
                 </View>
+                <Pressable onPress={() => handleDelete(doc)} hitSlop={8} style={styles.docDelete}>
+                  <Ionicons name="close-circle" size={20} color={colors.error} />
+                </Pressable>
               </View>
               {doc.status === "ready" ? (
                 <View style={styles.docActions}>
@@ -420,6 +450,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   coachButton: {},
+  materialsLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "center",
+    gap: 2,
+    marginTop: spacing.md,
+  },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -433,7 +470,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginBottom: spacing.sm,
   },
-  uploadError: {
+  documentError: {
     marginBottom: spacing.sm,
   },
   emptyDocsText: {
@@ -454,6 +491,9 @@ const styles = StyleSheet.create({
   },
   docName: {
     flex: 1,
+  },
+  docDelete: {
+    marginLeft: spacing.xs,
   },
   docActions: {
     flexDirection: "row",

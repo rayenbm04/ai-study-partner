@@ -7,12 +7,27 @@ from app.api.v1.schemas.quiz import (
     AttemptResponse,
     AttemptResultResponse,
     QuizGenerateRequest,
+    QuizListItemResponse,
     QuizResponse,
 )
 from app.domain.entities.user import User
 from app.services.quiz_engine.quiz_service import QuizService
 
 router = APIRouter(tags=["quizzes"])
+
+
+@router.get("/subjects/{subject_id}/quizzes", response_model=list[QuizListItemResponse])
+async def list_quizzes(
+    subject_id: str,
+    current_user: User = Depends(get_current_user),
+    service: QuizService = Depends(get_quiz_service),
+) -> list[QuizListItemResponse]:
+    quizzes = await service.list_for_subject(user_id=current_user.id, subject_id=subject_id)
+    items = []
+    for quiz in quizzes:
+        questions = await service.get_questions(quiz.id)
+        items.append(QuizListItemResponse.from_entity(quiz, len(questions)))
+    return items
 
 
 @router.post("/subjects/{subject_id}/quizzes/generate", response_model=QuizResponse)

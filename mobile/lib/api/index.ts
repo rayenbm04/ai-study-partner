@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./client";
+export * as accountApi from "./account";
 export * as authApi from "./auth";
 export * as subjectsApi from "./subjects";
 export * as documentsApi from "./documents";

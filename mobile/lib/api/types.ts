@@ -53,6 +53,18 @@ export type Quiz = {
   questions: QuizQuestionPublic[];
 };
 
+export type QuizListItem = {
+  id: string;
+  subject_id: string;
+  title: string;
+  kind: "quiz" | "exam";
+  difficulty: Difficulty;
+  topics: string[];
+  duration_minutes: number | null;
+  created_at: string;
+  question_count: number;
+};
+
 export type QuizAttempt = {
   id: string;
   quiz_id: string;

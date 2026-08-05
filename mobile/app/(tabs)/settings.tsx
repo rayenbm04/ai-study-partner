@@ -1,13 +1,35 @@
+import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Switch, StyleSheet, View } from "react-native";
 
 import { Avatar, Button, Card, Screen, Text } from "../../components/ui";
 import { spacing } from "../../constants/theme";
+import { accountApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { confirmDestructiveAction } from "../../lib/confirm";
 import { useTheme } from "../../lib/theme-context";
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
   const { colors, isDark, setDark } = useTheme();
+  const router = useRouter();
+  const [isResetting, setIsResetting] = useState(false);
+
+  async function handleResetAccount() {
+    const confirmed = await confirmDestructiveAction(
+      "Reset your account?",
+      "This permanently deletes every subject, document, quiz, flashcard, and progress record. Your login stays active. This can't be undone.",
+      "Reset"
+    );
+    if (!confirmed) return;
+    setIsResetting(true);
+    try {
+      await accountApi.resetAccount();
+      router.replace("/(tabs)");
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
   return (
     <Screen>
@@ -42,6 +64,17 @@ export default function SettingsScreen() {
             thumbColor="#FFFFFF"
           />
         </View>
+      </Card>
+
+      <Text variant="label" style={[styles.sectionLabel, { color: colors.error }]}>
+        Danger zone
+      </Text>
+      <Card>
+        <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.md }}>
+          Permanently delete every subject, document, quiz, flashcard, and progress record. Your
+          login stays active.
+        </Text>
+        <Button label="Reset account" variant="secondary" onPress={handleResetAccount} loading={isResetting} />
       </Card>
 
       <Button label="Sign out" variant="secondary" onPress={logout} style={styles.signOut} />
