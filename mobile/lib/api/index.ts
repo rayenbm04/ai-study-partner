@@ -3,6 +3,8 @@ export * from "./client";
 export * as accountApi from "./account";
 export * as authApi from "./auth";
 export * as subjectsApi from "./subjects";
+export * as curriculumApi from "./curriculum";
+export * as subjectPacksApi from "./subjectPacks";
 export * as documentsApi from "./documents";
 export * as flashcardsApi from "./flashcards";
 export * as quizzesApi from "./quizzes";

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d D:\\PROJECTS\\ai-study-partner\\ai-study-partner\\mobile && npx expo start --web"],
+      "port": 8081
+    }
+  ]
+}

@@ -50,3 +50,11 @@ async def test_archive_removes_from_default_listing(subject_service):
     subject = await subject_service.create("user-1", name="Physics")
     await subject_service.archive("user-1", subject.id)
     assert await subject_service.list_for_user("user-1") == []
+
+
+async def test_name_of_archived_subject_can_be_reused(subject_service):
+    subject = await subject_service.create("user-1", name="Physics")
+    await subject_service.archive("user-1", subject.id)
+    recreated = await subject_service.create("user-1", name="Physics")
+    assert recreated.id != subject.id
+    assert [s.id for s in await subject_service.list_for_user("user-1")] == [recreated.id]

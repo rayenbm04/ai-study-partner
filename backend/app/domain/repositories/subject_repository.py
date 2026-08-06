@@ -11,7 +11,10 @@ class SubjectRepository(ABC):
     async def get_by_id(self, subject_id: str) -> Subject | None: ...
 
     @abstractmethod
-    async def get_by_user_and_name(self, user_id: str, name: str) -> Subject | None: ...
+    async def get_by_user_and_name(self, user_id: str, name: str) -> Subject | None:
+        """Only matches active (non-archived) subjects — archiving a subject
+        frees its name up for reuse."""
+        ...
 
     @abstractmethod
     async def create(
@@ -22,6 +25,7 @@ class SubjectRepository(ABC):
         description: str | None,
         color: str | None,
         icon: str | None,
+        curriculum_subject_id: str | None = None,
     ) -> Subject: ...
 
     @abstractmethod

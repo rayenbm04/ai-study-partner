@@ -1,8 +1,14 @@
 /**
- * First-run setup: create the student's first subject, then ask how much
- * time they have to study daily. Two screens, not a chat-guided flow (see
- * design decision) — this maps directly onto real backend calls rather
- * than collecting "goal"/"level" answers the API has nowhere to store.
+ * First-run setup: choose how to populate your subjects (a curriculum pack
+ * vs. typing your own), then ask how much time you have to study daily.
+ * Not a chat-guided flow (see design decision) — this maps directly onto
+ * real backend calls rather than collecting "goal"/"level" answers the API
+ * has nowhere to store.
+ *
+ * The pack path hands off to /subject-pack/new, which pushes on top of this
+ * screen and, on success, replaces back here with a `packApplied` param —
+ * read below to skip straight to the daily-minutes step instead of
+ * re-showing the "pack vs manual" choice.
  *
  * The daily-minutes choice isn't persisted anywhere yet (there's no user
  * preferences endpoint on the backend) — it's carried forward as a param
@@ -11,8 +17,8 @@
  * setting would be a small, separate backend addition later.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { Button, Card, ProgressBar, Screen, Text, TextField } from "../components/ui";
@@ -30,17 +36,26 @@ const MINUTE_OPTIONS = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const [step, setStep] = useState<1 | 2>(1);
+  const { packApplied } = useLocalSearchParams<{ packApplied?: string }>();
+  const [step, setStep] = useState<0 | 1 | 2>(packApplied ? 2 : 0);
   const [subjectName, setSubjectName] = useState("");
   const [dailyMinutes, setDailyMinutes] = useState<number | null>(30);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (packApplied) setStep(2);
+  }, [packApplied]);
+
   async function handleFinish() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await subjectsApi.createSubject({ name: subjectName.trim() });
+      // Only the "add my own" path collects a subject name — the pack path
+      // (packApplied param) already created its subjects via /subject-packs/apply.
+      if (subjectName.trim()) {
+        await subjectsApi.createSubject({ name: subjectName.trim() });
+      }
       router.replace({ pathname: "/(tabs)/study-plan", params: { defaultDailyMinutes: String(dailyMinutes) } });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't create your subject. Try again.");
@@ -52,10 +67,33 @@ export default function OnboardingScreen() {
   return (
     <Screen>
       <View style={styles.progress}>
-        <ProgressBar total={2} completed={step} />
+        <ProgressBar total={3} completed={step + 1} />
       </View>
 
-      {step === 1 ? (
+      {step === 0 ? (
+        <View style={styles.body}>
+          <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="library" size={28} color={colors.accentDark} />
+          </View>
+          <Text variant="display">How do you want to set up your subjects?</Text>
+          <Text variant="body" style={styles.subtitle}>
+            Auto-add the subjects for your curriculum, or start from scratch.
+          </Text>
+          <View style={styles.options}>
+            <Card
+              onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/onboarding" } })}
+              style={styles.choiceCard}
+            >
+              <Text variant="title">Use a curriculum pack</Text>
+              <Text variant="caption">e.g. Bac Math (Tunisia) — adds every subject for your year in one tap</Text>
+            </Card>
+            <Card onPress={() => setStep(1)} style={styles.choiceCard}>
+              <Text variant="title">Add my own subjects</Text>
+              <Text variant="caption">Start with one subject you name yourself</Text>
+            </Card>
+          </View>
+        </View>
+      ) : step === 1 ? (
         <View style={styles.body}>
           <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="school" size={28} color={colors.accentDark} />
@@ -149,6 +187,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   option: {
+    width: "100%",
+  },
+  choiceCard: {
     width: "100%",
   },
   action: {

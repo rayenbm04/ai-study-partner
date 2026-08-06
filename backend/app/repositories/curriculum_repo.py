@@ -110,6 +110,10 @@ class SqlAlchemyCurriculumRepository(CurriculumRepository):
         await self._session.refresh(model)
         return _academic_level(model)
 
+    async def get_academic_level(self, academic_level_id: str) -> AcademicLevel | None:
+        model = await self._session.get(AcademicLevelModel, academic_level_id)
+        return _academic_level(model) if model else None
+
     async def list_sections(self, academic_level_id: str) -> list[Section]:
         stmt = select(SectionModel).where(SectionModel.academic_level_id == academic_level_id).order_by(SectionModel.name)
         models = (await self._session.execute(stmt)).scalars().all()
@@ -122,6 +126,18 @@ class SqlAlchemyCurriculumRepository(CurriculumRepository):
         await self._session.refresh(model)
         return _section(model)
 
+    async def get_section(self, section_id: str) -> Section | None:
+        model = await self._session.get(SectionModel, section_id)
+        return _section(model) if model else None
+
+    async def get_education_system(self, education_system_id: str) -> EducationSystem | None:
+        model = await self._session.get(EducationSystemModel, education_system_id)
+        return _education_system(model) if model else None
+
+    async def get_country(self, country_id: str) -> Country | None:
+        model = await self._session.get(CountryModel, country_id)
+        return _country(model) if model else None
+
     async def list_subjects(self, academic_level_id: str, *, section_id: str | None = None) -> list[CurriculumSubject]:
         stmt = select(CurriculumSubjectModel).where(CurriculumSubjectModel.academic_level_id == academic_level_id)
         if section_id is not None:
@@ -133,6 +149,13 @@ class SqlAlchemyCurriculumRepository(CurriculumRepository):
     async def get_subject(self, curriculum_subject_id: str) -> CurriculumSubject | None:
         model = await self._session.get(CurriculumSubjectModel, curriculum_subject_id)
         return _curriculum_subject(model) if model else None
+
+    async def list_subjects_by_ids(self, curriculum_subject_ids: list[str]) -> list[CurriculumSubject]:
+        if not curriculum_subject_ids:
+            return []
+        stmt = select(CurriculumSubjectModel).where(CurriculumSubjectModel.id.in_(curriculum_subject_ids))
+        models = (await self._session.execute(stmt)).scalars().all()
+        return [_curriculum_subject(m) for m in models]
 
     async def create_subject(self, *, academic_level_id: str, section_id: str | None, name: str) -> CurriculumSubject:
         model = CurriculumSubjectModel(academic_level_id=academic_level_id, section_id=section_id, name=name)

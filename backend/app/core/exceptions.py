@@ -57,6 +57,14 @@ class DuplicateSubjectError(DomainError):
         super().__init__(f"You already have a subject named '{name}'.")
 
 
+class CurriculumPackNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, academic_level_id: str, section_id: str | None):
+        where = f"academic level '{academic_level_id}'" + (f", section '{section_id}'" if section_id else "")
+        super().__init__(f"No curriculum subjects found for {where}.")
+
+
 class UnsupportedFileTypeError(DomainError):
     status_code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
 

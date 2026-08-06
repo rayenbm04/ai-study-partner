@@ -27,6 +27,63 @@ export type Subject = {
   curriculum_subject_id: string | null;
 };
 
+export type Country = {
+  id: string;
+  name: string;
+  code: string | null;
+  created_at: string;
+};
+
+export type EducationSystem = {
+  id: string;
+  country_id: string;
+  name: string;
+  created_at: string;
+};
+
+export type AcademicLevel = {
+  id: string;
+  education_system_id: string;
+  name: string;
+  order_index: number;
+  created_at: string;
+};
+
+export type Section = {
+  id: string;
+  academic_level_id: string;
+  name: string;
+  created_at: string;
+};
+
+export type CurriculumSubject = {
+  id: string;
+  academic_level_id: string;
+  section_id: string | null;
+  name: string;
+  created_at: string;
+};
+
+export type SubjectPackApplyResult = {
+  created: Subject[];
+  skipped_duplicate_names: string[];
+};
+
+export type SubjectPackRemoveResult = {
+  removed_count: number;
+};
+
+export type AppliedSubjectPack = {
+  academic_level_id: string;
+  section_id: string | null;
+  country_name: string;
+  education_system_name: string;
+  academic_level_name: string;
+  section_name: string | null;
+  subject_count: number;
+  subjects: Subject[];
+};
+
 export type QuestionType = "mcq" | "true_false" | "short_answer" | "calculation" | "fill_blank";
 export type Difficulty = "easy" | "medium" | "hard";
 

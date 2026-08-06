@@ -123,9 +123,11 @@ class FakeSubjectRepository(SubjectRepository):
         return self._by_id.get(subject_id)
 
     async def get_by_user_and_name(self, user_id, name):
-        return next((s for s in self._by_id.values() if s.user_id == user_id and s.name == name), None)
+        return next(
+            (s for s in self._by_id.values() if s.user_id == user_id and s.name == name and not s.is_archived), None
+        )
 
-    async def create(self, *, user_id, name, description, color, icon):
+    async def create(self, *, user_id, name, description, color, icon, curriculum_subject_id=None):
         subject = Subject(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -135,6 +137,7 @@ class FakeSubjectRepository(SubjectRepository):
             icon=icon,
             created_at=datetime.now(timezone.utc),
             archived_at=None,
+            curriculum_subject_id=curriculum_subject_id,
         )
         self._by_id[subject.id] = subject
         return subject
@@ -243,6 +246,9 @@ class FakeCurriculumRepository(CurriculumRepository):
         self._academic_levels[level.id] = level
         return level
 
+    async def get_academic_level(self, academic_level_id):
+        return self._academic_levels.get(academic_level_id)
+
     async def list_sections(self, academic_level_id):
         return [s for s in self._sections.values() if s.academic_level_id == academic_level_id]
 
@@ -250,6 +256,15 @@ class FakeCurriculumRepository(CurriculumRepository):
         section = Section(id=str(uuid.uuid4()), academic_level_id=academic_level_id, name=name, created_at=datetime.now(timezone.utc))
         self._sections[section.id] = section
         return section
+
+    async def get_section(self, section_id):
+        return self._sections.get(section_id)
+
+    async def get_education_system(self, education_system_id):
+        return self._education_systems.get(education_system_id)
+
+    async def get_country(self, country_id):
+        return self._countries.get(country_id)
 
     async def list_subjects(self, academic_level_id, *, section_id=None):
         subjects = [s for s in self._subjects.values() if s.academic_level_id == academic_level_id]
@@ -259,6 +274,10 @@ class FakeCurriculumRepository(CurriculumRepository):
 
     async def get_subject(self, curriculum_subject_id):
         return self._subjects.get(curriculum_subject_id)
+
+    async def list_subjects_by_ids(self, curriculum_subject_ids):
+        ids = set(curriculum_subject_ids)
+        return [s for s in self._subjects.values() if s.id in ids]
 
     async def create_subject(self, *, academic_level_id, section_id, name):
         subject = CurriculumSubject(

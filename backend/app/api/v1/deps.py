@@ -47,6 +47,7 @@ from app.services.planning_engine.planning_service import PlanningService
 from app.services.progress_engine.progress_service import ProgressService
 from app.services.quiz_engine.quiz_service import QuizService
 from app.services.rag.chat_service import ChatService
+from app.services.subject_pack_service import SubjectPackService
 from app.services.subject_service import SubjectService
 from app.services.summary_engine.summary_service import SummaryService
 
@@ -155,6 +156,13 @@ def get_subject_service(
     subject_repo: SqlAlchemySubjectRepository = Depends(get_subject_repo),
 ) -> SubjectService:
     return SubjectService(subject_repo)
+
+
+def get_subject_pack_service(
+    subject_repo: SqlAlchemySubjectRepository = Depends(get_subject_repo),
+    curriculum_repo: SqlAlchemyCurriculumRepository = Depends(get_curriculum_repo),
+) -> SubjectPackService:
+    return SubjectPackService(subject_repo, curriculum_repo)
 
 
 def get_document_service(

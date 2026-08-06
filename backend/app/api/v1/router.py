@@ -11,12 +11,14 @@ from app.api.v1.routes.flashcards import router as flashcards_router
 from app.api.v1.routes.progress import router as progress_router
 from app.api.v1.routes.quizzes import router as quizzes_router
 from app.api.v1.routes.study_plans import router as study_plans_router
+from app.api.v1.routes.subject_packs import router as subject_packs_router
 from app.api.v1.routes.subjects import router as subjects_router
 from app.api.v1.routes.summaries import router as summaries_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
 api_router.include_router(subjects_router)
+api_router.include_router(subject_packs_router)
 api_router.include_router(documents_router)
 api_router.include_router(curriculum_router)
 api_router.include_router(chat_router)

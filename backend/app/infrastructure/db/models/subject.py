@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.base import Base
@@ -9,7 +9,13 @@ from app.infrastructure.db.base import Base
 
 class SubjectModel(Base):
     __tablename__ = "subjects"
-    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_subject_user_name"),)
+    # Partial (not a plain UniqueConstraint) so archiving a subject frees up
+    # its name for reuse — otherwise removing a curriculum pack and later
+    # re-applying it (or a different pack sharing a subject name) would be
+    # permanently blocked by the archived row still holding the name.
+    __table_args__ = (
+        Index("uq_subject_user_name_active", "user_id", "name", unique=True, postgresql_where=(text("archived_at IS NULL"))),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(

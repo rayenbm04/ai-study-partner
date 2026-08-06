@@ -40,7 +40,9 @@ class SqlAlchemySubjectRepository(SubjectRepository):
         return _to_entity(model) if model else None
 
     async def get_by_user_and_name(self, user_id: str, name: str) -> Subject | None:
-        stmt = select(SubjectModel).where(SubjectModel.user_id == user_id, SubjectModel.name == name)
+        stmt = select(SubjectModel).where(
+            SubjectModel.user_id == user_id, SubjectModel.name == name, SubjectModel.archived_at.is_(None)
+        )
         model = (await self._session.execute(stmt)).scalar_one_or_none()
         return _to_entity(model) if model else None
 
@@ -52,8 +54,16 @@ class SqlAlchemySubjectRepository(SubjectRepository):
         description: str | None,
         color: str | None,
         icon: str | None,
+        curriculum_subject_id: str | None = None,
     ) -> Subject:
-        model = SubjectModel(user_id=user_id, name=name, description=description, color=color, icon=icon)
+        model = SubjectModel(
+            user_id=user_id,
+            name=name,
+            description=description,
+            color=color,
+            icon=icon,
+            curriculum_subject_id=curriculum_subject_id,
+        )
         self._session.add(model)
         await self._session.flush()
         await self._session.refresh(model)
