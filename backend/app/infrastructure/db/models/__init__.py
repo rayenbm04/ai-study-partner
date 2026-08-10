@@ -24,10 +24,13 @@ from app.infrastructure.db.models.quiz import QuizModel  # noqa: F401
 from app.infrastructure.db.models.quiz_attempt import QuizAttemptModel  # noqa: F401
 from app.infrastructure.db.models.quiz_question import QuizQuestionModel  # noqa: F401
 from app.infrastructure.db.models.refresh_token import RefreshTokenModel  # noqa: F401
+from app.infrastructure.db.models.school import SchoolClassModel, SchoolModel  # noqa: F401
+from app.infrastructure.db.models.security_event import SecurityEventModel  # noqa: F401
 from app.infrastructure.db.models.student_answer import StudentAnswerModel  # noqa: F401
 from app.infrastructure.db.models.study_plan import StudyPlanModel  # noqa: F401
 from app.infrastructure.db.models.study_plan_item import StudyPlanItemModel  # noqa: F401
 from app.infrastructure.db.models.subject import SubjectModel  # noqa: F401
 from app.infrastructure.db.models.summary import SummaryModel  # noqa: F401
 from app.infrastructure.db.models.user import UserModel  # noqa: F401
+from app.infrastructure.db.models.verification_token import VerificationTokenModel  # noqa: F401
 from app.infrastructure.db.models.weak_concept import WeakConceptModel  # noqa: F401

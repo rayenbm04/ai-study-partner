@@ -21,9 +21,10 @@ class RegisterRequest(BaseModel):
     lastname: str = Field(min_length=1, max_length=100)
     pseudo: str = Field(min_length=3, max_length=50, pattern=_PSEUDO_PATTERN)
     date_of_birth: date
-    # Free-text for now — no school catalog exists yet (see curriculum.py for
-    # what a "classe"/academic-level equivalent already does have a catalog).
-    school_name: str | None = Field(default=None, max_length=200)
+    # References the schools catalog (see app/api/v1/routes/schools.py) — if
+    # the student's school isn't found by search, the client creates it first
+    # (POST /schools) and passes the resulting id here.
+    school_id: str | None = None
 
     @field_validator("date_of_birth")
     @classmethod
@@ -52,6 +53,20 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_new_password: str = Field(min_length=8, max_length=128)
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -60,7 +75,7 @@ class UserResponse(BaseModel):
     role: str
     pseudo: str | None
     date_of_birth: date | None
-    school_name: str | None
+    school_id: str | None
     academic_level_id: str | None
     section_id: str | None
     is_verified: bool
@@ -75,7 +90,7 @@ class UserResponse(BaseModel):
             role=user.role,
             pseudo=user.pseudo,
             date_of_birth=user.date_of_birth,
-            school_name=user.school_name,
+            school_id=user.school_id,
             academic_level_id=user.academic_level_id,
             section_id=user.section_id,
             is_verified=user.is_verified,

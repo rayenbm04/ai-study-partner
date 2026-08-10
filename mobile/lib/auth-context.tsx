@@ -21,7 +21,7 @@ type AuthState = {
     lastname: string;
     pseudo: string;
     date_of_birth: string;
-    school_name?: string | null;
+    school_id?: string | null;
   }) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastname: string;
       pseudo: string;
       date_of_birth: string;
-      school_name?: string | null;
+      school_id?: string | null;
     }) => {
       await authApi.register(input);
       await authApi.login(input.email, input.password).then(setUser);

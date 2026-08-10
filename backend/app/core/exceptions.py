@@ -71,6 +71,37 @@ class WeakPasswordError(DomainError):
         super().__init__(f"That password isn't secure enough: {reason}")
 
 
+class SchoolNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, school_id: str):
+        super().__init__(f"School '{school_id}' was not found.")
+
+
+class SchoolClassNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, class_id: str):
+        super().__init__(f"School class '{class_id}' was not found.")
+
+
+class AccountLockedError(DomainError):
+    status_code = status.HTTP_423_LOCKED
+
+    def __init__(self, retry_after_minutes: int):
+        super().__init__(
+            f"Too many failed login attempts. Try again in {retry_after_minutes} minute"
+            f"{'s' if retry_after_minutes != 1 else ''}."
+        )
+
+
+class InvalidOrExpiredTokenError(DomainError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+
+    def __init__(self):
+        super().__init__("This link is invalid or has expired. Request a new one.")
+
+
 class DuplicateSubjectError(DomainError):
     status_code = status.HTTP_409_CONFLICT
 

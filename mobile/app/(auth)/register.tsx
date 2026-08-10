@@ -2,9 +2,10 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
-import { Button, DatePickerField, Screen, Text, TextField } from "../../components/ui";
+import { Button, DatePickerField, Screen, SchoolPickerField, Text, TextField } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError } from "../../lib/api";
+import type { School } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
@@ -34,7 +35,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [pseudo, setPseudo] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
-  const [schoolName, setSchoolName] = useState("");
+  const [school, setSchool] = useState<School | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +87,7 @@ export default function RegisterScreen() {
         lastname: lastname.trim(),
         pseudo: pseudo.trim(),
         date_of_birth: dateOfBirth.trim(),
-        school_name: schoolName.trim() || null,
+        school_id: school?.id ?? null,
       });
       // First-time users go through the short setup flow (first subject +
       // daily study time) before landing on the tabs; returning users
@@ -145,10 +146,11 @@ export default function RegisterScreen() {
           error={dateOfBirth.length > 0 && !dateOfBirthValid ? t("auth.dateOfBirthError") : null}
           style={styles.field}
         />
-        <TextField
+        <SchoolPickerField
           label={t("auth.schoolName")}
-          value={schoolName}
-          onChangeText={setSchoolName}
+          value={school}
+          onChange={setSchool}
+          placeholder={t("auth.schoolName")}
           style={styles.field}
         />
         <TextField

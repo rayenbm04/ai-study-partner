@@ -9,7 +9,7 @@ export async function register(input: {
   lastname: string;
   pseudo: string;
   date_of_birth: string;
-  school_name?: string | null;
+  school_id?: string | null;
 }): Promise<User> {
   return apiRequest<User>("/api/v1/auth/register", { method: "POST", body: input, auth: false });
 }
@@ -36,4 +36,23 @@ export async function logout(refreshToken: string): Promise<void> {
   } finally {
     await clearTokens();
   }
+}
+
+export async function verifyEmail(token: string): Promise<User> {
+  return apiRequest<User>("/api/v1/auth/verify-email", { method: "POST", body: { token }, auth: false });
+}
+
+/** Always resolves (even for an unknown email) — the backend deliberately
+ * doesn't reveal whether an account exists, so there's nothing to branch on
+ * here besides a network/validation failure. */
+export async function forgotPassword(email: string): Promise<void> {
+  return apiRequest<void>("/api/v1/auth/forgot-password", { method: "POST", body: { email }, auth: false });
+}
+
+export async function resetPassword(input: {
+  token: string;
+  new_password: string;
+  confirm_new_password: string;
+}): Promise<void> {
+  return apiRequest<void>("/api/v1/auth/reset-password", { method: "POST", body: input, auth: false });
 }

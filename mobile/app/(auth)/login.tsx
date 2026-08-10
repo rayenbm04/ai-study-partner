@@ -27,7 +27,11 @@ export default function LoginScreen() {
       // AuthGate in the root layout handles the redirect to (tabs) once
       // `user` updates — no explicit router.replace needed here.
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("auth.loginError"));
+      if (err instanceof ApiError && err.status === 423) {
+        setError(t("auth.accountLockedError"));
+      } else {
+        setError(err instanceof ApiError ? err.message : t("auth.loginError"));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -72,6 +76,11 @@ export default function LoginScreen() {
           style={styles.submit}
         />
         <Button label={t("auth.createAccount")} variant="ghost" onPress={() => router.push("/(auth)/register")} />
+        <Button
+          label={t("auth.forgotPasswordLink")}
+          variant="ghost"
+          onPress={() => router.push("/(auth)/forgot-password")}
+        />
       </View>
     </Screen>
   );

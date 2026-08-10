@@ -10,10 +10,27 @@ export type User = {
   role: string;
   pseudo: string | null;
   date_of_birth: string | null;
-  school_name: string | null;
+  school_id: string | null;
   academic_level_id: string | null;
   section_id: string | null;
   is_verified: boolean;
+};
+
+export type School = {
+  id: string;
+  name: string;
+  country: string | null;
+  city: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type SchoolClass = {
+  id: string;
+  school_id: string;
+  level: string;
+  label: string;
+  created_at: string;
 };
 
 export type TokenPair = {

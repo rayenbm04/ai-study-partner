@@ -4,6 +4,7 @@ export * as accountApi from "./account";
 export * as authApi from "./auth";
 export * as subjectsApi from "./subjects";
 export * as curriculumApi from "./curriculum";
+export * as schoolsApi from "./schools";
 export * as subjectPacksApi from "./subjectPacks";
 export * as documentsApi from "./documents";
 export * as flashcardsApi from "./flashcards";

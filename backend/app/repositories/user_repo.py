@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,11 +20,15 @@ def _to_entity(model: UserModel) -> User:
         created_at=model.created_at,
         pseudo=model.pseudo,
         date_of_birth=model.date_of_birth,
-        school_name=model.school_name,
+        school_id=model.school_id,
         academic_level_id=model.academic_level_id,
         section_id=model.section_id,
         is_verified=model.is_verified,
         email_verified_at=model.email_verified_at,
+        status=model.status,
+        last_login_at=model.last_login_at,
+        failed_login_attempts=model.failed_login_attempts,
+        locked_until=model.locked_until,
     )
 
 
@@ -56,7 +60,7 @@ class SqlAlchemyUserRepository(UserRepository):
         role: str = "student",
         pseudo: str | None = None,
         date_of_birth: date | None = None,
-        school_name: str | None = None,
+        school_id: str | None = None,
     ) -> User:
         model = UserModel(
             email=email,
@@ -66,7 +70,7 @@ class SqlAlchemyUserRepository(UserRepository):
             role=role,
             pseudo=pseudo,
             date_of_birth=date_of_birth,
-            school_name=school_name,
+            school_id=school_id,
         )
         self._session.add(model)
         await self._session.flush()
@@ -79,6 +83,44 @@ class SqlAlchemyUserRepository(UserRepository):
             raise UserNotFoundError(user_id)
         model.academic_level_id = academic_level_id
         model.section_id = section_id
+        await self._session.flush()
+        await self._session.refresh(model)
+        return _to_entity(model)
+
+    async def update_login_state(
+        self,
+        user_id: str,
+        *,
+        failed_login_attempts: int,
+        locked_until: datetime | None,
+        last_login_at: datetime | None,
+    ) -> User:
+        model = await self._session.get(UserModel, user_id)
+        if model is None:
+            raise UserNotFoundError(user_id)
+        model.failed_login_attempts = failed_login_attempts
+        model.locked_until = locked_until
+        if last_login_at is not None:
+            model.last_login_at = last_login_at
+        await self._session.flush()
+        await self._session.refresh(model)
+        return _to_entity(model)
+
+    async def set_password(self, user_id: str, hashed_password: str) -> User:
+        model = await self._session.get(UserModel, user_id)
+        if model is None:
+            raise UserNotFoundError(user_id)
+        model.hashed_password = hashed_password
+        await self._session.flush()
+        await self._session.refresh(model)
+        return _to_entity(model)
+
+    async def mark_email_verified(self, user_id: str, verified_at: datetime) -> User:
+        model = await self._session.get(UserModel, user_id)
+        if model is None:
+            raise UserNotFoundError(user_id)
+        model.is_verified = True
+        model.email_verified_at = verified_at
         await self._session.flush()
         await self._session.refresh(model)
         return _to_entity(model)

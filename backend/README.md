@@ -17,11 +17,15 @@ Routes depend on services, services depend on repository *interfaces* (never on 
 
 ## What's implemented
 
-**Auth + Subjects** — register/login/refresh with JWT access + refresh tokens. Registration collects a student profile (pseudo/username, date of birth, optional school name) in addition to name/email/password, with confirm-password matching and a lightweight weak-password check (`app/core/security.py:weak_password_reason`) — no email verification or password-reset flow yet (columns exist on `users` for both, unused until an email-sending service is wired up). Subjects are the top-level per-user container everything else scopes to.
+**Auth + Subjects** — register/login/refresh with JWT access + refresh tokens. Registration collects a student profile (pseudo/username, date of birth, optional school) in addition to name/email/password, with confirm-password matching and a lightweight weak-password check (`app/core/security.py:weak_password_reason`). Login is rate-limited (`AuthService.authenticate`): after `LOGIN_MAX_FAILED_ATTEMPTS` wrong passwords the account is locked for `LOGIN_LOCKOUT_MINUTES` (a `423 Locked` response), reset on the next successful login. Email verification and password reset are both wired up end to end (tokens, expiry, single-use, `POST /auth/verify-email` / `POST /auth/forgot-password` / `POST /auth/reset-password`) but delivery is stubbed — see **Email** below. Every register/login/lockout/verification/reset event is appended to `security_events` (`app/domain/repositories/security_event_repository.py`) — an audit trail, not read by anything yet. Subjects are the top-level per-user container everything else scopes to.
+
+**Schools** — a small institution catalog (`schools`, `school_classes`) a student searches or adds their school against at registration (`GET/POST /api/v1/schools`, `GET/POST /api/v1/schools/{id}/classes`) — replaces an earlier free-text `school_name` field. These routes are deliberately public (no auth): a student needs to search for/add their school *during* the registration form, before an account exists to authenticate with, the same trade-off `POST /auth/register` itself makes. There's no admin gate on `POST /schools` yet — anyone can add an entry, matching this codebase's current scope (no abuse protection anywhere else either). Distinct from the curriculum catalog below: a School is *which institution*; `school_classes` is that institution's own class list, kept separate from — and not wired into — the curriculum-based "classe" a student picks via `PATCH /account/classe`.
 
 **Curriculum + Subject Packs** — a shared, global reference catalog (`Country → EducationSystem → AcademicLevel → Section → CurriculumSubject → Chapter → Lesson`) browsable read-only by any authenticated user. A student can either link an individual subject to a `CurriculumSubject` node (`PATCH /subjects/{id}`) or bulk-apply every subject under an academic level/section as a "pack" (`POST /subject-packs/apply`) — the pack itself isn't a stored entity, just a bulk-create against the same catalog. `PATCH /account/classe` separately remembers a student's own academic level/section on their profile (distinct from applying a pack, which only decides *which subjects get added*).
 
 **Account** — `POST /account/reset` wipes a user's subjects/documents/study plans (and everything that cascades from them) without touching the login itself; `PATCH /account/classe` sets or clears the student's own academic level/section, validated against the curriculum catalog.
+
+**Email** — every verification/reset email goes through an `EmailSender` interface (`app/services/email/base.py`), same "interface first, swap the implementation" pattern as `LLMProvider`. Only implementation today is `LoggingEmailSender` (`EMAIL_SENDER=logging`, the default) — it logs the full email body (including the token) to the server console instead of sending it, so registering or requesting a password reset locally means checking the terminal output for the code rather than an inbox. Wiring up a real provider (Resend, SendGrid, SES, ...) later is a new `EmailSender` implementation registered in `app/services/email/factory.py`, not a change to `AuthService`.
 
 **Knowledge Base** — upload PDF/DOCX/PPTX/XLS(X)/images, extract text (with a vision-model fallback for scanned pages/images), hierarchical parent/child chunking, embed with a cloud embedder, store in pgvector, and LLM-tag chunks against a per-subject concept graph. Ingestion runs as a background task; `GET /documents/{id}` polls status (`pending → processing → ready|failed`).
 
@@ -68,7 +72,8 @@ alembic upgrade head
 | `0008` | `study_plans`, `study_plan_items` |
 | `0009` | curriculum catalog (`curriculum_countries`, `curriculum_education_systems`, `curriculum_academic_levels`, `curriculum_sections`, `curriculum_subjects`, `curriculum_chapters`, `curriculum_lessons`) + `subjects.curriculum_subject_id` + document classification columns |
 | `0010` | scopes `subjects`' `(user_id, name)` uniqueness to active (non-archived) subjects only, via a partial unique index |
-| `0011` | `users`: `date_of_birth`, `pseudo` (unique), `school_name`, `academic_level_id`/`section_id` (a student's own classe), `is_verified`/`email_verified_at` (unused until email verification is built) |
+| `0011` | `users`: `date_of_birth`, `pseudo` (unique), `school_name`, `academic_level_id`/`section_id` (a student's own classe), `is_verified`/`email_verified_at` |
+| `0012` | `schools`, `school_classes`, `verification_tokens` (email verification / password reset), `security_events`; `users`: `school_name` → `school_id` (FK to `schools`), `status`, `last_login_at`, `failed_login_attempts`, `locked_until` (login-attempt limiting) |
 
 ## Run the API
 
@@ -84,7 +89,9 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 pytest
 ```
 
-409 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep test each in `test_progress_api.py` and `test_study_plans_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests.
+443 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep test each in `test_progress_api.py` and `test_study_plans_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests, and no test ever sends a real email (`LoggingEmailSender`/`FakeEmailSender` never touch the network either).
+
+`app/infrastructure/db/session.py`'s `get_db()` commits on a `DomainError` (not just on success) rather than rolling it back — a `DomainError` is a business-rule 4xx response, not a corrupt transaction, and some flows deliberately write *then* raise one in the same request (e.g. `AuthService.authenticate` records a failed-login attempt, then raises `InvalidCredentialsError`; that write has to survive or the lockout counter would never accumulate). `tests/conftest.py`'s `override_get_db` mirrors this exactly — worth knowing if a future test writes something before a service raises a `DomainError` and expects that write to have happened.
 
 ## LLM configuration
 
@@ -104,18 +111,28 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 | `WEAK_CONCEPT_SLOW_RESPONSE_SECONDS` | slow-response baseline |
 | `WEAK_CONCEPT_DECAY_DROP_THRESHOLD` / `WEAK_CONCEPT_DECAY_MIN_PREVIOUS_SCORE` | decay detection tuning |
 | `PLANNING_DEFAULT_SESSION_MINUTES` / `PLANNING_DEFAULT_PLAN_DAYS` | study-plan session length and default plan length when no exam date is set |
+| `LOGIN_MAX_FAILED_ATTEMPTS` / `LOGIN_LOCKOUT_MINUTES` | failed logins before an account locks, and how long the lock lasts |
+| `EMAIL_SENDER` | `logging` (only option today — see the Email section above) |
+| `EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS` / `PASSWORD_RESET_TOKEN_EXPIRE_MINUTES` | how long a verify-email / reset-password code stays valid |
 
 ## API endpoint reference
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/v1/auth/register` | Create an account (name, email, password, pseudo, date of birth, optional school) |
-| POST | `/api/v1/auth/login` | Get an access + refresh token pair |
+| POST | `/api/v1/auth/register` | Create an account (name, email, password, pseudo, date of birth, optional `school_id`) |
+| POST | `/api/v1/auth/login` | Get an access + refresh token pair (`423` if the account is locked from repeated failures) |
 | POST | `/api/v1/auth/refresh` | Rotate a refresh token |
 | POST | `/api/v1/auth/logout` | Revoke a refresh token |
 | GET | `/api/v1/auth/me` | Current user |
+| POST | `/api/v1/auth/verify-email` | Confirm an email-verification code |
+| POST | `/api/v1/auth/forgot-password` | Request a password-reset code (always `204`, doesn't reveal whether the email exists) |
+| POST | `/api/v1/auth/reset-password` | Reset the password with a valid code; revokes every existing refresh token |
 | POST | `/api/v1/account/reset` | Wipe this user's subjects/documents/study plans (keeps the login) |
 | PATCH | `/api/v1/account/classe` | Set or clear the student's own academic level/section |
+| GET | `/api/v1/schools?q=...` | Search the school catalog (public, no auth) |
+| POST | `/api/v1/schools` | Add a school not found by search (public, no auth) |
+| GET | `/api/v1/schools/{id}` | Get one school |
+| GET / POST | `/api/v1/schools/{id}/classes` | List / add that school's own classes |
 | GET | `/api/v1/curriculum/countries` | List countries |
 | GET | `/api/v1/curriculum/countries/{id}/education-systems` | List education systems in a country |
 | GET | `/api/v1/curriculum/education-systems/{id}/academic-levels` | List academic levels in a system |
@@ -159,6 +176,7 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 
 ## What's not built yet
 
-- **Email verification / password reset** — `users.is_verified`/`email_verified_at` columns exist for a future confirmation flow, but nothing sends real email yet; registration doesn't block on verification.
-- **School catalog** — `school_name` is free text; no dedicated school entity/catalog.
+- **A real email provider** — verification/reset codes are only ever logged to the server console (`EMAIL_SENDER=logging`); nothing actually reaches a student's inbox yet.
+- **Login never blocks on `is_verified`** — verification is tracked and confirmable, but registration and login don't require it. Deliberate for now (no product decision yet on whether/when to enforce it).
+- **No admin tooling** — `POST /schools` has no gate (see the Schools section above), and `users.status` exists but nothing ever sets it to anything but `"active"` (no suspend/ban action yet).
 - See [`mobile/README.md`](../mobile/README.md) for what's built vs. pending on the client — the original forked `rag-frontend` React app is no longer the active frontend (see top-level README).

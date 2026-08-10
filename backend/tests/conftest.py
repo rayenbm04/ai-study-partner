@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.v1 import deps
 from app.core.config import settings
+from app.core.exceptions import DomainError
 from app.infrastructure.db import session as db_session
 from app.infrastructure.db.base import Base
 import app.infrastructure.db.models  # noqa: F401 registers models on Base.metadata
@@ -35,13 +36,21 @@ async def client(test_engine, tmp_path):
     test_sessionmaker = async_sessionmaker(bind=test_engine, expire_on_commit=False, class_=AsyncSession)
 
     async def override_get_db():
+        # Mirrors app/infrastructure/db/session.py's get_db(): a DomainError
+        # still commits (it's a business-rule 4xx, not a corrupt transaction —
+        # see that function's docstring for why this matters, e.g. login
+        # lockout tracking).
         async with test_sessionmaker() as session:
             try:
                 yield session
+            except DomainError:
                 await session.commit()
+                raise
             except Exception:
                 await session.rollback()
                 raise
+            else:
+                await session.commit()
 
     test_storage = LocalStorage(str(tmp_path))
 
@@ -105,13 +114,21 @@ async def pg_client(pg_engine, tmp_path):
     test_sessionmaker = async_sessionmaker(bind=pg_engine, expire_on_commit=False, class_=AsyncSession)
 
     async def override_get_db():
+        # Mirrors app/infrastructure/db/session.py's get_db(): a DomainError
+        # still commits (it's a business-rule 4xx, not a corrupt transaction —
+        # see that function's docstring for why this matters, e.g. login
+        # lockout tracking).
         async with test_sessionmaker() as session:
             try:
                 yield session
+            except DomainError:
                 await session.commit()
+                raise
             except Exception:
                 await session.rollback()
                 raise
+            else:
+                await session.commit()
 
     test_storage = LocalStorage(str(tmp_path))
     test_ingestion_runner = functools.partial(

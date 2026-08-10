@@ -17,10 +17,12 @@ from app.domain.entities.message import Message
 from app.domain.entities.progress import Progress, WeakConcept
 from app.domain.entities.quiz import Quiz, QuizAttempt, QuizQuestion, StudentAnswer
 from app.domain.entities.refresh_token import RefreshToken
+from app.domain.entities.school import School, SchoolClass
 from app.domain.entities.study_plan import StudyPlan, StudyPlanItem
 from app.domain.entities.subject import Subject
 from app.domain.entities.summary import Summary
 from app.domain.entities.user import User
+from app.domain.entities.verification_token import VerificationToken
 from app.domain.repositories.chunk_repository import ChunkRepository
 from app.domain.repositories.concept_chunk_repository import ConceptChunkRepository
 from app.domain.repositories.concept_repository import ConceptRepository
@@ -35,13 +37,17 @@ from app.domain.repositories.progress_repository import ProgressRepository
 from app.domain.repositories.quiz_attempt_repository import QuizAttemptRepository
 from app.domain.repositories.quiz_repository import QuizRepository
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
+from app.domain.repositories.school_repository import SchoolRepository
+from app.domain.repositories.security_event_repository import SecurityEventRepository
 from app.domain.repositories.student_answer_repository import StudentAnswerRepository
 from app.domain.repositories.study_plan_repository import StudyPlanRepository
 from app.domain.repositories.subject_repository import SubjectRepository
 from app.domain.repositories.summary_repository import SummaryRepository
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.verification_token_repository import VerificationTokenRepository
 from app.domain.repositories.weak_concept_repository import WeakConceptRepository
 from app.infrastructure.storage.base import StoragePort
+from app.services.email.base import EmailSender
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.llm.base import LLMProvider
 
@@ -69,7 +75,7 @@ class FakeUserRepository(UserRepository):
         role="student",
         pseudo=None,
         date_of_birth=None,
-        school_name=None,
+        school_id=None,
     ):
         user = User(
             id=str(uuid.uuid4()),
@@ -81,7 +87,7 @@ class FakeUserRepository(UserRepository):
             created_at=datetime.now(timezone.utc),
             pseudo=pseudo,
             date_of_birth=date_of_birth,
-            school_name=school_name,
+            school_id=school_id,
         )
         self._by_id[user.id] = user
         return user
@@ -91,6 +97,33 @@ class FakeUserRepository(UserRepository):
         if user is None:
             raise UserNotFoundError(user_id)
         updated = replace(user, academic_level_id=academic_level_id, section_id=section_id)
+        self._by_id[user_id] = updated
+        return updated
+
+    async def update_login_state(self, user_id, *, failed_login_attempts, locked_until, last_login_at):
+        user = self._by_id.get(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        updates = {"failed_login_attempts": failed_login_attempts, "locked_until": locked_until}
+        if last_login_at is not None:
+            updates["last_login_at"] = last_login_at
+        updated = replace(user, **updates)
+        self._by_id[user_id] = updated
+        return updated
+
+    async def set_password(self, user_id, hashed_password):
+        user = self._by_id.get(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        updated = replace(user, hashed_password=hashed_password)
+        self._by_id[user_id] = updated
+        return updated
+
+    async def mark_email_verified(self, user_id, verified_at):
+        user = self._by_id.get(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        updated = replace(user, is_verified=True, email_verified_at=verified_at)
         self._by_id[user_id] = updated
         return updated
 
@@ -133,6 +166,96 @@ class FakeRefreshTokenRepository(RefreshTokenRepository):
         for token_id, token in list(self._by_id.items()):
             if token.user_id == user_id and token.is_active:
                 await self.revoke(token_id)
+
+
+class FakeSchoolRepository(SchoolRepository):
+    def __init__(self):
+        self._schools: dict[str, School] = {}
+        self._classes: dict[str, SchoolClass] = {}
+
+    async def search(self, query, *, limit=20):
+        schools = list(self._schools.values())
+        if query:
+            lowered = query.lower()
+            schools = [s for s in schools if lowered in s.name.lower()]
+        return sorted(schools, key=lambda s: s.name)[:limit]
+
+    async def get_by_id(self, school_id):
+        return self._schools.get(school_id)
+
+    async def create(self, *, name, country, city):
+        school = School(
+            id=str(uuid.uuid4()), name=name, country=country, city=city, status="active",
+            created_at=datetime.now(timezone.utc),
+        )
+        self._schools[school.id] = school
+        return school
+
+    async def list_classes(self, school_id):
+        return [c for c in self._classes.values() if c.school_id == school_id]
+
+    async def get_class(self, class_id):
+        return self._classes.get(class_id)
+
+    async def create_class(self, *, school_id, level, label):
+        school_class = SchoolClass(
+            id=str(uuid.uuid4()), school_id=school_id, level=level, label=label,
+            created_at=datetime.now(timezone.utc),
+        )
+        self._classes[school_class.id] = school_class
+        return school_class
+
+
+class FakeVerificationTokenRepository(VerificationTokenRepository):
+    def __init__(self):
+        self._by_id: dict[str, VerificationToken] = {}
+
+    async def create(self, *, user_id, token_hash, purpose, expires_at):
+        token = VerificationToken(
+            id=str(uuid.uuid4()), user_id=user_id, token_hash=token_hash, purpose=purpose, expires_at=expires_at,
+            used_at=None, created_at=datetime.now(timezone.utc),
+        )
+        self._by_id[token.id] = token
+        return token
+
+    async def get_active_by_hash(self, token_hash, *, purpose):
+        token = next(
+            (t for t in self._by_id.values() if t.token_hash == token_hash and t.purpose == purpose), None
+        )
+        if token is None or not token.is_active or token.expires_at < datetime.now(timezone.utc):
+            return None
+        return token
+
+    async def mark_used(self, token_id):
+        token = self._by_id.get(token_id)
+        if token is not None:
+            self._by_id[token_id] = replace(token, used_at=datetime.now(timezone.utc))
+
+    async def invalidate_all_for_user(self, user_id, *, purpose):
+        for token_id, token in list(self._by_id.items()):
+            if token.user_id == user_id and token.purpose == purpose and token.is_active:
+                await self.mark_used(token_id)
+
+
+class FakeSecurityEventRepository(SecurityEventRepository):
+    def __init__(self):
+        self.events: list[dict] = []
+
+    async def record(self, *, user_id, event_type, detail=None):
+        self.events.append({"user_id": user_id, "event_type": event_type, "detail": detail})
+
+
+class FakeEmailSender(EmailSender):
+    """Records every "sent" email instead of doing anything with it — tests
+    assert against `.sent` to check a verification/reset email was queued,
+    and can pull the token back out of the body to exercise the next step of
+    the flow (verify-email / reset-password) without needing a real inbox."""
+
+    def __init__(self):
+        self.sent: list[dict] = []
+
+    async def send(self, *, to, subject, body):
+        self.sent.append({"to": to, "subject": subject, "body": body})
 
 
 class FakeSubjectRepository(SubjectRepository):

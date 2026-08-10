@@ -34,7 +34,7 @@ English, French, and Arabic, via `lib/i18n/translations.ts` + `lib/language-cont
 
 ```
 app/                 expo-router routes (file-based)
-  (auth)/             login, register
+  (auth)/             login, register, forgot-password, reset-password
   (tabs)/             the four main tabs: home, cards, study-plan, progress, settings
   subject/            subject detail (documents, summaries, exams) + create-subject
   subject-pack/       curriculum pack picker (Country -> System -> Level -> Section -> preview)
@@ -44,7 +44,7 @@ app/                 expo-router routes (file-based)
   quiz/               quiz-taking flow
   onboarding.tsx      first-run setup (create first subject + daily study time)
   _layout.tsx          root layout: font loading, Stack.Protected auth gating, navigation shell
-components/ui/        shared primitives (Button, Card, TextField, DatePickerField, ProgressBar, Text, Screen, Tag, Avatar, RingProgress, AnimatedNumber, IconButton)
+components/ui/        shared primitives (Button, Card, TextField, DatePickerField, SchoolPickerField, ProgressBar, Text, Screen, Tag, Avatar, RingProgress, AnimatedNumber, IconButton)
 constants/theme.ts     design tokens
 lib/api/               typed API client, one module per backend engine
 lib/auth-context.tsx   global auth state (login/register/logout, token refresh)
@@ -56,20 +56,22 @@ lib/language-context.tsx  en/fr/ar + RTL
 
 `lib/api/client.ts` wraps `fetch` with: auth token injection, automatic one-shot refresh-and-retry on a 401, and normalized error messages (the backend's `DomainError` handler always returns `{"detail": "..."}`, which `ApiError` unwraps). Tokens go through `lib/storage.ts`, not `AsyncStorage`, since they're credentials — that wrapper uses real `expo-secure-store` on iOS/Android and `localStorage` on web, because `expo-secure-store`'s web target is a long-standing broken upstream (throws `getValueWithKeyAsync is not a function` instead of falling back) rather than something we could fix by calling it differently.
 
-Each backend engine has its own typed module under `lib/api/` (`auth.ts`, `account.ts`, `curriculum.ts`, `subjectPacks.ts`, `subjects.ts`, `documents.ts`, `chat.ts`, `summaries.ts`, `quizzes.ts`, `exams.ts`, `flashcards.ts`, `progress.ts`, `studyPlans.ts`, `analytics.ts`) mirroring the backend's own per-engine structure. Types in `lib/api/types.ts` are hand-mirrored from the backend's pydantic response schemas — there's no shared codegen yet, so if a backend response shape changes, update the type here too.
+Each backend engine has its own typed module under `lib/api/` (`auth.ts`, `account.ts`, `schools.ts`, `curriculum.ts`, `subjectPacks.ts`, `subjects.ts`, `documents.ts`, `chat.ts`, `summaries.ts`, `quizzes.ts`, `exams.ts`, `flashcards.ts`, `progress.ts`, `studyPlans.ts`, `analytics.ts`) mirroring the backend's own per-engine structure. Types in `lib/api/types.ts` are hand-mirrored from the backend's pydantic response schemas — there's no shared codegen yet, so if a backend response shape changes, update the type here too. `schools.ts` deliberately passes `auth: false` on every call — those backend routes are public, since a student searches for/adds their school *during* the registration form, before a token exists.
 
 `app/_layout.tsx` gates auth with `Stack.Protected guard={...}`, not a `useEffect` + `router.replace`. The effect-based version has a real race condition: it renders whichever screen the router picks first and only redirects a tick later, so an unauthenticated load would still mount `(tabs)/index` for one frame and fire its data-fetching effect with no access token — surfacing as `ApiError: Not authenticated`. `Stack.Protected` prevents a guarded screen from mounting at all until its guard is true, closing that race at the source.
 
 ## What's built vs. what's next
 
-Built: register (name/email/pseudo/date of birth/optional school/password+confirm, with live inline validation) / login (with token refresh), a short onboarding flow with a curriculum pack picker (also reachable later from Settings to add another pack), the five-tab shell, a real subject list wired to the analytics engine (due-card counts, mastery), subject detail with document upload + a documents list, per-document summaries, RAG chat (whole-subject or scoped to a single document via "ask about this document"), quiz + exam generation with the full step-by-step attempt flow and results, flashcard review (SM-2), a concept-mastery tree view, a study-plan generation form, and account settings (theme, language, reset account).
+Built: register (name/email/pseudo/date of birth/school picker/password+confirm, with live inline validation) / login (with token refresh, account-lockout messaging) / forgot-password + reset-password (code-based, since there's no deep-link scheme set up — see backend/README.md's Email section for why the code has to be copied from the server console for now), a short onboarding flow with a curriculum pack picker (also reachable later from Settings to add another pack), the five-tab shell, a real subject list wired to the analytics engine (due-card counts, mastery), subject detail with document upload + a documents list, per-document summaries, RAG chat (whole-subject or scoped to a single document via "ask about this document"), quiz + exam generation with the full step-by-step attempt flow and results, flashcard review (SM-2), a concept-mastery tree view, a study-plan generation form, and account settings (theme, language, reset account).
+
+The school field on registration is `SchoolPickerField` (`components/ui/SchoolPickerField.tsx`) — search-as-you-type against `GET /schools`, or add a new one inline if it's not found (same "not in list" fallback the date-of-birth/classe pickers don't need, since schools have no fixed catalog to browse). No verify-email screen exists yet — there's a working `authApi.verifyEmail()` call but nothing in the UI drives it, since login isn't blocked on verification either (see backend/README.md).
 
 Known gaps, in rough priority order:
 
 1. **No "list my study plans" endpoint on the backend** — the Study Plan tab can generate a plan and show it, but a generated plan isn't persisted anywhere the app can re-fetch it after a restart. The architecture doc's Planning Engine API contract only specifies generate/get-one/update-item; adding a `GET /study-plans` (list mine) is a small, natural backend follow-up.
 2. **The onboarding daily-minutes choice isn't persisted as a user preference** (no such backend setting exists yet) — it's passed through as a router param to pre-fill the Study Plan tab once, not saved.
 3. **Push notifications** (flashcard-due / study-plan-session reminders) aren't set up — would use `expo-notifications` with an EAS development build (push doesn't work in Expo Go as of SDK 53+).
-4. **Email verification / password reset have no UI** — matches the backend, which doesn't send real email yet either (see `backend/README.md`).
+4. **No verify-email screen** — the API call exists (`authApi.verifyEmail`), nothing in the UI calls it yet.
 
 ## Troubleshooting
 

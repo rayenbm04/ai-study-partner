@@ -26,6 +26,16 @@ class Settings(BaseSettings):
 
     allowed_origins: str = "http://localhost:5173"
 
+    # Login-attempt limiting.
+    login_max_failed_attempts: int = 5
+    login_lockout_minutes: int = 15
+
+    # Email verification / password reset. No real email provider is wired up
+    # yet (EMAIL_SENDER=logging just logs the link) — see app/services/email/.
+    email_sender: str = "logging"  # logging | (a real provider, later)
+    email_verification_token_expire_hours: int = 24
+    password_reset_token_expire_minutes: int = 60
+
     # LLM providers. See docs/LLM_PROVIDERS.md.
     llm_provider: str = "gemini"          # gemini | groq | openrouter | openai
     embedding_provider: str = "gemini"    # gemini | local — see docs/LLM_PROVIDERS.md

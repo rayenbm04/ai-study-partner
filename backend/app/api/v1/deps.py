@@ -26,16 +26,21 @@ from app.repositories.progress_repo import SqlAlchemyProgressRepository
 from app.repositories.quiz_attempt_repo import SqlAlchemyQuizAttemptRepository
 from app.repositories.quiz_repo import SqlAlchemyQuizRepository
 from app.repositories.refresh_token_repo import SqlAlchemyRefreshTokenRepository
+from app.repositories.school_repo import SqlAlchemySchoolRepository
+from app.repositories.security_event_repo import SqlAlchemySecurityEventRepository
 from app.repositories.student_answer_repo import SqlAlchemyStudentAnswerRepository
 from app.repositories.study_plan_repo import SqlAlchemyStudyPlanRepository
 from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.repositories.summary_repo import SqlAlchemySummaryRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
+from app.repositories.verification_token_repo import SqlAlchemyVerificationTokenRepository
 from app.repositories.weak_concept_repo import SqlAlchemyWeakConceptRepository
 from app.services.account_service import AccountService
 from app.services.analytics_engine.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.document_service import DocumentService
+from app.services.email.base import EmailSender
+from app.services.email.factory import build_email_sender
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.embeddings.factory import build_embedding_provider
 from app.services.exam_engine.exam_service import ExamService
@@ -47,6 +52,7 @@ from app.services.planning_engine.planning_service import PlanningService
 from app.services.progress_engine.progress_service import ProgressService
 from app.services.quiz_engine.quiz_service import QuizService
 from app.services.rag.chat_service import ChatService
+from app.services.school_service import SchoolService
 from app.services.subject_pack_service import SubjectPackService
 from app.services.subject_service import SubjectService
 from app.services.summary_engine.summary_service import SummaryService
@@ -61,6 +67,22 @@ def get_user_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyUserRepo
 
 def get_refresh_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyRefreshTokenRepository:
     return SqlAlchemyRefreshTokenRepository(session)
+
+
+def get_school_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemySchoolRepository:
+    return SqlAlchemySchoolRepository(session)
+
+
+def get_verification_token_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyVerificationTokenRepository:
+    return SqlAlchemyVerificationTokenRepository(session)
+
+
+def get_security_event_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemySecurityEventRepository:
+    return SqlAlchemySecurityEventRepository(session)
+
+
+def get_email_sender() -> EmailSender:
+    return build_email_sender(settings)
 
 
 def get_subject_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemySubjectRepository:
@@ -148,8 +170,29 @@ def get_embedding_provider() -> EmbeddingProvider:
 def get_auth_service(
     user_repo: SqlAlchemyUserRepository = Depends(get_user_repo),
     refresh_repo: SqlAlchemyRefreshTokenRepository = Depends(get_refresh_repo),
+    school_repo: SqlAlchemySchoolRepository = Depends(get_school_repo),
+    verification_token_repo: SqlAlchemyVerificationTokenRepository = Depends(get_verification_token_repo),
+    security_event_repo: SqlAlchemySecurityEventRepository = Depends(get_security_event_repo),
+    email_sender: EmailSender = Depends(get_email_sender),
 ) -> AuthService:
-    return AuthService(user_repo, refresh_repo)
+    return AuthService(
+        user_repo,
+        refresh_repo,
+        school_repo=school_repo,
+        verification_token_repo=verification_token_repo,
+        security_event_repo=security_event_repo,
+        email_sender=email_sender,
+        max_failed_attempts=settings.login_max_failed_attempts,
+        lockout_minutes=settings.login_lockout_minutes,
+        email_verification_ttl_hours=settings.email_verification_token_expire_hours,
+        password_reset_ttl_minutes=settings.password_reset_token_expire_minutes,
+    )
+
+
+def get_school_service(
+    school_repo: SqlAlchemySchoolRepository = Depends(get_school_repo),
+) -> SchoolService:
+    return SchoolService(school_repo)
 
 
 def get_subject_service(

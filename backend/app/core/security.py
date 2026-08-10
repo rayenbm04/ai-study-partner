@@ -84,6 +84,12 @@ def create_refresh_token() -> str:
     return secrets.token_urlsafe(48)
 
 
+def create_verification_token() -> str:
+    """Opaque token backing email verification / password reset links — same
+    generation + only-the-hash-is-stored approach as refresh tokens."""
+    return secrets.token_urlsafe(32)
+
+
 def hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 

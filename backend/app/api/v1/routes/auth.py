@@ -1,7 +1,16 @@
 from fastapi import APIRouter, Depends, status
 
 from app.api.v1.deps import get_auth_service, get_current_user
-from app.api.v1.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserResponse
+from app.api.v1.schemas.auth import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    UserResponse,
+    VerifyEmailRequest,
+)
 from app.domain.entities.user import User
 from app.services.auth_service import AuthService
 
@@ -18,7 +27,7 @@ async def register(payload: RegisterRequest, service: AuthService = Depends(get_
         lastname=payload.lastname,
         pseudo=payload.pseudo,
         date_of_birth=payload.date_of_birth,
-        school_name=payload.school_name,
+        school_id=payload.school_id,
     )
     return UserResponse.from_entity(user)
 
@@ -44,3 +53,21 @@ async def logout(payload: RefreshRequest, service: AuthService = Depends(get_aut
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return UserResponse.from_entity(current_user)
+
+
+@router.post("/verify-email", response_model=UserResponse)
+async def verify_email(payload: VerifyEmailRequest, service: AuthService = Depends(get_auth_service)) -> UserResponse:
+    user = await service.verify_email(payload.token)
+    return UserResponse.from_entity(user)
+
+
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
+async def forgot_password(payload: ForgotPasswordRequest, service: AuthService = Depends(get_auth_service)) -> None:
+    await service.request_password_reset(payload.email)
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(payload: ResetPasswordRequest, service: AuthService = Depends(get_auth_service)) -> None:
+    await service.reset_password(
+        raw_token=payload.token, new_password=payload.new_password, confirm_new_password=payload.confirm_new_password
+    )
