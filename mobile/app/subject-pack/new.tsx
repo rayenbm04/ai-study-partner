@@ -17,6 +17,7 @@ import { Button, Card, IconButton, Screen, Text } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError, curriculumApi, subjectPacksApi } from "../../lib/api";
 import type { AcademicLevel, Country, CurriculumSubject, EducationSystem, Section } from "../../lib/api";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 type Step = "country" | "system" | "level" | "section" | "preview";
@@ -24,6 +25,7 @@ type Step = "country" | "system" | "level" | "section" | "preview";
 export default function SubjectPackPickerScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { t, tn } = useLanguage();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   const [step, setStep] = useState<Step>("country");
@@ -48,7 +50,7 @@ export default function SubjectPackPickerScreen() {
     curriculumApi
       .listCountries()
       .then(setCountries)
-      .catch(() => setError("Couldn't load countries. Try again."))
+      .catch(() => setError(t("subjectPack.loadCountriesError")))
       .finally(() => setIsLoadingOptions(false));
   }, []);
 
@@ -75,7 +77,7 @@ export default function SubjectPackPickerScreen() {
       setSystems(await curriculumApi.listEducationSystems(selected.id));
       setStep("system");
     } catch {
-      setError("Couldn't load education systems. Try again.");
+      setError(t("subjectPack.loadSystemsError"));
     } finally {
       setIsLoadingOptions(false);
     }
@@ -89,7 +91,7 @@ export default function SubjectPackPickerScreen() {
       setLevels(await curriculumApi.listAcademicLevels(selected.id));
       setStep("level");
     } catch {
-      setError("Couldn't load academic levels. Try again.");
+      setError(t("subjectPack.loadLevelsError"));
     } finally {
       setIsLoadingOptions(false);
     }
@@ -110,7 +112,7 @@ export default function SubjectPackPickerScreen() {
         setStep("preview");
       }
     } catch {
-      setError("Couldn't load this level. Try again.");
+      setError(t("subjectPack.loadLevelError"));
     } finally {
       setIsLoadingOptions(false);
     }
@@ -125,7 +127,7 @@ export default function SubjectPackPickerScreen() {
       setPreviewSubjects(await curriculumApi.listCurriculumSubjects(level.id, selected.id));
       setStep("preview");
     } catch {
-      setError("Couldn't load subjects. Try again.");
+      setError(t("subjectPack.loadSubjectsError"));
     } finally {
       setIsLoadingOptions(false);
     }
@@ -142,16 +144,24 @@ export default function SubjectPackPickerScreen() {
         // user (active, or from a different pack that happens to share a
         // name) — nothing changed, so don't silently navigate away as if it
         // worked.
-        setError(`You already have a subject named "${result.skipped_duplicate_names[0]}" — nothing was added.`);
+        setError(t("subjectPack.duplicateError", { name: result.skipped_duplicate_names[0] }));
         return;
       }
       router.replace({ pathname: (returnTo ?? "/onboarding") as never, params: { packApplied: "1" } });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't add this pack. Try again.");
+      setError(err instanceof ApiError ? err.message : t("subjectPack.applyError"));
     } finally {
       setIsApplying(false);
     }
   }
+
+  const STEP_COPY: Record<Step, { title: string; subtitle: string }> = {
+    country: { title: t("subjectPack.stepCountryTitle"), subtitle: t("subjectPack.stepCountrySubtitle") },
+    system: { title: t("subjectPack.stepSystemTitle"), subtitle: "" },
+    level: { title: t("subjectPack.stepLevelTitle"), subtitle: t("subjectPack.stepLevelSubtitle") },
+    section: { title: t("subjectPack.stepSectionTitle"), subtitle: "" },
+    preview: { title: t("subjectPack.stepPreviewTitle"), subtitle: t("subjectPack.stepPreviewSubtitle") },
+  };
 
   const { title, subtitle } = STEP_COPY[step];
 
@@ -181,7 +191,7 @@ export default function SubjectPackPickerScreen() {
         <ScrollView contentContainerStyle={styles.list}>
           {step === "country" &&
             (countries.length === 0 ? (
-              <EmptyState text="No countries in the catalog yet." />
+              <EmptyState text={t("subjectPack.noCountries")} />
             ) : (
               countries.map((c) => <OptionRow key={c.id} label={c.name} onPress={() => selectCountry(c)} />)
             ))}
@@ -194,7 +204,7 @@ export default function SubjectPackPickerScreen() {
           {step === "preview" && (
             <>
               {previewSubjects.length === 0 ? (
-                <EmptyState text="No subjects found for this selection." />
+                <EmptyState text={t("subjectPack.noSubjectsFound")} />
               ) : (
                 previewSubjects.map((s) => (
                   <Card key={s.id} style={styles.previewCard}>
@@ -203,7 +213,7 @@ export default function SubjectPackPickerScreen() {
                 ))
               )}
               <Button
-                label={`Add ${previewSubjects.length} subject${previewSubjects.length === 1 ? "" : "s"}`}
+                label={tn("subjectPack.addSubjects", previewSubjects.length)}
                 onPress={handleApply}
                 loading={isApplying}
                 disabled={previewSubjects.length === 0}
@@ -216,14 +226,6 @@ export default function SubjectPackPickerScreen() {
     </Screen>
   );
 }
-
-const STEP_COPY: Record<Step, { title: string; subtitle: string }> = {
-  country: { title: "Choose your country", subtitle: "We'll show the curriculum for your education system." },
-  system: { title: "Choose your education system", subtitle: "" },
-  level: { title: "Choose your year", subtitle: "e.g. Bac, 3eme" },
-  section: { title: "Choose your section", subtitle: "" },
-  preview: { title: "Ready to add", subtitle: "These subjects will be added to your account." },
-};
 
 function OptionRow({ label, onPress }: { label: string; onPress: () => void }) {
   const { colors } = useTheme();

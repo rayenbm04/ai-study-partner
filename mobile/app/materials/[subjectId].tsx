@@ -15,16 +15,9 @@ import { Card, IconButton, Screen, Tag, Text } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { documentsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
 import type { Document, QuizListItem, Subject, Summary } from "../../lib/api";
+import { localeTags } from "../../lib/i18n/translations";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
-
-const SUMMARY_TYPE_LABELS: Record<string, string> = {
-  short: "Short summary",
-  detailed: "Detailed summary",
-  bullet: "Bullet points",
-  key_concepts: "Key concepts",
-  formula_sheet: "Formula sheet",
-  definitions: "Definitions",
-};
 
 type DocumentSummaries = { document: Document; summaries: Summary[] };
 
@@ -32,6 +25,16 @@ export default function SavedMaterialsScreen() {
   const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t, tn, language } = useLanguage();
+
+  const SUMMARY_TYPE_LABELS: Record<string, string> = {
+    short: t("summaryType.short"),
+    detailed: t("summaryType.detailed"),
+    bullet: t("summaryType.bullet"),
+    key_concepts: t("summaryType.keyConcepts"),
+    formula_sheet: t("summaryType.formulaSheet"),
+    definitions: t("summaryType.definitions"),
+  };
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [quizzes, setQuizzes] = useState<QuizListItem[]>([]);
@@ -86,18 +89,18 @@ export default function SavedMaterialsScreen() {
           <IconButton name="chevron-back" onPress={() => router.back()} />
         </View>
         <Text variant="display" style={styles.title}>
-          Saved materials
+          {t("materials.title")}
         </Text>
         <Text variant="body" style={{ color: colors.textSecondary }}>
           {subject.name}
         </Text>
 
         <Text variant="title" style={styles.sectionLabel}>
-          Quizzes & Exams
+          {t("materials.quizzesAndExams")}
         </Text>
         {quizzes.length === 0 ? (
           <Card>
-            <Text variant="body">No quizzes or exams generated yet.</Text>
+            <Text variant="body">{t("materials.noQuizzes")}</Text>
           </Card>
         ) : (
           quizzes.map((quiz) => (
@@ -106,11 +109,11 @@ export default function SavedMaterialsScreen() {
                 <View style={styles.quizInfo}>
                   <Text variant="body">{quiz.title}</Text>
                   <Text variant="caption" style={{ marginTop: 2 }}>
-                    {quiz.question_count} question{quiz.question_count === 1 ? "" : "s"} ·{" "}
-                    {new Date(quiz.created_at).toLocaleDateString()}
+                    {tn("common.questionCount", quiz.question_count)} ·{" "}
+                    {new Date(quiz.created_at).toLocaleDateString(localeTags[language])}
                   </Text>
                 </View>
-                <Tag label={quiz.kind === "exam" ? "Exam" : "Quiz"} tone={quiz.kind === "exam" ? "accent" : "neutral"} />
+                <Tag label={quiz.kind === "exam" ? t("subjectDetail.exam") : t("subjectDetail.quiz")} tone={quiz.kind === "exam" ? "accent" : "neutral"} />
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </View>
             </Card>
@@ -118,11 +121,11 @@ export default function SavedMaterialsScreen() {
         )}
 
         <Text variant="title" style={styles.sectionLabel}>
-          Summaries
+          {t("materials.summaries")}
         </Text>
         {documentSummaries.length === 0 ? (
           <Card>
-            <Text variant="body">No summaries generated yet.</Text>
+            <Text variant="body">{t("materials.noSummaries")}</Text>
           </Card>
         ) : (
           documentSummaries.map(({ document, summaries }) => (

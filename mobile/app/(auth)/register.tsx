@@ -6,11 +6,13 @@ import { Button, Screen, Text, TextField } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 export default function RegisterScreen() {
   const { register } = useAuth();
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const router = useRouter();
   const [firstname, setFirstname] = useState("");
   const [lastname, setLastname] = useState("");
@@ -31,7 +33,7 @@ export default function RegisterScreen() {
       // (login.tsx) skip straight there.
       router.replace("/onboarding");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't create your account. Try again.");
+      setError(err instanceof ApiError ? err.message : t("auth.registerError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -40,19 +42,19 @@ export default function RegisterScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="display">Create your account</Text>
+        <Text variant="display">{t("auth.registerTitle")}</Text>
         <Text variant="body" style={styles.subtitle}>
-          A few seconds, then straight into your first subject.
+          {t("auth.registerSubtitle")}
         </Text>
       </View>
 
       <View>
         <View style={styles.row}>
-          <TextField label="First name" value={firstname} onChangeText={setFirstname} style={styles.rowField} />
-          <TextField label="Last name" value={lastname} onChangeText={setLastname} style={styles.rowField} />
+          <TextField label={t("auth.firstName")} value={firstname} onChangeText={setFirstname} style={styles.rowField} />
+          <TextField label={t("auth.lastName")} value={lastname} onChangeText={setLastname} style={styles.rowField} />
         </View>
         <TextField
-          label="Email"
+          label={t("auth.email")}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -61,7 +63,7 @@ export default function RegisterScreen() {
           style={styles.field}
         />
         <TextField
-          label="Password"
+          label={t("auth.password")}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -69,7 +71,7 @@ export default function RegisterScreen() {
           style={styles.field}
         />
         <Text variant="caption" style={styles.hint}>
-          At least 8 characters.
+          {t("auth.passwordHint")}
         </Text>
         {error ? (
           <Text variant="caption" style={[styles.error, { color: colors.error }]}>
@@ -77,13 +79,13 @@ export default function RegisterScreen() {
           </Text>
         ) : null}
         <Button
-          label="Create account"
+          label={t("auth.createAccountSubmit")}
           onPress={handleSubmit}
           loading={isSubmitting}
           disabled={!canSubmit}
           style={styles.submit}
         />
-        <Button label="I already have an account" variant="ghost" onPress={() => router.back()} />
+        <Button label={t("auth.haveAccount")} variant="ghost" onPress={() => router.back()} />
       </View>
     </Screen>
   );

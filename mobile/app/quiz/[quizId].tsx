@@ -21,12 +21,14 @@ import { Button, IconButton, Screen, Text, TextField } from "../../components/ui
 import { radii, spacing } from "../../constants/theme";
 import { quizzesApi } from "../../lib/api";
 import type { Quiz, QuizAttemptResult } from "../../lib/api";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 export default function QuizAttemptScreen() {
   const { quizId } = useLocalSearchParams<{ quizId: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export default function QuizAttemptScreen() {
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accent} />
           <Text variant="body" style={{ marginTop: spacing.md, color: colors.textSecondary }}>
-            Time's up — submitting your exam…
+            {t("quiz.timeUp")}
           </Text>
         </View>
       </Screen>
@@ -164,7 +166,7 @@ export default function QuizAttemptScreen() {
 
       <ScrollView contentContainerStyle={styles.body}>
         <Text variant="label" style={{ color: colors.accentDark }}>
-          Question {currentIndex + 1} of {quiz.questions.length}
+          {t("quiz.questionOf", { current: currentIndex + 1, total: quiz.questions.length })}
         </Text>
         <Text variant="display" style={styles.question}>
           {currentQuestion.question}
@@ -196,7 +198,7 @@ export default function QuizAttemptScreen() {
           </View>
         ) : (
           <TextField
-            placeholder="Type your answer"
+            placeholder={t("quiz.typeYourAnswer")}
             value={currentAnswer}
             onChangeText={setCurrentAnswer}
             multiline={currentQuestion.type === "short_answer"}
@@ -206,7 +208,7 @@ export default function QuizAttemptScreen() {
       </ScrollView>
 
       <Button
-        label={isLastQuestion ? "Finish" : "Continue"}
+        label={isLastQuestion ? t("quiz.finish") : t("quiz.continue")}
         onPress={handleContinue}
         loading={isSubmittingAnswer}
         disabled={!currentAnswer.trim()}
@@ -233,6 +235,7 @@ function TimerChip({ seconds }: { seconds: number }) {
 
 function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: () => void }) {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const score = result.score !== null ? Math.round(result.score) : null;
 
   return (
@@ -243,7 +246,7 @@ function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: ()
             <Text variant="hero">{score !== null ? `${score}%` : "—"}</Text>
           </View>
           <Text variant="display" style={styles.scoreTitle}>
-            Nice work
+            {t("quiz.niceWork")}
           </Text>
         </View>
 
@@ -270,11 +273,11 @@ function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: ()
               </Text>
             </View>
             <Text variant="caption" style={styles.resultLabel}>
-              Your answer: {answer.student_answer ?? "—"}
+              {t("quiz.yourAnswer", { answer: answer.student_answer ?? "—" })}
             </Text>
             {!answer.is_correct ? (
               <Text variant="caption" style={styles.resultLabel}>
-                Correct answer: {answer.correct_answer}
+                {t("quiz.correctAnswer", { answer: answer.correct_answer })}
               </Text>
             ) : null}
             {answer.explanation ? (
@@ -285,7 +288,7 @@ function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: ()
           </View>
         ))}
       </ScrollView>
-      <Button label="Done" onPress={onDone} style={styles.action} />
+      <Button label={t("quiz.done")} onPress={onDone} style={styles.action} />
     </Screen>
   );
 }

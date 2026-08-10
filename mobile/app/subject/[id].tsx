@@ -16,32 +16,41 @@ import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { ApiError, analyticsApi, documentsApi, examsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
 import type { Document, DocumentType, Subject, SubjectAnalytics, Summary, SummaryType } from "../../lib/api";
 import { confirmDestructiveAction } from "../../lib/confirm";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 const EXAM_DURATIONS = [15, 30, 45, 60];
-
-const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  exam: "Exam",
-  resume: "Résumé",
-  td: "TD",
-  tp: "TP",
-  cours: "Cours",
-  other: "Other",
-};
-
-const SUMMARY_TYPES: { type: SummaryType; label: string }[] = [
-  { type: "short", label: "Short" },
-  { type: "detailed", label: "Detailed" },
-  { type: "bullet", label: "Bullet points" },
-  { type: "key_concepts", label: "Key concepts" },
-  { type: "formula_sheet", label: "Formula sheet" },
-  { type: "definitions", label: "Definitions" },
-];
 
 export default function SubjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
+
+  const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+    exam: t("documentType.exam"),
+    resume: t("documentType.resume"),
+    td: "TD",
+    tp: "TP",
+    cours: t("documentType.cours"),
+    other: t("documentType.other"),
+  };
+
+  const SUMMARY_TYPES: { type: SummaryType; label: string }[] = [
+    { type: "short", label: t("summaryType.short") },
+    { type: "detailed", label: t("summaryType.detailed") },
+    { type: "bullet", label: t("summaryType.bullet") },
+    { type: "key_concepts", label: t("summaryType.keyConcepts") },
+    { type: "formula_sheet", label: t("summaryType.formulaSheet") },
+    { type: "definitions", label: t("summaryType.definitions") },
+  ];
+
+  const DOCUMENT_STATUS_LABELS: Record<Document["status"], string> = {
+    pending: t("documentStatus.pending"),
+    processing: t("documentStatus.processing"),
+    ready: t("documentStatus.ready"),
+    failed: t("documentStatus.failed"),
+  };
   const [subject, setSubject] = useState<Subject | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<SubjectAnalytics | null>(null);
@@ -98,7 +107,7 @@ export default function SubjectDetailScreen() {
       const document = await documentsApi.uploadDocument(id, file);
       setDocuments((prev) => [document, ...prev]);
     } catch (err) {
-      setDocumentError(err instanceof ApiError ? err.message : "Couldn't upload that file. Try again.");
+      setDocumentError(err instanceof ApiError ? err.message : t("subjectDetail.uploadError"));
     } finally {
       setIsUploading(false);
     }
@@ -106,8 +115,10 @@ export default function SubjectDetailScreen() {
 
   async function handleDelete(document: Document) {
     const confirmed = await confirmDestructiveAction(
-      "Delete this document?",
-      `"${document.original_filename}" and anything generated from it (summaries, quizzes, exams) will be permanently removed.`
+      t("subjectDetail.deleteDocTitle"),
+      t("subjectDetail.deleteDocBody", { filename: document.original_filename }),
+      t("common.delete"),
+      t("common.cancel")
     );
     if (!confirmed) return;
     await documentsApi.deleteDocument(document.id);
@@ -118,7 +129,7 @@ export default function SubjectDetailScreen() {
     try {
       await documentsApi.previewDocument(document);
     } catch {
-      setDocumentError("Couldn't open that document. Try again.");
+      setDocumentError(t("subjectDetail.previewError"));
     }
   }
 
@@ -186,13 +197,13 @@ export default function SubjectDetailScreen() {
         {stats ? (
           <Card onPress={() => router.push(`/concepts/${id}`)} style={styles.statsCard}>
             <View style={styles.statsRow}>
-              <Stat label="Mastery" value={stats.average_mastery !== null ? `${Math.round(stats.average_mastery)}%` : "—"} />
-              <Stat label="Weak spots" value={String(stats.weak_concept_count)} />
-              <Stat label="Due cards" value={String(stats.flashcards_due_count)} />
+              <Stat label={t("subjectDetail.mastery")} value={stats.average_mastery !== null ? `${Math.round(stats.average_mastery)}%` : "—"} />
+              <Stat label={t("progress.weakSpots")} value={String(stats.weak_concept_count)} />
+              <Stat label={t("subjectDetail.dueCards")} value={String(stats.flashcards_due_count)} />
             </View>
             <View style={styles.statsHint}>
               <Text variant="caption" style={{ color: colors.accentDark }}>
-                View concept map
+                {t("subjectDetail.viewConceptMap")}
               </Text>
               <Ionicons name="chevron-forward" size={13} color={colors.accentDark} />
             </View>
@@ -200,24 +211,24 @@ export default function SubjectDetailScreen() {
         ) : null}
 
         <View style={styles.actionsRow}>
-          <Button label="Ask the Coach" onPress={() => router.push(`/coach/${id}`)} style={styles.coachButton} />
+          <Button label={t("subjectDetail.askCoach")} onPress={() => router.push(`/coach/${id}`)} style={styles.coachButton} />
         </View>
         <Pressable style={styles.materialsLink} onPress={() => router.push(`/materials/${id}`)}>
           <Text variant="caption" style={{ color: colors.accentDark }}>
-            View saved summaries, quizzes & exams
+            {t("subjectDetail.viewSavedMaterials")}
           </Text>
           <Ionicons name="chevron-forward" size={13} color={colors.accentDark} />
         </Pressable>
 
         <View style={styles.sectionHeaderRow}>
-          <Text variant="title">Documents</Text>
+          <Text variant="title">{t("subjectDetail.documents")}</Text>
           <IconButton name="add" onPress={handleUpload} size={36} />
         </View>
         {isUploading ? (
           <View style={styles.uploadingRow}>
             <ActivityIndicator color={colors.accent} size="small" />
             <Text variant="caption" style={{ color: colors.textSecondary }}>
-              Uploading…
+              {t("subjectDetail.uploading")}
             </Text>
           </View>
         ) : null}
@@ -229,10 +240,10 @@ export default function SubjectDetailScreen() {
         {documents.length === 0 ? (
           <Card>
             <Text variant="body" style={styles.emptyDocsText}>
-              No documents yet. Upload an exam, résumé, TD, TP, or course file to get started.
+              {t("subjectDetail.noDocuments")}
             </Text>
             <Button
-              label="Upload a document"
+              label={t("subjectDetail.uploadDocument")}
               variant="secondary"
               onPress={handleUpload}
               loading={isUploading}
@@ -250,7 +261,7 @@ export default function SubjectDetailScreen() {
                   </Text>
                 </Pressable>
                 <View style={styles.docTags}>
-                  <Tag label={doc.status} tone={doc.status === "ready" ? "sage" : "neutral"} />
+                  <Tag label={DOCUMENT_STATUS_LABELS[doc.status]} tone={doc.status === "ready" ? "sage" : "neutral"} />
                   {doc.document_type ? <Tag label={DOCUMENT_TYPE_LABELS[doc.document_type]} tone="accent" /> : null}
                 </View>
                 <Pressable onPress={() => handleDelete(doc)} hitSlop={8} style={styles.docDelete}>
@@ -261,14 +272,14 @@ export default function SubjectDetailScreen() {
                 <View style={styles.docActions}>
                   <DocAction
                     icon="help-circle-outline"
-                    label="Quiz"
+                    label={t("subjectDetail.quiz")}
                     loading={generatingFor === doc.id}
                     onPress={() => handleGenerateQuiz(doc.id)}
                   />
-                  <DocAction icon="timer-outline" label="Exam" onPress={() => setExamSheetDocId(doc.id)} />
+                  <DocAction icon="timer-outline" label={t("subjectDetail.exam")} onPress={() => setExamSheetDocId(doc.id)} />
                   <DocAction
                     icon="reader-outline"
-                    label="Summary"
+                    label={t("subjectDetail.summary")}
                     onPress={() => {
                       setSummarySheetDocId(doc.id);
                       setSummaryResult(null);
@@ -282,7 +293,7 @@ export default function SubjectDetailScreen() {
 
         {readyDocuments.length === 0 && documents.length > 0 ? (
           <Text variant="caption" style={styles.processingNote}>
-            These actions unlock once at least one document finishes processing.
+            {t("subjectDetail.processingNote")}
           </Text>
         ) : null}
       </ScrollView>
@@ -290,10 +301,10 @@ export default function SubjectDetailScreen() {
       {examSheetDocId ? (
         <Sheet onClose={() => (isGeneratingExam ? null : setExamSheetDocId(null))}>
           <Text variant="display" style={styles.sheetTitle}>
-            Timed exam
+            {t("subjectDetail.timedExam")}
           </Text>
           <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.lg }}>
-            How much time should you get?
+            {t("subjectDetail.examDurationPrompt")}
           </Text>
           <View style={styles.durationRow}>
             {EXAM_DURATIONS.map((minutes) => (
@@ -306,7 +317,7 @@ export default function SubjectDetailScreen() {
                 {isGeneratingExam ? (
                   <ActivityIndicator color={colors.accent} size="small" />
                 ) : (
-                  <Text style={{ fontFamily: fontFamilies.semibold }}>{minutes} min</Text>
+                  <Text style={{ fontFamily: fontFamilies.semibold }}>{t("common.minutes", { minutes })}</Text>
                 )}
               </Pressable>
             ))}
@@ -319,29 +330,29 @@ export default function SubjectDetailScreen() {
           {summaryResult ? (
             <>
               <Text variant="display" style={styles.sheetTitle}>
-                {SUMMARY_TYPES.find((t) => t.type === summaryResult.summary_type)?.label ?? "Summary"}
+                {SUMMARY_TYPES.find((s) => s.type === summaryResult.summary_type)?.label ?? t("subjectDetail.summary")}
               </Text>
               <ScrollView style={styles.summaryScroll}>
                 <Text variant="body" style={{ color: colors.textSecondary }}>
                   {summaryResult.content}
                 </Text>
               </ScrollView>
-              <Button label="Choose another type" variant="secondary" onPress={() => setSummaryResult(null)} style={styles.sheetAction} />
+              <Button label={t("subjectDetail.chooseAnotherType")} variant="secondary" onPress={() => setSummaryResult(null)} style={styles.sheetAction} />
             </>
           ) : isSummaryLoading ? (
             <View style={styles.summaryLoading}>
               <ActivityIndicator color={colors.accent} />
               <Text variant="caption" style={styles.summaryLoadingText}>
-                Reading the document…
+                {t("subjectDetail.readingDocument")}
               </Text>
             </View>
           ) : (
             <>
               <Text variant="display" style={styles.sheetTitle}>
-                Summarize
+                {t("subjectDetail.summarize")}
               </Text>
               <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.lg }}>
-                Pick the kind of study aid you want.
+                {t("subjectDetail.summarizePrompt")}
               </Text>
               <View style={styles.summaryTypeGrid}>
                 {SUMMARY_TYPES.map(({ type, label }) => (

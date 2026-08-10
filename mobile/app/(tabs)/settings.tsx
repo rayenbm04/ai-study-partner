@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, Switch, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, StyleSheet, View } from "react-native";
 
 import { Avatar, Button, Card, IconButton, Screen, Text } from "../../components/ui";
 import { spacing } from "../../constants/theme";
@@ -8,6 +9,8 @@ import { accountApi, subjectPacksApi } from "../../lib/api";
 import type { AppliedSubjectPack } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { confirmDestructiveAction } from "../../lib/confirm";
+import { languageNames, type Language } from "../../lib/i18n/translations";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 function packLabel(pack: AppliedSubjectPack): string {
@@ -16,14 +19,28 @@ function packLabel(pack: AppliedSubjectPack): string {
   return parts.filter(Boolean).join(" · ");
 }
 
+const LANGUAGE_OPTIONS: Language[] = ["en", "fr", "ar"];
+
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
   const { colors, isDark, setDark } = useTheme();
+  const { language, setLanguage, t, tn } = useLanguage();
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
   const [packs, setPacks] = useState<AppliedSubjectPack[]>([]);
   const [isLoadingPacks, setIsLoadingPacks] = useState(true);
   const [removingPackKey, setRemovingPackKey] = useState<string | null>(null);
+
+  function handleSelectLanguage(next: Language) {
+    const restartRequired = setLanguage(next);
+    if (!restartRequired) return;
+    const message = t("settings.languageRestartNote");
+    if (Platform.OS === "web") {
+      window.alert(message);
+    } else {
+      Alert.alert(t("settings.language"), message);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -42,9 +59,10 @@ export default function SettingsScreen() {
   async function handleRemovePack(pack: AppliedSubjectPack) {
     const key = `${pack.academic_level_id}:${pack.section_id ?? ""}`;
     const confirmed = await confirmDestructiveAction(
-      "Remove this pack?",
-      `This archives the ${pack.subject_count} subject${pack.subject_count === 1 ? "" : "s"} it added (${packLabel(pack)}). Anything you've uploaded for them stays put.`,
-      "Remove"
+      t("settings.removePackTitle"),
+      tn("settings.removePackBody", pack.subject_count, { pack: packLabel(pack) }),
+      t("settings.remove"),
+      t("common.cancel")
     );
     if (!confirmed) return;
     setRemovingPackKey(key);
@@ -58,9 +76,10 @@ export default function SettingsScreen() {
 
   async function handleResetAccount() {
     const confirmed = await confirmDestructiveAction(
-      "Reset your account?",
-      "This permanently deletes every subject, document, quiz, flashcard, and progress record. Your login stays active. This can't be undone.",
-      "Reset"
+      t("settings.resetAccountTitle"),
+      t("settings.resetAccountConfirmBody"),
+      t("settings.resetAccount"),
+      t("common.cancel")
     );
     if (!confirmed) return;
     setIsResetting(true);
@@ -76,7 +95,7 @@ export default function SettingsScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.scroll}>
       <View style={styles.header}>
-        <Text variant="display">Settings</Text>
+        <Text variant="display">{t("settings.title")}</Text>
       </View>
 
       <Card style={styles.profileCard}>
@@ -92,12 +111,12 @@ export default function SettingsScreen() {
       </Card>
 
       <Text variant="label" style={styles.sectionLabel}>
-        Appearance
+        {t("settings.appearance")}
       </Text>
       <Card style={styles.rowsCard}>
         <View style={styles.row}>
           <Text variant="body" style={styles.rowLabel}>
-            Dark mode
+            {t("settings.darkMode")}
           </Text>
           <Switch
             value={isDark}
@@ -108,9 +127,30 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
+      <Text variant="label" style={styles.sectionLabel}>
+        {t("settings.language")}
+      </Text>
+      <Card style={styles.rowsCard}>
+        {LANGUAGE_OPTIONS.map((option, index) => (
+          <Pressable
+            key={option}
+            onPress={() => handleSelectLanguage(option)}
+            style={[
+              styles.row,
+              index < LANGUAGE_OPTIONS.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+            ]}
+          >
+            <Text variant="body" style={styles.rowLabel}>
+              {languageNames[option]}
+            </Text>
+            {language === option ? <Ionicons name="checkmark-circle" size={22} color={colors.accentDark} /> : null}
+          </Pressable>
+        ))}
+      </Card>
+
       <View style={styles.sectionHeaderRow}>
         <Text variant="label" style={[styles.sectionLabel, styles.sectionLabelInline]}>
-          Subjects
+          {t("settings.subjects")}
         </Text>
         <IconButton
           name="add"
@@ -123,7 +163,7 @@ export default function SettingsScreen() {
       ) : packs.length === 0 ? (
         <Card>
           <Text variant="body" style={{ color: colors.textSecondary }}>
-            No curriculum packs added yet. Add one to bulk-add every subject for your year.
+            {t("settings.noPacks")}
           </Text>
         </Card>
       ) : (
@@ -137,14 +177,12 @@ export default function SettingsScreen() {
               >
                 <View style={styles.rowLabel}>
                   <Text variant="body">{packLabel(pack)}</Text>
-                  <Text variant="caption">
-                    {pack.subject_count} subject{pack.subject_count === 1 ? "" : "s"}
-                  </Text>
+                  <Text variant="caption">{tn("settings.subjectCount", pack.subject_count)}</Text>
                 </View>
                 {removingPackKey === key ? (
                   <ActivityIndicator color={colors.error} size="small" />
                 ) : (
-                  <Button label="Remove" variant="ghost" onPress={() => handleRemovePack(pack)} />
+                  <Button label={t("settings.remove")} variant="ghost" onPress={() => handleRemovePack(pack)} />
                 )}
               </View>
             );
@@ -153,17 +191,16 @@ export default function SettingsScreen() {
       )}
 
       <Text variant="label" style={[styles.sectionLabel, { color: colors.error }]}>
-        Danger zone
+        {t("settings.dangerZone")}
       </Text>
       <Card>
         <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.md }}>
-          Permanently delete every subject, document, quiz, flashcard, and progress record. Your
-          login stays active.
+          {t("settings.resetAccountBody")}
         </Text>
-        <Button label="Reset account" variant="secondary" onPress={handleResetAccount} loading={isResetting} />
+        <Button label={t("settings.resetAccount")} variant="secondary" onPress={handleResetAccount} loading={isResetting} />
       </Card>
 
-      <Button label="Sign out" variant="secondary" onPress={logout} style={styles.signOut} />
+      <Button label={t("settings.signOut")} variant="secondary" onPress={logout} style={styles.signOut} />
       </ScrollView>
     </Screen>
   );

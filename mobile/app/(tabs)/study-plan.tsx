@@ -16,12 +16,14 @@ import { Button, Card, Screen, Tag, Text } from "../../components/ui";
 import { radii, spacing } from "../../constants/theme";
 import { ApiError, studyPlansApi, subjectsApi } from "../../lib/api";
 import type { StudyPlan, Subject } from "../../lib/api";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 const MINUTE_OPTIONS = [15, 30, 45, 60];
 
 export default function StudyPlanScreen() {
   const { colors } = useTheme();
+  const { t, tn } = useLanguage();
   const params = useLocalSearchParams<{ defaultDailyMinutes?: string }>();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
@@ -55,11 +57,7 @@ export default function StudyPlanScreen() {
       });
       setPlan(newPlan);
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Couldn't generate a plan. Make sure the selected subjects have documents processed."
-      );
+      setError(err instanceof ApiError ? err.message : t("studyPlan.generateError"));
     } finally {
       setIsGenerating(false);
     }
@@ -71,7 +69,7 @@ export default function StudyPlanScreen() {
         <View style={styles.header}>
           <Text variant="display">{plan.name}</Text>
           <Text variant="body" style={{ color: colors.textSecondary, marginTop: spacing.xs }}>
-            {plan.items.length} sessions scheduled
+            {tn("studyPlan.sessionsScheduled", plan.items.length)}
           </Text>
         </View>
         <FlatList
@@ -82,14 +80,14 @@ export default function StudyPlanScreen() {
             <Card style={styles.itemCard}>
               <View style={styles.itemRow}>
                 <Text variant="label">{item.scheduled_date}</Text>
-                <Tag label={item.activity_type} tone="accent" />
+                <Tag label={t(`activityType.${item.activity_type}`)} tone="accent" />
               </View>
-              <Text variant="body">{item.duration_minutes} min</Text>
+              <Text variant="body">{t("common.minutes", { minutes: item.duration_minutes })}</Text>
             </Card>
           )}
         />
         <Button
-          label="Generate a new plan"
+          label={t("studyPlan.generateNewPlan")}
           variant="secondary"
           onPress={() => setPlan(null)}
           style={styles.bottomAction}
@@ -101,14 +99,14 @@ export default function StudyPlanScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="display">Study Plan</Text>
+        <Text variant="display">{t("studyPlan.title")}</Text>
         <Text variant="body" style={{ color: colors.textSecondary, marginTop: spacing.xs }}>
-          Pick the subjects to include and how much time you have each day.
+          {t("studyPlan.subtitle")}
         </Text>
       </View>
 
       <Text variant="label" style={styles.sectionLabel}>
-        Subjects
+        {t("common.subjects")}
       </Text>
       <View style={styles.chipRow}>
         {subjects.map((subject) => {
@@ -129,7 +127,7 @@ export default function StudyPlanScreen() {
       </View>
 
       <Text variant="label" style={styles.sectionLabel}>
-        Daily study time
+        {t("studyPlan.dailyStudyTime")}
       </Text>
       <View style={styles.chipRow}>
         {MINUTE_OPTIONS.map((minutes) => {
@@ -143,7 +141,9 @@ export default function StudyPlanScreen() {
                 { backgroundColor: selected ? colors.primary : colors.surface, shadowColor: colors.shadow },
               ]}
             >
-              <Text style={{ color: selected ? colors.textOnPrimary : colors.textPrimary }}>{minutes} min</Text>
+              <Text style={{ color: selected ? colors.textOnPrimary : colors.textPrimary }}>
+                {t("common.minutes", { minutes })}
+              </Text>
             </Pressable>
           );
         })}
@@ -156,7 +156,7 @@ export default function StudyPlanScreen() {
       ) : null}
 
       <Button
-        label="Generate plan"
+        label={t("studyPlan.generatePlan")}
         onPress={handleGenerate}
         loading={isGenerating}
         disabled={selectedSubjectIds.length === 0}

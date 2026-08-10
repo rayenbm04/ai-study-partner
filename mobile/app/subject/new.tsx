@@ -5,11 +5,13 @@ import { StyleSheet, View } from "react-native";
 import { Button, IconButton, Screen, Text, TextField } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError, subjectsApi } from "../../lib/api";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 export default function NewSubjectScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function NewSubjectScreen() {
       });
       router.replace(`/subject/${subject.id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't create the subject. Try again.");
+      setError(err instanceof ApiError ? err.message : t("subjectNew.createError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -37,11 +39,11 @@ export default function NewSubjectScreen() {
         <IconButton name="close" onPress={() => router.back()} />
       </View>
       <View style={styles.header}>
-        <Text variant="display">New subject</Text>
+        <Text variant="display">{t("subjectNew.title")}</Text>
       </View>
-      <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Organic Chemistry" />
+      <TextField label={t("subjectNew.name")} value={name} onChangeText={setName} placeholder={t("subjectNew.namePlaceholder")} />
       <TextField
-        label="Description (optional)"
+        label={t("subjectNew.descriptionOptional")}
         value={description}
         onChangeText={setDescription}
         multiline
@@ -52,7 +54,7 @@ export default function NewSubjectScreen() {
           {error}
         </Text>
       ) : null}
-      <Button label="Create subject" onPress={handleCreate} loading={isSubmitting} disabled={!name.trim()} style={styles.action} />
+      <Button label={t("subjectNew.createSubject")} onPress={handleCreate} loading={isSubmitting} disabled={!name.trim()} style={styles.action} />
     </Screen>
   );
 }

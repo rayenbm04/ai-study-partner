@@ -21,13 +21,8 @@ import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { analyticsApi, progressApi, subjectsApi } from "../../lib/api";
 import type { ConceptMastery, OverviewAnalytics, Subject, WeakConcept } from "../../lib/api";
 import { flattenConceptNames, masteryColor } from "../../lib/progress-utils";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
-
-const REASON_LABEL: Record<WeakConcept["reason"], string> = {
-  repeated_errors: "Repeated mistakes",
-  slow_response: "Slow to answer",
-  decay: "Fading from memory",
-};
 
 type SubjectProgress = {
   subject: Subject;
@@ -38,6 +33,12 @@ type SubjectProgress = {
 export default function ProgressScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
+  const REASON_LABEL: Record<WeakConcept["reason"], string> = {
+    repeated_errors: t("weakConceptReason.repeatedErrors"),
+    slow_response: t("weakConceptReason.slowResponse"),
+    decay: t("weakConceptReason.decay"),
+  };
   const [isLoading, setIsLoading] = useState(true);
   const [overview, setOverview] = useState<OverviewAnalytics | null>(null);
   const [sections, setSections] = useState<SubjectProgress[]>([]);
@@ -92,13 +93,13 @@ export default function ProgressScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text variant="display" style={styles.header}>
-          Progress
+          {t("progress.header")}
         </Text>
 
         {sections.length === 0 ? (
           <Card>
-            <Text variant="body">Add a subject and some documents to start tracking mastery.</Text>
-            <Button label="+ New subject" variant="secondary" onPress={() => router.push("/subject/new")} style={styles.emptyAction} />
+            <Text variant="body">{t("progress.emptyBody")}</Text>
+            <Button label={t("home.newSubject")} variant="secondary" onPress={() => router.push("/subject/new")} style={styles.emptyAction} />
           </Card>
         ) : (
           <>
@@ -110,7 +111,7 @@ export default function ProgressScreen() {
                   </Text>
                 </RingProgress>
                 <Text variant="caption" style={styles.statLabel}>
-                  Overall mastery
+                  {t("progress.overallMastery")}
                 </Text>
               </Card>
               <Card style={styles.statCard}>
@@ -121,7 +122,7 @@ export default function ProgressScreen() {
                   <AnimatedNumber value={dueToday} />
                 </Text>
                 <Text variant="caption" style={styles.statLabel}>
-                  Due today
+                  {t("progress.dueToday")}
                 </Text>
               </Card>
               <Card style={styles.statCard}>
@@ -132,7 +133,7 @@ export default function ProgressScreen() {
                   <AnimatedNumber value={weakSpotsTotal} />
                 </Text>
                 <Text variant="caption" style={styles.statLabel}>
-                  Weak spots
+                  {t("progress.weakSpots")}
                 </Text>
               </Card>
             </View>
@@ -158,7 +159,7 @@ export default function ProgressScreen() {
 
                   {tree.length === 0 ? (
                     <Text variant="caption" style={styles.notStarted}>
-                      Not started yet — practice a flashcard or take a quiz to begin tracking mastery.
+                      {t("progress.notStarted")}
                     </Text>
                   ) : (
                     <>
@@ -175,7 +176,7 @@ export default function ProgressScreen() {
                       ) : null}
 
                       <Text variant="label" style={styles.chaptersLabel}>
-                        Chapters
+                        {t("progress.chapters")}
                       </Text>
                       <View style={styles.chapters}>
                         {tree.map((chapter) => {
@@ -206,19 +207,19 @@ export default function ProgressScreen() {
                   {weakConcepts.length > 0 ? (
                     <>
                       <Text variant="label" style={styles.gapsLabel}>
-                        Gaps detected
+                        {t("progress.gapsDetected")}
                       </Text>
                       <View style={styles.gaps}>
                         {weakConcepts.map((w) => (
                           <View key={w.id} style={[styles.gapCard, { backgroundColor: colors.surfaceAlt, borderLeftColor: colors.error }]}>
                             <View style={styles.gapHeader}>
                               <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 14, flex: 1 }}>
-                                {namesById.get(w.concept_id) ?? "Unknown concept"}
+                                {namesById.get(w.concept_id) ?? t("progress.unknownConcept")}
                               </Text>
                               <Tag label={REASON_LABEL[w.reason]} tone="error" />
                             </View>
                             <Button
-                              label="Review now"
+                              label={t("progress.reviewNow")}
                               variant="secondary"
                               onPress={() => reviewConcept(subject.id, namesById.get(w.concept_id) ?? "this concept")}
                               style={styles.gapAction}

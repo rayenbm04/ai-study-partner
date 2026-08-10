@@ -24,18 +24,19 @@ import { StyleSheet, View } from "react-native";
 import { Button, Card, ProgressBar, Screen, Text, TextField } from "../components/ui";
 import { radii, spacing } from "../constants/theme";
 import { ApiError, subjectsApi } from "../lib/api";
+import { useLanguage } from "../lib/language-context";
 import { useTheme } from "../lib/theme-context";
-
-const MINUTE_OPTIONS = [
-  { minutes: 15, sub: "just the due cards" },
-  { minutes: 30, sub: "cards + a short quiz" },
-  { minutes: 45, sub: "cards, quiz and a summary" },
-  { minutes: 60, sub: "deep review" },
-];
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
+  const MINUTE_OPTIONS = [
+    { minutes: 15, sub: t("onboarding.minutes15Sub") },
+    { minutes: 30, sub: t("onboarding.minutes30Sub") },
+    { minutes: 45, sub: t("onboarding.minutes45Sub") },
+    { minutes: 60, sub: t("onboarding.minutes60Sub") },
+  ];
   const { packApplied } = useLocalSearchParams<{ packApplied?: string }>();
   const [step, setStep] = useState<0 | 1 | 2>(packApplied ? 2 : 0);
   const [subjectName, setSubjectName] = useState("");
@@ -58,7 +59,7 @@ export default function OnboardingScreen() {
       }
       router.replace({ pathname: "/(tabs)/study-plan", params: { defaultDailyMinutes: String(dailyMinutes) } });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't create your subject. Try again.");
+      setError(err instanceof ApiError ? err.message : t("onboarding.createSubjectError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -75,21 +76,21 @@ export default function OnboardingScreen() {
           <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="library" size={28} color={colors.accentDark} />
           </View>
-          <Text variant="display">How do you want to set up your subjects?</Text>
+          <Text variant="display">{t("onboarding.step0Title")}</Text>
           <Text variant="body" style={styles.subtitle}>
-            Auto-add the subjects for your curriculum, or start from scratch.
+            {t("onboarding.step0Subtitle")}
           </Text>
           <View style={styles.options}>
             <Card
               onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/onboarding" } })}
               style={styles.choiceCard}
             >
-              <Text variant="title">Use a curriculum pack</Text>
-              <Text variant="caption">e.g. Bac Math (Tunisia) — adds every subject for your year in one tap</Text>
+              <Text variant="title">{t("onboarding.usePack")}</Text>
+              <Text variant="caption">{t("onboarding.usePackHint")}</Text>
             </Card>
             <Card onPress={() => setStep(1)} style={styles.choiceCard}>
-              <Text variant="title">Add my own subjects</Text>
-              <Text variant="caption">Start with one subject you name yourself</Text>
+              <Text variant="title">{t("onboarding.addOwn")}</Text>
+              <Text variant="caption">{t("onboarding.addOwnHint")}</Text>
             </Card>
           </View>
         </View>
@@ -98,13 +99,13 @@ export default function OnboardingScreen() {
           <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="school" size={28} color={colors.accentDark} />
           </View>
-          <Text variant="display">What are you studying?</Text>
+          <Text variant="display">{t("onboarding.step1Title")}</Text>
           <Text variant="body" style={styles.subtitle}>
-            Give your first subject a name — you can add more later.
+            {t("onboarding.step1Subtitle")}
           </Text>
           <TextField
-            label="Subject name"
-            placeholder="e.g. Physics, Organic Chemistry, SAT Math"
+            label={t("onboarding.subjectNameLabel")}
+            placeholder={t("onboarding.subjectNamePlaceholder")}
             value={subjectName}
             onChangeText={setSubjectName}
             style={styles.field}
@@ -115,7 +116,7 @@ export default function OnboardingScreen() {
             </Text>
           ) : null}
           <Button
-            label="Continue"
+            label={t("onboarding.continue")}
             onPress={() => setStep(2)}
             disabled={!subjectName.trim()}
             style={styles.action}
@@ -123,9 +124,9 @@ export default function OnboardingScreen() {
         </View>
       ) : (
         <View style={styles.body}>
-          <Text variant="display">How much time can you study daily?</Text>
+          <Text variant="display">{t("onboarding.step2Title")}</Text>
           <Text variant="body" style={styles.subtitle}>
-            This just sets a starting point for your study plan — easy to change later.
+            {t("onboarding.step2Subtitle")}
           </Text>
           <View style={styles.options}>
             {MINUTE_OPTIONS.map(({ minutes, sub }) => {
@@ -140,7 +141,7 @@ export default function OnboardingScreen() {
                   ]}
                 >
                   <Text variant="title" style={selected ? { color: colors.textOnPrimary } : undefined}>
-                    {minutes} min
+                    {t("common.minutes", { minutes })}
                   </Text>
                   <Text variant="caption" style={selected ? { color: colors.textOnPrimary, opacity: 0.75 } : undefined}>
                     {sub}
@@ -154,7 +155,7 @@ export default function OnboardingScreen() {
               {error}
             </Text>
           ) : null}
-          <Button label="Get started" onPress={handleFinish} loading={isSubmitting} style={styles.action} />
+          <Button label={t("onboarding.getStarted")} onPress={handleFinish} loading={isSubmitting} style={styles.action} />
         </View>
       )}
     </Screen>

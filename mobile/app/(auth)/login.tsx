@@ -6,11 +6,13 @@ import { Button, Screen, Text, TextField } from "../../components/ui";
 import { spacing } from "../../constants/theme";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +27,7 @@ export default function LoginScreen() {
       // AuthGate in the root layout handles the redirect to (tabs) once
       // `user` updates — no explicit router.replace needed here.
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't sign in. Check your connection and try again.");
+      setError(err instanceof ApiError ? err.message : t("auth.loginError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -34,15 +36,15 @@ export default function LoginScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Text variant="display">Welcome back</Text>
+        <Text variant="display">{t("auth.loginTitle")}</Text>
         <Text variant="body" style={styles.subtitle}>
-          Sign in to pick up where you left off.
+          {t("auth.loginSubtitle")}
         </Text>
       </View>
 
       <View>
         <TextField
-          label="Email"
+          label={t("auth.email")}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -50,7 +52,7 @@ export default function LoginScreen() {
           autoComplete="email"
         />
         <TextField
-          label="Password"
+          label={t("auth.password")}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -63,13 +65,13 @@ export default function LoginScreen() {
           </Text>
         ) : null}
         <Button
-          label="Sign in"
+          label={t("auth.signIn")}
           onPress={handleSubmit}
           loading={isSubmitting}
           disabled={!email || !password}
           style={styles.submit}
         />
-        <Button label="Create an account" variant="ghost" onPress={() => router.push("/(auth)/register")} />
+        <Button label={t("auth.createAccount")} variant="ghost" onPress={() => router.push("/(auth)/register")} />
       </View>
     </Screen>
   );

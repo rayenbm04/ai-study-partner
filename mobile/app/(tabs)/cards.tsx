@@ -15,16 +15,17 @@ import { Screen, Text } from "../../components/ui";
 import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { flashcardsApi } from "../../lib/api";
 import type { Flashcard } from "../../lib/api";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
-
-const GRADES: { label: string; sub: string; quality: number; tone: "bad" | "neutral" | "good" }[] = [
-  { label: "Again", sub: "in 10 min", quality: 1, tone: "bad" },
-  { label: "Good", sub: "in 2 days", quality: 3, tone: "neutral" },
-  { label: "Easy", sub: "in 9 days", quality: 5, tone: "good" },
-];
 
 export default function CardsScreen() {
   const { colors } = useTheme();
+  const { t, tn } = useLanguage();
+  const GRADES: { label: string; sub: string; quality: number; tone: "bad" | "neutral" | "good" }[] = [
+    { label: t("cards.gradeAgain"), sub: t("cards.gradeAgainSub"), quality: 1, tone: "bad" },
+    { label: t("cards.gradeGood"), sub: t("cards.gradeGoodSub"), quality: 3, tone: "neutral" },
+    { label: t("cards.gradeEasy"), sub: t("cards.gradeEasySub"), quality: 5, tone: "good" },
+  ];
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -95,10 +96,10 @@ export default function CardsScreen() {
             <Ionicons name="checkmark" size={40} color={colors.sageDark} />
           </View>
           <Text variant="display" style={styles.centerTitle}>
-            Nothing due
+            {t("cards.nothingDueTitle")}
           </Text>
           <Text variant="body" style={[styles.centerBody, { color: colors.textSecondary }]}>
-            No flashcards need review right now — check back later or generate more from a subject's documents.
+            {t("cards.nothingDueBody")}
           </Text>
         </View>
       </Screen>
@@ -113,10 +114,10 @@ export default function CardsScreen() {
             <Ionicons name="checkmark" size={40} color={colors.sageDark} />
           </View>
           <Text variant="display" style={styles.centerTitle}>
-            Deck complete
+            {t("cards.deckComplete")}
           </Text>
           <Text variant="body" style={[styles.centerBody, { color: colors.textSecondary }]}>
-            {reviewed} card{reviewed === 1 ? "" : "s"} reviewed.
+            {tn("cards.reviewed", reviewed)}
           </Text>
         </View>
       </Screen>
@@ -156,7 +157,7 @@ export default function CardsScreen() {
             <Text variant="display" style={styles.faceQuestion}>
               {card.question}
             </Text>
-            <Text variant="caption">Tap the card to reveal</Text>
+            <Text variant="caption">{t("cards.tapToReveal")}</Text>
           </Animated.View>
           <Animated.View
             style={[
@@ -166,7 +167,7 @@ export default function CardsScreen() {
             ]}
           >
             <Text variant="label" style={{ color: colors.accent }}>
-              ANSWER
+              {t("cards.answer")}
             </Text>
             <Text variant="body" style={[styles.faceAnswer, { color: colors.cardBackText }]}>
               {card.answer}
@@ -208,7 +209,7 @@ export default function CardsScreen() {
         <View style={styles.hint}>
           <Ionicons name="swap-horizontal" size={16} color={colors.textMuted} />
           <Text variant="caption" style={styles.hintText}>
-            Tap to flip
+            {t("cards.tapToFlip")}
           </Text>
         </View>
       )}

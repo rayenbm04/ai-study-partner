@@ -22,14 +22,15 @@ import { IconButton, Screen, Text } from "../../components/ui";
 import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { chatApi, subjectsApi } from "../../lib/api";
 import type { Citation, Message, Subject } from "../../lib/api";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
-
-const SUGGESTED_PROMPTS = ["Explain this chapter", "Summarize in 5 points", "Quiz me on this"];
 
 export default function CoachScreen() {
   const { subjectId, prompt } = useLocalSearchParams<{ subjectId: string; prompt?: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
+  const SUGGESTED_PROMPTS = [t("coach.promptExplain"), t("coach.promptSummarize"), t("coach.promptQuiz")];
   const listRef = useRef<FlatList<Message>>(null);
   const autoSentRef = useRef(false);
 
@@ -110,7 +111,7 @@ export default function CoachScreen() {
         <View style={styles.header}>
           <IconButton name="chevron-back" onPress={() => router.back()} />
           <View style={styles.headerText}>
-            <Text variant="title">Coach</Text>
+            <Text variant="title">{t("coach.title")}</Text>
             <Text variant="caption" style={{ color: colors.sageDark }}>
               {subject?.name ?? "…"}
             </Text>
@@ -130,9 +131,9 @@ export default function CoachScreen() {
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text variant="display">What's stuck?</Text>
+                <Text variant="display">{t("coach.emptyTitle")}</Text>
                 <Text variant="body" style={[styles.emptyBody, { color: colors.textSecondary }]}>
-                  I only answer from this subject's documents, with the page cited.
+                  {t("coach.emptyBody")}
                 </Text>
                 <View style={styles.prompts}>
                   {SUGGESTED_PROMPTS.map((p) => (
@@ -196,7 +197,7 @@ export default function CoachScreen() {
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask about your course…"
+            placeholder={t("coach.inputPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={[styles.input, { color: colors.textPrimary }]}
             multiline

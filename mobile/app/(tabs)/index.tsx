@@ -15,11 +15,13 @@ import { radii, spacing } from "../../constants/theme";
 import { analyticsApi, subjectsApi } from "../../lib/api";
 import type { OverviewAnalytics, Subject } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 export default function SubjectsScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { t, tn } = useLanguage();
   const router = useRouter();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [overview, setOverview] = useState<OverviewAnalytics | null>(null);
@@ -65,7 +67,7 @@ export default function SubjectsScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
-            <Text variant="label">Hello</Text>
+            <Text variant="label">{t("home.hello")}</Text>
             <Text variant="display" style={styles.name}>
               {user?.firstname ?? "there"}
             </Text>
@@ -87,36 +89,36 @@ export default function SubjectsScreen() {
                   <Ionicons name="flash" size={26} color={colors.accentDark} />
                 </View>
                 <View style={styles.heroText}>
-                  <Text variant="label">TODAY'S MISSION</Text>
+                  <Text variant="label">{t("home.todaysMission")}</Text>
                   <Text variant="title" style={styles.heroTitle}>
-                    {dueCount > 0 ? `${dueCount} card${dueCount === 1 ? "" : "s"} due` : "All caught up"}
+                    {dueCount > 0 ? tn("home.cardsDue", dueCount) : t("home.allCaughtUp")}
                   </Text>
                   <Text variant="caption">
-                    {dueCount > 0 ? "A quick review keeps your streak of mastery going." : "Nothing due today — nice work."}
+                    {dueCount > 0 ? t("home.streakBody") : t("home.nothingDueBody")}
                   </Text>
                 </View>
               </View>
               <Button
-                label={dueCount > 0 ? "Continue reviewing" : "Review anyway"}
+                label={dueCount > 0 ? t("home.continueReviewing") : t("home.reviewAnyway")}
                 onPress={() => router.push("/(tabs)/cards")}
                 style={styles.heroButton}
               />
             </Card>
 
             <Text variant="title" style={styles.sectionLabel}>
-              Your subjects
+              {t("home.yourSubjects")}
             </Text>
           </>
         }
         ListEmptyComponent={
           !isLoading ? (
             <Card style={styles.emptyCard}>
-              <Text variant="title">No subjects yet</Text>
+              <Text variant="title">{t("home.noSubjectsTitle")}</Text>
               <Text variant="body" style={styles.emptyBody}>
-                Add your first subject to start uploading material and generating study aids.
+                {t("home.noSubjectsBody")}
               </Text>
               <Button
-                label="+ New subject"
+                label={t("home.newSubject")}
                 variant="secondary"
                 onPress={() => router.push("/subject/new")}
                 style={styles.newButton}
@@ -127,7 +129,7 @@ export default function SubjectsScreen() {
         ListFooterComponent={
           subjects.length > 0 ? (
             <Button
-              label="+ New subject"
+              label={t("home.newSubject")}
               variant="secondary"
               onPress={() => router.push("/subject/new")}
               style={styles.newButton}
@@ -145,10 +147,10 @@ export default function SubjectsScreen() {
                   <Text variant="subtitle">{item.name}</Text>
                   {stats ? (
                     <Text variant="caption">
-                      {stats.concepts_practiced}/{stats.concepts_total} concepts practiced
+                      {t("home.conceptsPracticed", { practiced: stats.concepts_practiced, total: stats.concepts_total })}
                     </Text>
                   ) : (
-                    <Text variant="caption">No documents yet</Text>
+                    <Text variant="caption">{t("home.noDocumentsYet")}</Text>
                   )}
                 </View>
                 <Text variant="title" style={{ color: colors.accentDark }}>
@@ -164,7 +166,7 @@ export default function SubjectsScreen() {
                 />
               </View>
               {stats && stats.flashcards_due_count > 0 ? (
-                <Tag label={`${stats.flashcards_due_count} due`} tone="accent" style={styles.dueTag} />
+                <Tag label={tn("home.dueTag", stats.flashcards_due_count)} tone="accent" style={styles.dueTag} />
               ) : null}
             </Card>
           );
@@ -184,7 +186,7 @@ export default function SubjectsScreen() {
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
             <Text variant="display" style={styles.sheetTitle}>
-              Talk about which subject?
+              {t("home.talkAboutWhich")}
             </Text>
             {subjects.map((s) => (
               <Card

@@ -19,18 +19,19 @@ import { fontFamilies, radii, spacing } from "../../constants/theme";
 import { progressApi, subjectsApi } from "../../lib/api";
 import type { ConceptMastery, Subject, WeakConcept } from "../../lib/api";
 import { flattenConceptNames, masteryColor } from "../../lib/progress-utils";
+import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
-
-const REASON_LABEL: Record<WeakConcept["reason"], string> = {
-  repeated_errors: "Repeated mistakes",
-  slow_response: "Slow to answer",
-  decay: "Fading from memory",
-};
 
 export default function ConceptMapScreen() {
   const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useLanguage();
+  const REASON_LABEL: Record<WeakConcept["reason"], string> = {
+    repeated_errors: t("weakConceptReason.repeatedErrors"),
+    slow_response: t("weakConceptReason.slowResponse"),
+    decay: t("weakConceptReason.decay"),
+  };
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [tree, setTree] = useState<ConceptMastery[]>([]);
@@ -77,7 +78,7 @@ export default function ConceptMapScreen() {
         <View style={styles.headerRow}>
           <IconButton name="chevron-back" onPress={() => router.back()} />
         </View>
-        <Text variant="display">Concept map</Text>
+        <Text variant="display">{t("concepts.title")}</Text>
         <Text variant="body" style={[styles.subtitle, { color: colors.textSecondary }]}>
           {subject?.name}
         </Text>
@@ -85,7 +86,7 @@ export default function ConceptMapScreen() {
         {weakConcepts.length > 0 ? (
           <>
             <Text variant="title" style={styles.sectionLabel}>
-              Weak spots
+              {t("progress.weakSpots")}
             </Text>
             <View style={styles.weakList}>
               {weakConcepts.map((w) => (
@@ -93,12 +94,12 @@ export default function ConceptMapScreen() {
                   <View style={styles.weakRow}>
                     <Ionicons name="alert-circle" size={18} color={colors.error} />
                     <Text variant="subtitle" style={styles.weakName}>
-                      {namesById.get(w.concept_id) ?? "Unknown concept"}
+                      {namesById.get(w.concept_id) ?? t("progress.unknownConcept")}
                     </Text>
                   </View>
                   <View style={styles.weakMeta}>
                     <Tag label={REASON_LABEL[w.reason]} tone="error" />
-                    <Text variant="caption">{Math.round(w.confidence * 100)}% confidence</Text>
+                    <Text variant="caption">{t("concepts.confidence", { percent: Math.round(w.confidence * 100) })}</Text>
                   </View>
                 </Card>
               ))}
@@ -107,13 +108,11 @@ export default function ConceptMapScreen() {
         ) : null}
 
         <Text variant="title" style={styles.sectionLabel}>
-          Mastery by concept
+          {t("concepts.masteryByConcept")}
         </Text>
         {tree.length === 0 ? (
           <Card>
-            <Text variant="body">
-              No concepts tracked yet — mastery builds up as you review flashcards and take quizzes.
-            </Text>
+            <Text variant="body">{t("concepts.noConceptsTracked")}</Text>
           </Card>
         ) : (
           <Card style={styles.treeCard}>
