@@ -17,11 +17,15 @@ Routes depend on services, services depend on repository *interfaces* (never on 
 
 ## What's implemented
 
-**Auth + Subjects** — register/login/refresh with JWT access + refresh tokens, subjects as the top-level per-user container everything else scopes to.
+**Auth + Subjects** — register/login/refresh with JWT access + refresh tokens. Registration collects a student profile (pseudo/username, date of birth, optional school name) in addition to name/email/password, with confirm-password matching and a lightweight weak-password check (`app/core/security.py:weak_password_reason`) — no email verification or password-reset flow yet (columns exist on `users` for both, unused until an email-sending service is wired up). Subjects are the top-level per-user container everything else scopes to.
+
+**Curriculum + Subject Packs** — a shared, global reference catalog (`Country → EducationSystem → AcademicLevel → Section → CurriculumSubject → Chapter → Lesson`) browsable read-only by any authenticated user. A student can either link an individual subject to a `CurriculumSubject` node (`PATCH /subjects/{id}`) or bulk-apply every subject under an academic level/section as a "pack" (`POST /subject-packs/apply`) — the pack itself isn't a stored entity, just a bulk-create against the same catalog. `PATCH /account/classe` separately remembers a student's own academic level/section on their profile (distinct from applying a pack, which only decides *which subjects get added*).
+
+**Account** — `POST /account/reset` wipes a user's subjects/documents/study plans (and everything that cascades from them) without touching the login itself; `PATCH /account/classe` sets or clears the student's own academic level/section, validated against the curriculum catalog.
 
 **Knowledge Base** — upload PDF/DOCX/PPTX/XLS(X)/images, extract text (with a vision-model fallback for scanned pages/images), hierarchical parent/child chunking, embed with a cloud embedder, store in pgvector, and LLM-tag chunks against a per-subject concept graph. Ingestion runs as a background task; `GET /documents/{id}` polls status (`pending → processing → ready|failed`).
 
-**RAG Chat** — condense-question (using conversation history) → HyDE + multi-query expansion → per-variant vector search + Reciprocal Rank Fusion → LLM rerank → cited answer generation. Each technique is its own feature flag (see `.env.example`) so a slower/free-tier model can have some switched off without a code change.
+**RAG Chat** — condense-question (using conversation history) → HyDE + multi-query expansion → per-variant vector search + Reciprocal Rank Fusion → LLM rerank → cited answer generation. Each technique is its own feature flag (see `.env.example`) so a slower/free-tier model can have some switched off without a code change. An optional `document_id` on the chat request narrows retrieval to one document instead of the whole subject, for "ask about this upload" style questions.
 
 **Summaries** — six document-scoped study-aid types (short, detailed, bullet points, key concepts, formula sheet, term definitions), grounded in the document's tagged concepts, cached per (document, type).
 
@@ -62,6 +66,9 @@ alembic upgrade head
 | `0006` | `quizzes`, `quiz_questions`, `quiz_attempts`, `student_answers` |
 | `0007` | `progress`, `weak_concepts` |
 | `0008` | `study_plans`, `study_plan_items` |
+| `0009` | curriculum catalog (`curriculum_countries`, `curriculum_education_systems`, `curriculum_academic_levels`, `curriculum_sections`, `curriculum_subjects`, `curriculum_chapters`, `curriculum_lessons`) + `subjects.curriculum_subject_id` + document classification columns |
+| `0010` | scopes `subjects`' `(user_id, name)` uniqueness to active (non-archived) subjects only, via a partial unique index |
+| `0011` | `users`: `date_of_birth`, `pseudo` (unique), `school_name`, `academic_level_id`/`section_id` (a student's own classe), `is_verified`/`email_verified_at` (unused until email verification is built) |
 
 ## Run the API
 
@@ -77,7 +84,7 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 pytest
 ```
 
-322 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep test each in `test_progress_api.py` and `test_study_plans_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests.
+409 tests: unit tests use in-memory fakes for every repository (no DB, no network); most integration tests hit the real FastAPI app against an in-memory SQLite database; a small number (`test_chat_api.py`, `test_embedding_search_pgvector.py`, and one deep test each in `test_progress_api.py` and `test_study_plans_api.py`) run against a real embedded Postgres+pgvector via `pgserver`. No test ever calls a real LLM or embedding API — those are always faked in tests.
 
 ## LLM configuration
 
@@ -102,24 +109,39 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/v1/auth/register` | Create an account |
+| POST | `/api/v1/auth/register` | Create an account (name, email, password, pseudo, date of birth, optional school) |
 | POST | `/api/v1/auth/login` | Get an access + refresh token pair |
 | POST | `/api/v1/auth/refresh` | Rotate a refresh token |
 | POST | `/api/v1/auth/logout` | Revoke a refresh token |
 | GET | `/api/v1/auth/me` | Current user |
+| POST | `/api/v1/account/reset` | Wipe this user's subjects/documents/study plans (keeps the login) |
+| PATCH | `/api/v1/account/classe` | Set or clear the student's own academic level/section |
+| GET | `/api/v1/curriculum/countries` | List countries |
+| GET | `/api/v1/curriculum/countries/{id}/education-systems` | List education systems in a country |
+| GET | `/api/v1/curriculum/education-systems/{id}/academic-levels` | List academic levels in a system |
+| GET | `/api/v1/curriculum/academic-levels/{id}/sections` | List sections in a level |
+| GET | `/api/v1/curriculum/academic-levels/{id}/subjects?section_id=...` | List curriculum subjects for a level (+ optional section) |
+| GET | `/api/v1/curriculum/subjects/{id}/chapters` | List chapters in a curriculum subject |
+| GET | `/api/v1/curriculum/chapters/{id}/lessons` | List lessons in a chapter |
+| GET | `/api/v1/subject-packs` | List curriculum packs (level/section) already applied by this user |
+| POST | `/api/v1/subject-packs/apply` | Bulk-create subjects for every curriculum subject under a level/section |
+| POST | `/api/v1/subject-packs/remove` | Bulk-remove the subjects a previously applied pack created |
 | GET / POST | `/api/v1/subjects` | List / create subjects |
-| PATCH / DELETE | `/api/v1/subjects/{id}` | Update / archive a subject |
+| PATCH / DELETE | `/api/v1/subjects/{id}` | Update (incl. linking to a curriculum subject) / archive a subject |
 | POST / GET | `/api/v1/subjects/{id}/documents` | Upload / list documents |
 | GET / DELETE | `/api/v1/documents/{id}` | Get status / delete a document |
-| POST | `/api/v1/subjects/{id}/chat` | Send a chat message (RAG) |
+| GET | `/api/v1/documents/{id}/content` | Get a document's raw file bytes |
+| POST | `/api/v1/subjects/{id}/chat` | Send a chat message (RAG); optional `document_id` narrows retrieval to one document |
 | GET | `/api/v1/subjects/{id}/conversations` | List conversations |
 | GET | `/api/v1/conversations/{id}/messages` | List messages in a conversation |
 | POST | `/api/v1/subjects/{id}/summaries` | Generate a summary |
 | GET | `/api/v1/documents/{id}/summary?summary_type=...` | Get a cached summary |
+| GET | `/api/v1/documents/{id}/summaries` | List every summary type generated for a document |
 | POST | `/api/v1/subjects/{id}/flashcards/generate` | Generate flashcards |
 | GET | `/api/v1/subjects/{id}/flashcards` | List a subject's flashcards + review state |
 | GET | `/api/v1/flashcards/due` | Cards due for review (cross-subject) |
 | POST | `/api/v1/flashcards/{id}/review` | Submit an SM-2 review (quality 0-5) |
+| GET | `/api/v1/subjects/{id}/quizzes` | List quizzes generated for a subject (+ question count) |
 | POST | `/api/v1/subjects/{id}/quizzes/generate` | Generate a quiz |
 | GET | `/api/v1/quizzes/{id}` | Get a quiz (questions, no answers) |
 | POST | `/api/v1/quizzes/{id}/attempts` | Start an attempt |
@@ -137,4 +159,6 @@ Every LLM/embedding call goes through a provider interface (`services/llm/base.p
 
 ## What's not built yet
 
-- **Frontend** — still the original forked React app; a page-by-page TypeScript rewrite is planned as each page is touched.
+- **Email verification / password reset** — `users.is_verified`/`email_verified_at` columns exist for a future confirmation flow, but nothing sends real email yet; registration doesn't block on verification.
+- **School catalog** — `school_name` is free text; no dedicated school entity/catalog.
+- See [`mobile/README.md`](../mobile/README.md) for what's built vs. pending on the client — the original forked `rag-frontend` React app is no longer the active frontend (see top-level README).

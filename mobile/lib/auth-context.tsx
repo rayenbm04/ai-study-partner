@@ -13,7 +13,16 @@ type AuthState = {
   user: User | null;
   isLoading: boolean; // true only during the initial boot check
   login: (email: string, password: string) => Promise<void>;
-  register: (input: { email: string; password: string; firstname: string; lastname: string }) => Promise<void>;
+  register: (input: {
+    email: string;
+    password: string;
+    confirm_password: string;
+    firstname: string;
+    lastname: string;
+    pseudo: string;
+    date_of_birth: string;
+    school_name?: string | null;
+  }) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -47,7 +56,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async (input: { email: string; password: string; firstname: string; lastname: string }) => {
+    async (input: {
+      email: string;
+      password: string;
+      confirm_password: string;
+      firstname: string;
+      lastname: string;
+      pseudo: string;
+      date_of_birth: string;
+      school_name?: string | null;
+    }) => {
       await authApi.register(input);
       await authApi.login(input.email, input.password).then(setUser);
     },

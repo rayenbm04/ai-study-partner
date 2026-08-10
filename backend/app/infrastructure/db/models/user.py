@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.db.base import Base
@@ -19,6 +19,22 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+    # Student profile — all nullable so pre-existing accounts stay valid.
+    date_of_birth: Mapped[date | None] = mapped_column(Date(), nullable=True)
+    pseudo: Mapped[str | None] = mapped_column(String(50), unique=True, index=True, nullable=True)
+    school_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    academic_level_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("curriculum_academic_levels.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    section_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("curriculum_sections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Not enforced anywhere yet — no email-sending integration exists in this
+    # codebase. Exists so a verification flow can be added later without
+    # another migration.
+    is_verified: Mapped[bool] = mapped_column(Boolean(), default=False, nullable=False)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     subjects: Mapped[list["SubjectModel"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

@@ -8,6 +8,12 @@ export type User = {
   firstname: string;
   lastname: string;
   role: string;
+  pseudo: string | null;
+  date_of_birth: string | null;
+  school_name: string | null;
+  academic_level_id: string | null;
+  section_id: string | null;
+  is_verified: boolean;
 };
 
 export type TokenPair = {

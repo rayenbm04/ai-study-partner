@@ -50,11 +50,53 @@ class SubjectNotFoundError(DomainError):
         super().__init__(f"Subject '{subject_id}' was not found.")
 
 
+class PseudoAlreadyTakenError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+
+    def __init__(self, pseudo: str):
+        super().__init__(f"'{pseudo}' is already taken.")
+
+
+class PasswordMismatchError(DomainError):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self):
+        super().__init__("Password and confirmation don't match.")
+
+
+class WeakPasswordError(DomainError):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self, reason: str):
+        super().__init__(f"That password isn't secure enough: {reason}")
+
+
 class DuplicateSubjectError(DomainError):
     status_code = status.HTTP_409_CONFLICT
 
     def __init__(self, name: str):
         super().__init__(f"You already have a subject named '{name}'.")
+
+
+class AcademicLevelNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, academic_level_id: str):
+        super().__init__(f"Academic level '{academic_level_id}' was not found.")
+
+
+class SectionNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+
+    def __init__(self, section_id: str):
+        super().__init__(f"Section '{section_id}' was not found.")
+
+
+class SectionDoesNotBelongToLevelError(DomainError):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    def __init__(self, section_id: str, academic_level_id: str):
+        super().__init__(f"Section '{section_id}' does not belong to academic level '{academic_level_id}'.")
 
 
 class CurriculumPackNotFoundError(DomainError):

@@ -6,6 +6,7 @@ import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
 
+from app.core.exceptions import UserNotFoundError
 from app.domain.entities.chunk import Chunk
 from app.domain.entities.concept import Concept
 from app.domain.entities.conversation import Conversation
@@ -55,7 +56,21 @@ class FakeUserRepository(UserRepository):
     async def get_by_email(self, email):
         return next((u for u in self._by_id.values() if u.email == email), None)
 
-    async def create(self, *, email, firstname, lastname, hashed_password, role="student"):
+    async def get_by_pseudo(self, pseudo):
+        return next((u for u in self._by_id.values() if u.pseudo == pseudo), None)
+
+    async def create(
+        self,
+        *,
+        email,
+        firstname,
+        lastname,
+        hashed_password,
+        role="student",
+        pseudo=None,
+        date_of_birth=None,
+        school_name=None,
+    ):
         user = User(
             id=str(uuid.uuid4()),
             email=email,
@@ -64,9 +79,20 @@ class FakeUserRepository(UserRepository):
             hashed_password=hashed_password,
             role=role,
             created_at=datetime.now(timezone.utc),
+            pseudo=pseudo,
+            date_of_birth=date_of_birth,
+            school_name=school_name,
         )
         self._by_id[user.id] = user
         return user
+
+    async def set_classe(self, user_id, *, academic_level_id, section_id):
+        user = self._by_id.get(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        updated = replace(user, academic_level_id=academic_level_id, section_id=section_id)
+        self._by_id[user_id] = updated
+        return updated
 
 
 class FakeRefreshTokenRepository(RefreshTokenRepository):

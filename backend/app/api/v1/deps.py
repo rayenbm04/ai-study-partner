@@ -349,9 +349,16 @@ def get_account_service(
     document_repo: SqlAlchemyDocumentRepository = Depends(get_document_repo),
     study_plan_repo: SqlAlchemyStudyPlanRepository = Depends(get_study_plan_repo),
     storage: StoragePort = Depends(get_storage),
+    user_repo: SqlAlchemyUserRepository = Depends(get_user_repo),
+    curriculum_repo: SqlAlchemyCurriculumRepository = Depends(get_curriculum_repo),
 ) -> AccountService:
     return AccountService(
-        subject_repo=subject_repo, document_repo=document_repo, study_plan_repo=study_plan_repo, storage=storage
+        subject_repo=subject_repo,
+        document_repo=document_repo,
+        study_plan_repo=study_plan_repo,
+        storage=storage,
+        user_repo=user_repo,
+        curriculum_repo=curriculum_repo,
     )
 
 

@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, status
 
 from app.api.v1.deps import get_account_service, get_current_user
+from app.api.v1.schemas.account import SetClasseRequest
+from app.api.v1.schemas.auth import UserResponse
 from app.domain.entities.user import User
 from app.services.account_service import AccountService
 
@@ -13,3 +15,15 @@ async def reset_account(
     service: AccountService = Depends(get_account_service),
 ) -> None:
     await service.reset(current_user.id)
+
+
+@router.patch("/classe", response_model=UserResponse)
+async def set_classe(
+    payload: SetClasseRequest,
+    current_user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_account_service),
+) -> UserResponse:
+    user = await service.set_classe(
+        current_user.id, academic_level_id=payload.academic_level_id, section_id=payload.section_id
+    )
+    return UserResponse.from_entity(user)

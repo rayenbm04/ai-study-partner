@@ -4,8 +4,12 @@ import type { TokenPair, User } from "./types";
 export async function register(input: {
   email: string;
   password: string;
+  confirm_password: string;
   firstname: string;
   lastname: string;
+  pseudo: string;
+  date_of_birth: string;
+  school_name?: string | null;
 }): Promise<User> {
   return apiRequest<User>("/api/v1/auth/register", { method: "POST", body: input, auth: false });
 }

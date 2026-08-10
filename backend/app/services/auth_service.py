@@ -1,6 +1,14 @@
 from dataclasses import dataclass
+from datetime import date
 
-from app.core.exceptions import EmailAlreadyRegisteredError, InvalidCredentialsError, InvalidRefreshTokenError
+from app.core.exceptions import (
+    EmailAlreadyRegisteredError,
+    InvalidCredentialsError,
+    InvalidRefreshTokenError,
+    PasswordMismatchError,
+    PseudoAlreadyTakenError,
+    WeakPasswordError,
+)
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -8,6 +16,7 @@ from app.core.security import (
     hash_token,
     refresh_token_expiry,
     verify_password,
+    weak_password_reason,
 )
 from app.domain.entities.user import User
 from app.domain.repositories.refresh_token_repository import RefreshTokenRepository
@@ -31,14 +40,35 @@ class AuthService:
         self._users = user_repo
         self._refresh = refresh_repo
 
-    async def register(self, *, email: str, password: str, firstname: str, lastname: str) -> User:
+    async def register(
+        self,
+        *,
+        email: str,
+        password: str,
+        confirm_password: str,
+        firstname: str,
+        lastname: str,
+        pseudo: str,
+        date_of_birth: date,
+        school_name: str | None = None,
+    ) -> User:
+        if password != confirm_password:
+            raise PasswordMismatchError()
+        weak_reason = weak_password_reason(password, pseudo=pseudo, email=email)
+        if weak_reason is not None:
+            raise WeakPasswordError(weak_reason)
         if await self._users.get_by_email(email):
             raise EmailAlreadyRegisteredError(email)
+        if await self._users.get_by_pseudo(pseudo):
+            raise PseudoAlreadyTakenError(pseudo)
         return await self._users.create(
             email=email,
             firstname=firstname,
             lastname=lastname,
             hashed_password=hash_password(password),
+            pseudo=pseudo,
+            date_of_birth=date_of_birth,
+            school_name=school_name,
         )
 
     async def authenticate(self, *, email: str, password: str) -> User:

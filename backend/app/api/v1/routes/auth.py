@@ -13,8 +13,12 @@ async def register(payload: RegisterRequest, service: AuthService = Depends(get_
     user = await service.register(
         email=payload.email,
         password=payload.password,
+        confirm_password=payload.confirm_password,
         firstname=payload.firstname,
         lastname=payload.lastname,
+        pseudo=payload.pseudo,
+        date_of_birth=payload.date_of_birth,
+        school_name=payload.school_name,
     )
     return UserResponse.from_entity(user)
 

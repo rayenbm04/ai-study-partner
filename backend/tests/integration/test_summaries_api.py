@@ -7,9 +7,18 @@ _SAMPLE_TEXT = ("Ohm's law relates voltage, current, and resistance in a circuit
 
 
 async def _register_and_login(client, email):
+    pseudo = email.split("@")[0]
     await client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "firstname": "A", "lastname": "B"},
+        json={
+            "email": email,
+            "password": "password123",
+            "confirm_password": "password123",
+            "firstname": "A",
+            "lastname": "B",
+            "pseudo": pseudo,
+            "date_of_birth": "2005-01-01",
+        },
     )
     login_resp = await client.post("/api/v1/auth/login", json={"email": email, "password": "password123"})
     token = login_resp.json()["access_token"]

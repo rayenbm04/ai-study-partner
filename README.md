@@ -82,7 +82,7 @@ Everything is scoped per subject, so a student's knowledge base for Physics stay
 - **AI:** cloud LLMs only — Gemini by default, swappable to Groq, OpenRouter, OpenAI, or Anthropic behind one interface with a config change, no code change. Nothing runs locally; no on-disk model weights anywhere in the pipeline.
 - **RAG (Retrieval-Augmented Generation):** the extraction → chunking → embedding → vector-search pipeline described above is what lets the AI answer *from the course* instead of from general training knowledge.
 - **Storage:** PostgreSQL for everything — users, subjects, chat history, flashcards, progress — with the `pgvector` extension holding embeddings in the same database, rather than a separate vector store to operate.
-- **Frontend:** not yet migrated off the original forked React app; a page-by-page TypeScript rewrite is planned as each page is touched, rather than a big-bang rewrite.
+- **Frontend:** a native-first Expo (React Native + web) app in `mobile/` — one codebase targets iOS, Android, and web. This replaced the original plan to evolve the forked `rag-frontend` React/Vite app into the new frontend; `rag-frontend` is left untouched and unused going forward. See [`mobile/README.md`](mobile/README.md) for what's built.
 
 The full system design — the six-engine model (Knowledge Base, Student Memory, Assessment, Learning/Progress, Planning, Analytics), database schema, API contract, and rollout plan — is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The cloud LLM/embedding provider comparison and free-tier strategy is in [`docs/LLM_PROVIDERS.md`](docs/LLM_PROVIDERS.md).
 
@@ -98,18 +98,19 @@ The full system design — the six-engine model (Knowledge Base, Student Memory,
 | Progress / mastery rollup | ✅ Built — Progress engine |
 | Gap detection ("weak concepts") | ✅ Built — Progress engine |
 | Exam-prep study plan | ✅ Built — Planning engine |
-| Analytics dashboard | ✅ Built — Analytics engine (API only, no frontend yet) |
+| Analytics dashboard | ✅ Built — Analytics engine, surfaced in the mobile app's home/progress screens |
 | School/teacher dashboard | ⏳ Not started |
 
-In other words: every engine in the six-engine design is now built and working end to end — "explain, memorize, test, detect gaps, plan revision, see the analytics" all have a working API. The one remaining gap is the frontend: these engines are only reachable via the API today, not yet through a UI (see Project layout below).
+In other words: every engine in the six-engine design is now built and working end to end — "explain, memorize, test, detect gaps, plan revision, see the analytics" all have a working API, and the mobile app (see Project layout below) covers most of them through a UI, with a short list of remaining gaps tracked in `mobile/README.md`.
 
 ## Project layout
 
 - `backend/` — the FastAPI backend described above; active development, see its README for setup and testing.
-- `rag-backend/`, `rag-frontend/` — the original forked project this was redesigned from, left running untouched during the transition (the new `backend/` never modifies them).
+- `mobile/` — the Expo (React Native + web) client; active development, see its README for setup, design system, and what's built vs. pending.
+- `rag-backend/`, `rag-frontend/` — the original forked project this was redesigned from, left running untouched during the transition (the new `backend/`/`mobile/` never modify them).
 - `docs/ARCHITECTURE.md` — full six-engine architecture, database schema, API contract, rollout plan.
 - `docs/LLM_PROVIDERS.md` — cloud LLM/embedding provider comparison and free-tier-first strategy.
 
 ## Getting started
 
-See [`backend/README.md`](backend/README.md) for setup, running the database migrations, starting the API, and running the test suite.
+See [`backend/README.md`](backend/README.md) for setup, running the database migrations, starting the API, and running the test suite, and [`mobile/README.md`](mobile/README.md) for running the client.

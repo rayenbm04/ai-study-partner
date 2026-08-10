@@ -15,7 +15,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 
 import { Button, Card, IconButton, Screen, Text } from "../../components/ui";
 import { spacing } from "../../constants/theme";
-import { ApiError, curriculumApi, subjectPacksApi } from "../../lib/api";
+import { accountApi, ApiError, curriculumApi, subjectPacksApi } from "../../lib/api";
 import type { AcademicLevel, Country, CurriculumSubject, EducationSystem, Section } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
@@ -146,6 +146,18 @@ export default function SubjectPackPickerScreen() {
         // worked.
         setError(t("subjectPack.duplicateError", { name: result.skipped_duplicate_names[0] }));
         return;
+      }
+      // Only remember this as the student's own classe during first-time
+      // onboarding — the same picker reached from Settings' "add another
+      // pack" is just adding subjects for a different level, not redoing
+      // the student's own profile. Best-effort: a failure here shouldn't
+      // block onboarding from proceeding.
+      if ((returnTo ?? "/onboarding") === "/onboarding") {
+        try {
+          await accountApi.setClasse({ academicLevelId: level.id, sectionId: section?.id ?? null });
+        } catch {
+          // ignore — non-critical
+        }
       }
       router.replace({ pathname: (returnTo ?? "/onboarding") as never, params: { packApplied: "1" } });
     } catch (err) {

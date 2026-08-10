@@ -19,48 +19,57 @@ Then press `w` for web, `i` for iOS simulator (macOS only), `a` for Android emul
 
 ## Design system
 
-- **Colors** (`constants/theme.ts`): warm beige/white backgrounds, violet as the primary interactive color (buttons, links, selection), amber as a highlight/accent color (due-today badges, selected chips) — never a competing second primary.
-- **Typography**: Inter only (no serif/display font), loaded via `@expo-google-fonts/inter` in `app/_layout.tsx`.
-- **No mascot/character system** — icons only (`@expo/vector-icons`) for now.
+- **Colors** (`constants/theme.ts`, "Organic" system): warm cream/ink palette (`#F8F3EA` background, near-black `#201E1D` primary CTA color), terracotta-amber (`#E0982B`) as the accent for streaks/due-today badges/progress rings/selection, olive-sage for "mastered"/correct states. Full light + dark palettes, switched at runtime via `lib/theme-context.tsx` (defaults to the device scheme; a manual choice in Settings overrides it and persists).
+- **Typography**: Caprasimo (display serif, headings/big numbers) + Figtree (everything else), loaded via `@expo-google-fonts/caprasimo` and `@expo-google-fonts/figtree` in `app/_layout.tsx`.
+- **Shape language**: pill-shaped buttons/inputs, large soft-shadowed cards, no hard borders.
+- **No mascot/character system** — icons only (`@expo/vector-icons`).
 
 All tokens (colors, spacing, radii, font sizes) live in `constants/theme.ts`. Change them there, not per-component.
+
+## Internationalization
+
+English, French, and Arabic, via `lib/i18n/translations.ts` + `lib/language-context.tsx` (`useLanguage()` exposes `t()`/`tn()`). Arabic also flips layout direction — `I18nManager`'s RTL flag is native and only takes full effect after a reload, so `setLanguage()` applies translated text immediately but a language switch to/from Arabic prompts the user to restart. Language choice persists via the same cross-platform `storage` wrapper used for the theme preference.
 
 ## Structure
 
 ```
 app/                 expo-router routes (file-based)
   (auth)/             login, register
-  (tabs)/             the four main tabs: subjects, study-plan, progress, settings
-  subject/            subject detail + create-subject
+  (tabs)/             the four main tabs: home, cards, study-plan, progress, settings
+  subject/            subject detail (documents, summaries, exams) + create-subject
+  subject-pack/       curriculum pack picker (Country -> System -> Level -> Section -> preview)
+  materials/          per-subject document list + upload + summaries
+  concepts/           per-subject concept-mastery tree
+  coach/              RAG chat screen (whole-subject or scoped to one document)
   quiz/               quiz-taking flow
   onboarding.tsx      first-run setup (create first subject + daily study time)
   _layout.tsx          root layout: font loading, Stack.Protected auth gating, navigation shell
-components/ui/        shared primitives (Button, Card, TextField, ProgressBar, Text, Screen)
+components/ui/        shared primitives (Button, Card, TextField, DatePickerField, ProgressBar, Text, Screen, Tag, Avatar, RingProgress, AnimatedNumber, IconButton)
 constants/theme.ts     design tokens
 lib/api/               typed API client, one module per backend engine
 lib/auth-context.tsx   global auth state (login/register/logout, token refresh)
+lib/theme-context.tsx  light/dark mode
+lib/language-context.tsx  en/fr/ar + RTL
 ```
 
 ## API client
 
 `lib/api/client.ts` wraps `fetch` with: auth token injection, automatic one-shot refresh-and-retry on a 401, and normalized error messages (the backend's `DomainError` handler always returns `{"detail": "..."}`, which `ApiError` unwraps). Tokens go through `lib/storage.ts`, not `AsyncStorage`, since they're credentials — that wrapper uses real `expo-secure-store` on iOS/Android and `localStorage` on web, because `expo-secure-store`'s web target is a long-standing broken upstream (throws `getValueWithKeyAsync is not a function` instead of falling back) rather than something we could fix by calling it differently.
 
-Each backend engine has its own typed module under `lib/api/` (`auth.ts`, `subjects.ts`, `quizzes.ts`, `flashcards.ts`, `progress.ts`, `studyPlans.ts`, `analytics.ts`, `documents.ts`) mirroring the backend's own per-engine structure. Types in `lib/api/types.ts` are hand-mirrored from the backend's pydantic response schemas — there's no shared codegen yet, so if a backend response shape changes, update the type here too.
+Each backend engine has its own typed module under `lib/api/` (`auth.ts`, `account.ts`, `curriculum.ts`, `subjectPacks.ts`, `subjects.ts`, `documents.ts`, `chat.ts`, `summaries.ts`, `quizzes.ts`, `exams.ts`, `flashcards.ts`, `progress.ts`, `studyPlans.ts`, `analytics.ts`) mirroring the backend's own per-engine structure. Types in `lib/api/types.ts` are hand-mirrored from the backend's pydantic response schemas — there's no shared codegen yet, so if a backend response shape changes, update the type here too.
 
 `app/_layout.tsx` gates auth with `Stack.Protected guard={...}`, not a `useEffect` + `router.replace`. The effect-based version has a real race condition: it renders whichever screen the router picks first and only redirects a tick later, so an unauthenticated load would still mount `(tabs)/index` for one frame and fire its data-fetching effect with no access token — surfacing as `ApiError: Not authenticated`. `Stack.Protected` prevents a guarded screen from mounting at all until its guard is true, closing that race at the source.
 
 ## What's built vs. what's next
 
-Built: register/login (with token refresh), a short onboarding flow, the four-tab shell, a real subject list wired to the analytics engine (due-card counts, mastery), subject detail with a documents list, quiz generation + the full step-by-step quiz-taking flow with results, and a study-plan generation form.
+Built: register (name/email/pseudo/date of birth/optional school/password+confirm, with live inline validation) / login (with token refresh), a short onboarding flow with a curriculum pack picker (also reachable later from Settings to add another pack), the five-tab shell, a real subject list wired to the analytics engine (due-card counts, mastery), subject detail with document upload + a documents list, per-document summaries, RAG chat (whole-subject or scoped to a single document via "ask about this document"), quiz + exam generation with the full step-by-step attempt flow and results, flashcard review (SM-2), a concept-mastery tree view, a study-plan generation form, and account settings (theme, language, reset account).
 
 Known gaps, in rough priority order:
 
-1. **Document upload isn't wired up on mobile yet** (`lib/api/documents.ts` is read-only). Needs `expo-document-picker` + a multipart upload — the backend endpoint already exists (`POST /subjects/{id}/documents`).
-2. **No "list my study plans" endpoint on the backend** — the Study Plan tab can generate a plan and show it, but a generated plan isn't persisted anywhere the app can re-fetch it after a restart. The architecture doc's Planning Engine API contract only specifies generate/get-one/update-item; adding a `GET /study-plans` (list mine) is a small, natural backend follow-up.
-3. **Flashcard review screen isn't built yet** — `lib/api/flashcards.ts` has the calls (`listDueFlashcards`, `reviewFlashcard`), no screen consumes them yet.
-4. **Chat, summaries, and exams have no screens yet** — same story, the API modules would follow the same pattern as `quizzes.ts`.
-5. **The onboarding daily-minutes choice isn't persisted as a user preference** (no such backend setting exists yet) — it's passed through as a router param to pre-fill the Study Plan tab once, not saved.
-6. **Push notifications** (flashcard-due / study-plan-session reminders) aren't set up — would use `expo-notifications` with an EAS development build (push doesn't work in Expo Go as of SDK 53+).
+1. **No "list my study plans" endpoint on the backend** — the Study Plan tab can generate a plan and show it, but a generated plan isn't persisted anywhere the app can re-fetch it after a restart. The architecture doc's Planning Engine API contract only specifies generate/get-one/update-item; adding a `GET /study-plans` (list mine) is a small, natural backend follow-up.
+2. **The onboarding daily-minutes choice isn't persisted as a user preference** (no such backend setting exists yet) — it's passed through as a router param to pre-fill the Study Plan tab once, not saved.
+3. **Push notifications** (flashcard-due / study-plan-session reminders) aren't set up — would use `expo-notifications` with an EAS development build (push doesn't work in Expo Go as of SDK 53+).
+4. **Email verification / password reset have no UI** — matches the backend, which doesn't send real email yet either (see `backend/README.md`).
 
 ## Troubleshooting
 

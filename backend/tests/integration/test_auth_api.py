@@ -1,7 +1,15 @@
-async def _register(client, email="student@example.com", password="password123"):
+async def _register(client, email="student@example.com", password="password123", pseudo=None):
     return await client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": password, "firstname": "Ada", "lastname": "Lovelace"},
+        json={
+            "email": email,
+            "password": password,
+            "confirm_password": password,
+            "firstname": "Ada",
+            "lastname": "Lovelace",
+            "pseudo": pseudo or email.split("@")[0],
+            "date_of_birth": "2005-01-01",
+        },
     )
 
 
@@ -26,6 +34,95 @@ async def test_register_duplicate_email_rejected(client):
     await _register(client)
     resp = await _register(client)
     assert resp.status_code == 409
+
+
+async def test_register_duplicate_pseudo_rejected(client):
+    await _register(client, email="student@example.com", pseudo="ada")
+    resp = await _register(client, email="other@example.com", pseudo="ada")
+    assert resp.status_code == 409
+
+
+async def test_register_password_mismatch_rejected(client):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "student@example.com",
+            "password": "password123",
+            "confirm_password": "different123",
+            "firstname": "Ada",
+            "lastname": "Lovelace",
+            "pseudo": "student",
+            "date_of_birth": "2005-01-01",
+        },
+    )
+    assert resp.status_code == 400
+
+
+async def test_register_weak_password_rejected(client):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "student@example.com",
+            "password": "password",
+            "confirm_password": "password",
+            "firstname": "Ada",
+            "lastname": "Lovelace",
+            "pseudo": "student",
+            "date_of_birth": "2005-01-01",
+        },
+    )
+    assert resp.status_code == 400
+
+
+async def test_register_missing_pseudo_rejected(client):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "student@example.com",
+            "password": "password123",
+            "confirm_password": "password123",
+            "firstname": "Ada",
+            "lastname": "Lovelace",
+            "date_of_birth": "2005-01-01",
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_register_future_date_of_birth_rejected(client):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "student@example.com",
+            "password": "password123",
+            "confirm_password": "password123",
+            "firstname": "Ada",
+            "lastname": "Lovelace",
+            "pseudo": "student",
+            "date_of_birth": "2099-01-01",
+        },
+    )
+    assert resp.status_code == 422
+
+
+async def test_register_with_school_name_succeeds(client):
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "student@example.com",
+            "password": "password123",
+            "confirm_password": "password123",
+            "firstname": "Ada",
+            "lastname": "Lovelace",
+            "pseudo": "student",
+            "date_of_birth": "2005-01-01",
+            "school_name": "Lycée Victor Hugo",
+        },
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["school_name"] == "Lycée Victor Hugo"
+    assert body["pseudo"] == "student"
 
 
 async def test_login_wrong_password_rejected(client):

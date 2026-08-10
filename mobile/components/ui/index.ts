@@ -2,6 +2,7 @@ export * from "./Screen";
 export * from "./Text";
 export * from "./Button";
 export * from "./TextField";
+export * from "./DatePickerField";
 export * from "./Card";
 export * from "./ProgressBar";
 export * from "./IconButton";

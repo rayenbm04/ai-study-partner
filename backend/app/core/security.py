@@ -16,9 +16,39 @@ from app.core.config import settings
 
 _BCRYPT_MAX_BYTES = 72  # bcrypt silently ignores bytes beyond this
 
+# Not an exhaustive breach-list (that'd need an external API, e.g.
+# Have I Been Pwned's range search) — just the handful of passwords anyone
+# would guess in three tries, in both languages this app's students use.
+_COMMON_PASSWORDS = {
+    "password", "password1", "12345678", "123456789", "1234567890",
+    "qwertyui", "azertyui", "motdepasse", "motdepasse1", "azerty123",
+    "admin1234", "letmein12", "iloveyou1", "welcome12", "changeme1",
+    "00000000", "11111111", "abcd1234", "abc12345", "student12",
+}
+
 
 class TokenError(Exception):
     """Raised when an access token is missing, malformed, expired, or of the wrong type."""
+
+
+def weak_password_reason(password: str, *, pseudo: str | None = None, email: str | None = None) -> str | None:
+    """Returns a human-readable reason the password is too weak, or None if
+    it clears this (deliberately light — length is already enforced by
+    RegisterRequest) bar: not one of the handful of passwords everyone
+    guesses first, not all-digits, and not just the student's own pseudo or
+    email handle with the case changed."""
+    lowered = password.lower()
+    if lowered in _COMMON_PASSWORDS:
+        return "that's one of the most commonly used passwords."
+    if password.isdigit():
+        return "use more than just numbers."
+    if pseudo and lowered == pseudo.lower():
+        return "it can't be the same as your pseudo."
+    if email:
+        local_part = email.split("@", 1)[0].lower()
+        if local_part and lowered == local_part:
+            return "it can't be the same as your email address."
+    return None
 
 
 def hash_password(password: str) -> str:

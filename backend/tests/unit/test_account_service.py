@@ -1,7 +1,14 @@
 import pytest
 
 from app.services.account_service import AccountService
-from tests.unit.fakes import FakeDocumentRepository, FakeStorage, FakeStudyPlanRepository, FakeSubjectRepository
+from tests.unit.fakes import (
+    FakeCurriculumRepository,
+    FakeDocumentRepository,
+    FakeStorage,
+    FakeStudyPlanRepository,
+    FakeSubjectRepository,
+    FakeUserRepository,
+)
 
 
 async def _build():
@@ -9,8 +16,15 @@ async def _build():
     document_repo = FakeDocumentRepository()
     study_plan_repo = FakeStudyPlanRepository()
     storage = FakeStorage()
+    user_repo = FakeUserRepository()
+    curriculum_repo = FakeCurriculumRepository()
     service = AccountService(
-        subject_repo=subject_repo, document_repo=document_repo, study_plan_repo=study_plan_repo, storage=storage
+        subject_repo=subject_repo,
+        document_repo=document_repo,
+        study_plan_repo=study_plan_repo,
+        storage=storage,
+        user_repo=user_repo,
+        curriculum_repo=curriculum_repo,
     )
     return service, subject_repo, document_repo, study_plan_repo, storage
 
