@@ -3,7 +3,7 @@ import type { Conversation, Message } from "./types";
 
 export async function sendMessage(
   subjectId: string,
-  input: { question: string; conversation_id?: string | null }
+  input: { question: string; conversation_id?: string | null; document_id?: string | null }
 ): Promise<{ conversation_id: string; user_message: Message; assistant_message: Message }> {
   return apiRequest(`/api/v1/subjects/${subjectId}/chat`, { method: "POST", body: input });
 }

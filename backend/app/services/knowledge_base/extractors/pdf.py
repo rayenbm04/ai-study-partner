@@ -1,4 +1,5 @@
 import io
+import logging
 import re
 
 import pdfplumber
@@ -6,6 +7,8 @@ import pdfplumber
 from app.core.exceptions import ExtractionError
 from app.services.knowledge_base.extractors.base import ExtractedSegment
 from app.services.llm.base import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 # pdfplumber occasionally emits unresolved-ligature placeholders instead of
 # the actual character, and mis-maps accented Latin characters through a
@@ -81,4 +84,12 @@ async def _vision_fallback(page, page_number: int, total_pages: int, llm_provide
     except Exception:
         # A vision-call failure shouldn't fail the whole document — the page
         # just falls back to whatever (possibly empty) text pdfplumber found.
+        # Logged (not silent) because a misconfigured vision model — e.g. a
+        # text-only chat model reused for vision — fails this way on *every*
+        # page, and used to be invisible until every page's text came up
+        # empty and the whole document failed with no clue why.
+        logger.warning(
+            "Vision fallback failed for page %d/%d — falling back to any text pdfplumber found.",
+            page_number, total_pages, exc_info=True,
+        )
         return ""

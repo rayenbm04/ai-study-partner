@@ -46,10 +46,12 @@ class VectorRetriever:
         self._top_k_per_query = top_k_per_query
 
     async def retrieve(
-        self, *, subject_id: str, queries: list[str], final_k: int
+        self, *, subject_id: str, queries: list[str], final_k: int, document_id: str | None = None
     ) -> list[RetrievedChunk]:
         """`queries` should already be deduplicated by the caller if desired;
-        an empty or all-blank list returns no results rather than erroring."""
+        an empty or all-blank list returns no results rather than erroring.
+        `document_id`, when given, narrows retrieval to that one document
+        instead of the whole subject."""
         queries = [q for q in queries if q and q.strip()]
         if not queries:
             return []
@@ -62,6 +64,7 @@ class VectorRetriever:
                 query_vector=vector,
                 top_k=self._top_k_per_query,
                 model_name=self._embedder.model_name,
+                document_id=document_id,
             )
             ranked_lists.append([chunk_id for chunk_id, _distance in results])
 

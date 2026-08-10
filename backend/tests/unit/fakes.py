@@ -418,7 +418,7 @@ class FakeEmbeddingRepository(EmbeddingRepository):
         for chunk_id, vector in zip(chunk_ids, vectors):
             self.stored[chunk_id] = (vector, model_name)
 
-    async def search(self, *, subject_id, query_vector, top_k, model_name):
+    async def search(self, *, subject_id, query_vector, top_k, model_name, document_id=None):
         candidates: list[tuple[str, float]] = []
         for chunk_id, (vector, stored_model_name) in self.stored.items():
             if stored_model_name != model_name:
@@ -426,6 +426,8 @@ class FakeEmbeddingRepository(EmbeddingRepository):
             if self._chunk_repo is not None:
                 chunk = self._chunk_repo._by_id.get(chunk_id)
                 if chunk is None or chunk.subject_id != subject_id:
+                    continue
+                if document_id is not None and chunk.document_id != document_id:
                     continue
             candidates.append((chunk_id, _cosine_distance(query_vector, vector)))
         candidates.sort(key=lambda pair: pair[1])

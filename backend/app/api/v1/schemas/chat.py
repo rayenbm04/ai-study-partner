@@ -8,6 +8,9 @@ from app.domain.entities.message import Citation, Message
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     conversation_id: str | None = None
+    # When set, narrows retrieval to this one document instead of the whole
+    # subject — used when a student opens the coach from a specific upload.
+    document_id: str | None = None
 
 
 class CitationResponse(BaseModel):

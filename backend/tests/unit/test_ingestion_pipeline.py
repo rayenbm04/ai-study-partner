@@ -1,5 +1,8 @@
 import json
 
+import pytest
+
+from app.core.exceptions import ExtractionError
 from app.services.knowledge_base.concept_tagger import ConceptTagger
 from app.services.knowledge_base.document_classifier import DocumentClassifier
 from app.services.knowledge_base.ingestion_pipeline import IngestionPipeline
@@ -128,6 +131,28 @@ async def test_run_classifies_document_type_and_links_curriculum_chapter():
 async def test_run_on_unknown_document_does_not_raise():
     pipeline, *_ = _build_pipeline()
     await pipeline.run("does-not-exist")  # should just log and return
+
+
+async def test_run_raises_extraction_error_when_no_chunks_produced():
+    """A document whose extraction yields no usable text (blank file, scanned
+    PDF with a failed vision fallback, etc.) must not sail through to
+    mark_ready() with zero chunks — that leaves it stuck "ready" but unusable
+    by every downstream feature. The pipeline should raise instead, so the
+    caller (ingestion_task.py) marks it "failed" with an honest status."""
+    pipeline, document_repo, chunk_repo, _embedding_repo, _concept_repo, storage, _llm, *_ = _build_pipeline()
+    document = await document_repo.create(
+        document_id="doc-empty", subject_id="subj-1", original_filename="blank.txt",
+        storage_path="subj-1/doc-empty/blank.txt", file_type=".txt",
+    )
+    await storage.save(subject_id="subj-1", document_id="doc-empty", filename="blank.txt", content=b"   \n\n  ")
+
+    with pytest.raises(ExtractionError):
+        await pipeline.run(document.id)
+
+    # Pipeline itself doesn't touch status on failure (that's ingestion_task's
+    # job) — it should still be sitting at "processing" from earlier in run().
+    assert (await document_repo.get_by_id("doc-empty")).status == "processing"
+    assert await chunk_repo.list_by_document("doc-empty") == []
 
 
 async def test_run_marks_processing_before_completing():

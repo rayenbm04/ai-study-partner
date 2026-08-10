@@ -45,12 +45,28 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
     groq_chat_model: str = "llama-3.3-70b-versatile"
+    # llama-3.3-70b-versatile is text-only — Groq's vision-capable models are a
+    # separate, smaller lineup that churns fast: rag-backend/ (this project's
+    # predecessor) used meta-llama/llama-4-scout-17b-16e-instruct as of
+    # 2026-06, but by 2026-08 Groq had retired it (confirmed via a live 404
+    # "model_not_found"). qwen/qwen3.6-27b is what console.groq.com/docs/
+    # vision currently lists — if this starts 404ing too, that page has
+    # whatever replaced it. Used only for complete_vision() (scanned PDF
+    # pages, standalone images), never for text chat.
+    groq_vision_model: str = "qwen/qwen3.6-27b"
 
     openrouter_api_key: str = ""
     openrouter_chat_model: str = "google/gemini-2.0-flash-exp:free"
+    # Empty means "reuse openrouter_chat_model for vision too" (many
+    # OpenRouter models, including the default above, are already
+    # multimodal) — only set this if that model stops supporting images.
+    openrouter_vision_model: str = ""
 
     openai_api_key: str = ""
     openai_chat_model: str = "gpt-4o-mini"
+    # Empty means "reuse openai_chat_model for vision too" — gpt-4o-mini is
+    # natively multimodal, so this only needs setting if that changes.
+    openai_vision_model: str = ""
 
     anthropic_api_key: str = ""
 

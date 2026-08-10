@@ -85,8 +85,17 @@ class ChatService:
         self._history_messages = history_messages
 
     async def send_message(
-        self, *, user_id: str, subject_id: str, conversation_id: str | None, question: str
+        self,
+        *,
+        user_id: str,
+        subject_id: str,
+        conversation_id: str | None,
+        question: str,
+        document_id: str | None = None,
     ) -> ChatTurnResult:
+        """`document_id`, when given, scopes retrieval to that one document —
+        used when a student opens the coach from a specific upload rather
+        than the subject as a whole."""
         await self._subjects.get_owned(user_id, subject_id)  # 404s if this user doesn't own the subject
         conversation = await self._get_or_create_conversation(
             user_id=user_id, subject_id=subject_id, conversation_id=conversation_id, question=question
@@ -116,7 +125,7 @@ class ChatService:
         # the same handful of results.
         pool_size = self._final_context_chunks * 2 if self._enable_rerank else self._final_context_chunks
         candidates = await self._retriever.retrieve(
-            subject_id=subject_id, queries=queries, final_k=pool_size
+            subject_id=subject_id, queries=queries, final_k=pool_size, document_id=document_id
         )
 
         if self._enable_rerank and candidates:
@@ -130,7 +139,7 @@ class ChatService:
             candidates = candidates[: self._final_context_chunks]
 
         answer_text, citations = await self._generate_answer(
-            question=standalone_question, candidates=candidates
+            question=standalone_question, candidates=candidates, document_id=document_id
         )
 
         user_message = await self._messages.create(
@@ -171,12 +180,13 @@ class ChatService:
         return await self._conversations.create(user_id=user_id, subject_id=subject_id, title=title)
 
     async def _generate_answer(
-        self, *, question: str, candidates: list[RetrievedChunk]
+        self, *, question: str, candidates: list[RetrievedChunk], document_id: str | None = None
     ) -> tuple[str, list[Citation]]:
         if not candidates:
+            scope = "this document" if document_id else "your uploaded material for this subject"
             return (
-                "I couldn't find anything in your uploaded material for this subject that "
-                "addresses that question. Try rephrasing, or upload material that covers it.",
+                f"I couldn't find anything in {scope} that addresses that question. Try "
+                "rephrasing, or upload material that covers it.",
                 [],
             )
 

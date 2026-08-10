@@ -7,6 +7,7 @@ straightforward, fully unit-testable sequence of steps against fakes.
 """
 import logging
 
+from app.core.exceptions import ExtractionError
 from app.domain.repositories.chunk_repository import ChunkRepository
 from app.domain.repositories.concept_chunk_repository import ConceptChunkRepository
 from app.domain.repositories.document_repository import DocumentRepository
@@ -83,6 +84,18 @@ class IngestionPipeline:
         # coherent, standalone units, rather than the smaller overlapping
         # child chunks used for retrieval.
         parent_chunks = [chunk for chunk in chunks if chunk.chunk_type == "parent"]
+        if not parent_chunks:
+            # No segments produced any usable text — e.g. a scanned PDF whose
+            # pages all fell back to (and failed) vision transcription, or a
+            # genuinely empty file. Left unchecked this would still reach
+            # mark_ready() below, leaving the document stuck "ready" with no
+            # chunks: quiz/exam/summary/chat generation would then fail with
+            # a confusing "isn't ready yet (status: ready)" error. Raising
+            # here instead routes through ingestion_task.py's except block,
+            # which marks the document "failed" with an honest status.
+            raise ExtractionError(
+                document.original_filename, "no extractable text found (scanned, empty, or unreadable file)"
+            )
 
         child_chunks = [chunk for chunk in chunks if chunk.chunk_type == "child"]
         if child_chunks:

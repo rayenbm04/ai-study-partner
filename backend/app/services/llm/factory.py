@@ -15,7 +15,11 @@ def build_llm_provider(settings: Settings) -> LLMProvider:
         return GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_chat_model)
     if provider == "groq":
         return OpenAICompatibleProvider(
-            api_key=settings.groq_api_key, base_url=_GROQ_BASE_URL, model=settings.groq_chat_model, provider_name="groq"
+            api_key=settings.groq_api_key,
+            base_url=_GROQ_BASE_URL,
+            model=settings.groq_chat_model,
+            provider_name="groq",
+            vision_model=settings.groq_vision_model,
         )
     if provider == "openrouter":
         return OpenAICompatibleProvider(
@@ -23,10 +27,15 @@ def build_llm_provider(settings: Settings) -> LLMProvider:
             base_url=_OPENROUTER_BASE_URL,
             model=settings.openrouter_chat_model,
             provider_name="openrouter",
+            vision_model=settings.openrouter_vision_model or None,
         )
     if provider == "openai":
         return OpenAICompatibleProvider(
-            api_key=settings.openai_api_key, base_url=_OPENAI_BASE_URL, model=settings.openai_chat_model, provider_name="openai"
+            api_key=settings.openai_api_key,
+            base_url=_OPENAI_BASE_URL,
+            model=settings.openai_chat_model,
+            provider_name="openai",
+            vision_model=settings.openai_vision_model or None,
         )
 
     raise ValueError(f"Unknown LLM_PROVIDER '{provider}'. Expected one of: gemini, groq, openrouter, openai.")

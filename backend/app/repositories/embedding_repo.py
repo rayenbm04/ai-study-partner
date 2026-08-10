@@ -18,13 +18,22 @@ class SqlAlchemyEmbeddingRepository(EmbeddingRepository):
         await self._session.flush()
 
     async def search(
-        self, *, subject_id: str, query_vector: list[float], top_k: int, model_name: str
+        self,
+        *,
+        subject_id: str,
+        query_vector: list[float],
+        top_k: int,
+        model_name: str,
+        document_id: str | None = None,
     ) -> list[tuple[str, float]]:
         distance = EmbeddingModel.vector.cosine_distance(query_vector).label("distance")
+        conditions = [ChunkModel.subject_id == subject_id, EmbeddingModel.model_name == model_name]
+        if document_id is not None:
+            conditions.append(ChunkModel.document_id == document_id)
         stmt = (
             select(EmbeddingModel.chunk_id, distance)
             .join(ChunkModel, ChunkModel.id == EmbeddingModel.chunk_id)
-            .where(ChunkModel.subject_id == subject_id, EmbeddingModel.model_name == model_name)
+            .where(*conditions)
             .order_by(distance)
             .limit(top_k)
         )

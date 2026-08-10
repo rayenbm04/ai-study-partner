@@ -66,6 +66,29 @@ async def test_upload_image_ingests_via_vision_fallback(client):
     assert body["error_message"] is None
 
 
+async def test_upload_empty_document_is_marked_failed_not_ready(client):
+    """A file that extracts to zero usable text (empty, scanned-with-no-vision-
+    fallback, etc.) must not be left silently marked "ready" with no chunks —
+    that used to make every downstream feature (quiz/exam/summary/chat) fail
+    with a confusing "isn't ready yet (status: ready)" error. Ingestion should
+    instead mark it "failed" with an honest error_message."""
+    headers = await _register_and_login(client, "alice@example.com")
+    subject_id = await _create_subject(client, headers)
+
+    upload_resp = await client.post(
+        f"/api/v1/subjects/{subject_id}/documents",
+        headers=headers,
+        files={"file": ("blank.txt", b"   \n\n  ", "text/plain")},
+    )
+    assert upload_resp.status_code == 201
+    document_id = upload_resp.json()["id"]
+
+    status_resp = await client.get(f"/api/v1/documents/{document_id}", headers=headers)
+    body = status_resp.json()
+    assert body["status"] == "failed"
+    assert body["error_message"]
+
+
 async def test_upload_rejects_unsupported_file_type(client):
     headers = await _register_and_login(client, "alice@example.com")
     subject_id = await _create_subject(client, headers)

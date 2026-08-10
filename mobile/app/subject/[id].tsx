@@ -285,6 +285,11 @@ export default function SubjectDetailScreen() {
                       setSummaryResult(null);
                     }}
                   />
+                  <DocAction
+                    icon="chatbubble-ellipses-outline"
+                    label={t("subjectDetail.ask")}
+                    onPress={() => router.push(`/coach/${id}?documentId=${doc.id}`)}
+                  />
                 </View>
               ) : null}
             </Card>

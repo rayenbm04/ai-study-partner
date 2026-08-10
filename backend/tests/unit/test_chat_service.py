@@ -144,6 +144,47 @@ async def test_send_message_no_matching_chunks_returns_fallback_with_no_citation
     assert "couldn't find" in result.assistant_message.content
 
 
+async def test_send_message_scoped_to_document_id_ignores_other_documents():
+    llm = FakeLLMProvider(response="Answer scoped to one document [1].")
+    service, subject_repo, chunk_repo, document_repo, embedding_repo, embedding_provider = await _build_chat_service(
+        llm=llm
+    )
+    subject, document, child = await _seed_document_and_chunks(
+        subject_repo=subject_repo, chunk_repo=chunk_repo, document_repo=document_repo,
+        embedding_repo=embedding_repo, embedding_provider=embedding_provider, user_id="user-1",
+    )
+    # A second document in the same subject with the exact same content —
+    # if document_id scoping weren't applied, its chunk would also match.
+    other_document = await document_repo.create(
+        document_id="doc-2", subject_id=subject.id, original_filename="other.pdf",
+        storage_path="y", file_type="pdf",
+    )
+    other_drafts = [
+        ChunkDraft(
+            content="Derivatives measure the rate of change of a function.", chunk_type="parent",
+            parent_index=None, page=1, section_title=None, chapter=None, token_count=8,
+        ),
+        ChunkDraft(
+            content="The derivative of x^2 is 2x.", chunk_type="child", parent_index=0, page=1,
+            section_title=None, chapter=None, token_count=7,
+        ),
+    ]
+    other_chunks = await chunk_repo.bulk_create(document_id=other_document.id, subject_id=subject.id, drafts=other_drafts)
+    other_child = next(c for c in other_chunks if c.chunk_type == "child")
+    other_vector = await embedding_provider.embed_documents([other_child.content])
+    await embedding_repo.bulk_create(
+        chunk_ids=[other_child.id], vectors=other_vector, model_name=embedding_provider.model_name
+    )
+
+    result = await service.send_message(
+        user_id="user-1", subject_id=subject.id, conversation_id=None,
+        question="The derivative of x^2 is 2x.", document_id=document.id,
+    )
+
+    assert len(result.assistant_message.citations) == 1
+    assert result.assistant_message.citations[0].chunk_id == child.id
+
+
 async def test_send_message_raises_when_subject_not_owned():
     llm = FakeLLMProvider(response="x")
     service, subject_repo, chunk_repo, document_repo, embedding_repo, embedding_provider = await _build_chat_service(

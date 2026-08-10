@@ -3,6 +3,11 @@
  * /subjects/{id}/chat). Loads the most recent conversation's history if one
  * exists so returning to a subject doesn't lose context; sending a message
  * with no conversation_id yet has the backend create one.
+ *
+ * Optionally scoped to a single document via the `documentId` query param
+ * (set when a student taps "Ask" on one of their uploads) — retrieval then
+ * only searches that document instead of the whole subject, and the screen
+ * starts a fresh conversation rather than resuming the subject's general one.
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,13 +25,17 @@ import {
 
 import { IconButton, Screen, Text } from "../../components/ui";
 import { fontFamilies, radii, spacing } from "../../constants/theme";
-import { chatApi, subjectsApi } from "../../lib/api";
-import type { Citation, Message, Subject } from "../../lib/api";
+import { chatApi, documentsApi, subjectsApi } from "../../lib/api";
+import type { Citation, Document, Message, Subject } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { useTheme } from "../../lib/theme-context";
 
 export default function CoachScreen() {
-  const { subjectId, prompt } = useLocalSearchParams<{ subjectId: string; prompt?: string }>();
+  const { subjectId, prompt, documentId } = useLocalSearchParams<{
+    subjectId: string;
+    prompt?: string;
+    documentId?: string;
+  }>();
   const router = useRouter();
   const { colors } = useTheme();
   const { t } = useLanguage();
@@ -35,6 +44,7 @@ export default function CoachScreen() {
   const autoSentRef = useRef(false);
 
   const [subject, setSubject] = useState<Subject | null>(null);
+  const [document, setDocument] = useState<Document | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -44,18 +54,26 @@ export default function CoachScreen() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [s, conversations] = await Promise.all([
+      const [s, doc] = await Promise.all([
         subjectsApi.getSubject(subjectId),
-        chatApi.listConversations(subjectId),
+        documentId ? documentsApi.getDocument(documentId) : Promise.resolve(null),
       ]);
       if (cancelled) return;
       setSubject(s);
-      const latest = conversations[0];
-      if (latest) {
-        const history = await chatApi.listMessages(latest.id);
-        if (cancelled) return;
-        setConversationId(latest.id);
-        setMessages(history);
+      setDocument(doc);
+
+      // Scoped to one document: always start a fresh conversation rather than
+      // resuming the subject's latest one, which may cover unrelated
+      // material and would otherwise be sent along as history.
+      if (!documentId) {
+        const conversations = await chatApi.listConversations(subjectId);
+        const latest = conversations[0];
+        if (latest) {
+          const history = await chatApi.listMessages(latest.id);
+          if (cancelled) return;
+          setConversationId(latest.id);
+          setMessages(history);
+        }
       }
       setIsLoading(false);
     }
@@ -63,7 +81,7 @@ export default function CoachScreen() {
     return () => {
       cancelled = true;
     };
-  }, [subjectId]);
+  }, [subjectId, documentId]);
 
   async function send(question: string) {
     const text = question.trim();
@@ -80,7 +98,11 @@ export default function CoachScreen() {
     };
     setMessages((m) => [...m, optimistic]);
     try {
-      const result = await chatApi.sendMessage(subjectId, { question: text, conversation_id: conversationId });
+      const result = await chatApi.sendMessage(subjectId, {
+        question: text,
+        conversation_id: conversationId,
+        document_id: documentId ?? null,
+      });
       setConversationId(result.conversation_id);
       setMessages((m) => [...m.filter((msg) => msg.id !== optimistic.id), result.user_message, result.assistant_message]);
     } catch {
@@ -112,8 +134,8 @@ export default function CoachScreen() {
           <IconButton name="chevron-back" onPress={() => router.back()} />
           <View style={styles.headerText}>
             <Text variant="title">{t("coach.title")}</Text>
-            <Text variant="caption" style={{ color: colors.sageDark }}>
-              {subject?.name ?? "…"}
+            <Text variant="caption" style={{ color: colors.sageDark }} numberOfLines={1}>
+              {document?.original_filename ?? subject?.name ?? "…"}
             </Text>
           </View>
         </View>
@@ -133,7 +155,7 @@ export default function CoachScreen() {
               <View style={styles.empty}>
                 <Text variant="display">{t("coach.emptyTitle")}</Text>
                 <Text variant="body" style={[styles.emptyBody, { color: colors.textSecondary }]}>
-                  {t("coach.emptyBody")}
+                  {documentId ? t("coach.emptyBodyDocument") : t("coach.emptyBody")}
                 </Text>
                 <View style={styles.prompts}>
                   {SUGGESTED_PROMPTS.map((p) => (

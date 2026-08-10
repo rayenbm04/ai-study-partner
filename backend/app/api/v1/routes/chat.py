@@ -21,6 +21,7 @@ async def send_chat_message(
         subject_id=subject_id,
         conversation_id=body.conversation_id,
         question=body.question,
+        document_id=body.document_id,
     )
     return ChatResponse(
         conversation_id=result.conversation.id,

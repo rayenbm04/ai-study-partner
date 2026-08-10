@@ -232,6 +232,7 @@ export const translations = {
       quiz: "Quiz",
       exam: "Exam",
       summary: "Summary",
+      ask: "Ask",
       processingNote: "These actions unlock once at least one document finishes processing.",
       timedExam: "Timed exam",
       examDurationPrompt: "How much time should you get?",
@@ -287,6 +288,7 @@ export const translations = {
       promptQuiz: "Quiz me on this",
       emptyTitle: "What's stuck?",
       emptyBody: "I only answer from this subject's documents, with the page cited.",
+      emptyBodyDocument: "I only answer from this document, with the page cited.",
       inputPlaceholder: "Ask about your course…",
     },
     materials: {
@@ -500,6 +502,7 @@ export const translations = {
       quiz: "Quiz",
       exam: "Examen",
       summary: "Résumé",
+      ask: "Demander",
       processingNote: "Ces actions se débloquent une fois qu'au moins un document a fini d'être traité.",
       timedExam: "Examen chronométré",
       examDurationPrompt: "Combien de temps veux-tu avoir ?",
@@ -555,6 +558,7 @@ export const translations = {
       promptQuiz: "Fais-moi un quiz là-dessus",
       emptyTitle: "Qu'est-ce qui bloque ?",
       emptyBody: "Je réponds uniquement à partir des documents de cette matière, avec la page citée.",
+      emptyBodyDocument: "Je réponds uniquement à partir de ce document, avec la page citée.",
       inputPlaceholder: "Pose une question sur ton cours…",
     },
     materials: {
@@ -768,6 +772,7 @@ export const translations = {
       quiz: "اختبار",
       exam: "امتحان",
       summary: "ملخص",
+      ask: "اسأل",
       processingNote: "تُفعَّل هذه الإجراءات بمجرد انتهاء معالجة مستند واحد على الأقل.",
       timedExam: "امتحان محدد بوقت",
       examDurationPrompt: "كم من الوقت تريد؟",
@@ -823,6 +828,7 @@ export const translations = {
       promptQuiz: "اختبرني في هذا",
       emptyTitle: "ما الذي يصعب عليك؟",
       emptyBody: "أجيب فقط من مستندات هذه المادة، مع ذكر الصفحة.",
+      emptyBodyDocument: "أجيب فقط من هذا المستند، مع ذكر الصفحة.",
       inputPlaceholder: "اسأل عن مقررك…",
     },
     materials: {

@@ -33,8 +33,12 @@ class LLMProvider(ABC):
     ) -> str:
         """Same idea as complete(), but with an image attached — used for
         scanned/low-text PDF pages, embedded slide images, and standalone
-        image uploads. Every provider here (Gemini natively, OpenAI-compatible
-        APIs via the standard image_url message format) supports vision on at
-        least their default model, so this isn't a separate optional
-        capability callers need to check for."""
+        image uploads. Every provider here supports vision (Gemini natively;
+        OpenAI-compatible APIs via the standard image_url message format),
+        but not necessarily on the same model used for text chat — Groq in
+        particular requires a separate vision-capable model
+        (OpenAICompatibleProvider's vision_model), since its default text
+        models don't accept image input. Callers don't need to check for the
+        capability, but self-hosting a new provider needs to wire up a model
+        that actually supports it."""
         ...

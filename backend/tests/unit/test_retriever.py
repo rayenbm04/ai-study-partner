@@ -67,6 +67,24 @@ async def test_retrieve_filters_by_subject():
     assert results == []
 
 
+async def test_retrieve_filters_by_document_id_within_subject():
+    chunk_repo = FakeChunkRepository()
+    embedding_repo = FakeEmbeddingRepository(chunk_repo=chunk_repo)
+    embedder = FakeEmbeddingProvider(dimension=8)
+    await _seed_chunks(chunk_repo, embedding_repo, embedder, subject_id="subj-1", document_id="doc-1")
+    await _seed_chunks(chunk_repo, embedding_repo, embedder, subject_id="subj-1", document_id="doc-2")
+
+    retriever = VectorRetriever(
+        chunk_repo=chunk_repo, embedding_repo=embedding_repo, embedding_provider=embedder, top_k_per_query=10
+    )
+    results = await retriever.retrieve(
+        subject_id="subj-1", queries=["derivative"], final_k=10, document_id="doc-1"
+    )
+
+    assert results
+    assert all(c.chunk.document_id == "doc-1" for c in results)
+
+
 async def test_retrieve_returns_empty_for_blank_queries():
     chunk_repo = FakeChunkRepository()
     embedding_repo = FakeEmbeddingRepository(chunk_repo=chunk_repo)
