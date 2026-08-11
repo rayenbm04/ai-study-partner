@@ -1,31 +1,38 @@
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { cn } from '@/lib/utils';
+import * as AvatarPrimitive from '@rn-primitives/avatar';
 
-import { fontFamilies, radii } from "../../constants/theme";
-import { useTheme } from "../../lib/theme-context";
-import { Text } from "./Text";
-
-/** Circular tint-background initial badge — used for the user's initial and
- * for each subject's leading dot on the home/subjects list. */
-export function Avatar({ label, size = 46, style }: { label: string; size?: number; style?: StyleProp<ViewStyle> }) {
-  const { colors } = useTheme();
+function Avatar({
+  className,
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Root>) {
   return (
-    <View
-      style={[
-        styles.base,
-        { width: size, height: size, borderRadius: radii.full, backgroundColor: colors.primaryLight },
-        style,
-      ]}
-    >
-      <Text style={{ fontFamily: fontFamilies.display, fontSize: size * 0.38, color: colors.accentDark }}>
-        {label.slice(0, 1).toUpperCase()}
-      </Text>
-    </View>
+    <AvatarPrimitive.Root
+      className={cn('relative flex size-8 shrink-0 overflow-hidden rounded-full', className)}
+      {...props}
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+function AvatarImage({
+  className,
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  return <AvatarPrimitive.Image className={cn('aspect-square size-full', className)} {...props} />;
+}
+
+function AvatarFallback({
+  className,
+  ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+  return (
+    <AvatarPrimitive.Fallback
+      className={cn(
+        'bg-muted flex size-full flex-row items-center justify-center rounded-full',
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Avatar, AvatarFallback, AvatarImage };

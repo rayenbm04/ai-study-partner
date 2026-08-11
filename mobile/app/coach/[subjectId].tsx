@@ -18,17 +18,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   TextInput,
+  useColorScheme,
   View,
 } from "react-native";
 
-import { IconButton, Screen, Text } from "../../components/ui";
-import { fontFamilies, radii, spacing } from "../../constants/theme";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
 import { chatApi, documentsApi, subjectsApi } from "../../lib/api";
 import type { Citation, Document, Message, Subject } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 export default function CoachScreen() {
   const { subjectId, prompt, documentId } = useLocalSearchParams<{
@@ -37,7 +39,7 @@ export default function CoachScreen() {
     documentId?: string;
   }>();
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const SUGGESTED_PROMPTS = [t("coach.promptExplain"), t("coach.promptSummarize"), t("coach.promptQuiz")];
   const listRef = useRef<FlatList<Message>>(null);
@@ -125,46 +127,36 @@ export default function CoachScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={16}
-      >
-        <View style={styles.header}>
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={16}>
+        <View className="mt-2 mb-2 flex-row items-center gap-3">
           <IconButton name="chevron-back" onPress={() => router.back()} />
-          <View style={styles.headerText}>
-            <Text variant="title">{t("coach.title")}</Text>
-            <Text variant="caption" style={{ color: colors.sageDark }} numberOfLines={1}>
+          <View className="flex-1">
+            <Text className="text-base font-semibold">{t("coach.title")}</Text>
+            <Text className="text-xs text-emerald-600 dark:text-emerald-400" numberOfLines={1}>
               {document?.original_filename ?? subject?.name ?? "…"}
             </Text>
           </View>
         </View>
 
         {isLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.accent} />
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator color={scheme.primary} />
           </View>
         ) : (
           <FlatList
             ref={listRef}
             data={messages}
             keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.list}
+            contentContainerClassName="gap-6 py-3 grow"
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text variant="display">{t("coach.emptyTitle")}</Text>
-                <Text variant="body" style={[styles.emptyBody, { color: colors.textSecondary }]}>
-                  {documentId ? t("coach.emptyBodyDocument") : t("coach.emptyBody")}
-                </Text>
-                <View style={styles.prompts}>
+              <View className="pt-6">
+                <Text className="text-3xl font-bold">{t("coach.emptyTitle")}</Text>
+                <Text className="mt-3 text-muted-foreground">{documentId ? t("coach.emptyBodyDocument") : t("coach.emptyBody")}</Text>
+                <View className="mt-6 flex-row flex-wrap gap-2">
                   {SUGGESTED_PROMPTS.map((p) => (
-                    <Pressable
-                      key={p}
-                      onPress={() => send(p)}
-                      style={[styles.promptChip, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
-                    >
-                      <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13.5 }}>{p}</Text>
+                    <Pressable key={p} onPress={() => send(p)} className="rounded-full bg-card px-5 py-3 shadow-sm shadow-black/5">
+                      <Text className="text-[13.5px] font-semibold">{p}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -173,28 +165,21 @@ export default function CoachScreen() {
             renderItem={({ item }) => {
               const mine = item.role === "user";
               return (
-                <View style={[styles.bubbleWrap, mine ? styles.bubbleWrapMine : styles.bubbleWrapTheirs]}>
+                <View className={cn("max-w-[88%]", mine ? "items-end self-end" : "items-start self-start")}>
                   <View
-                    style={[
-                      styles.bubble,
-                      mine
-                        ? { backgroundColor: colors.primary, borderBottomRightRadius: 8 }
-                        : { backgroundColor: colors.surface, shadowColor: colors.shadow, borderBottomLeftRadius: 8 },
-                    ]}
+                    className={cn(
+                      "rounded-[22px] px-5 py-3",
+                      mine ? "rounded-br-lg bg-primary" : "rounded-bl-lg bg-card shadow-sm shadow-black/5"
+                    )}
                   >
-                    <Text style={{ color: mine ? colors.textOnPrimary : colors.textPrimary, fontSize: 15.5, lineHeight: 23 }}>
-                      {item.content}
-                    </Text>
+                    <Text className={cn("text-[15.5px] leading-6", mine && "text-primary-foreground")}>{item.content}</Text>
                   </View>
                   {item.citations.length > 0 ? (
-                    <View style={styles.citations}>
+                    <View className="mt-2 flex-row flex-wrap gap-1">
                       {item.citations.map((c: Citation) => (
-                        <View
-                          key={c.chunk_id}
-                          style={[styles.citationChip, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
-                        >
-                          <Ionicons name="document-text-outline" size={13} color={colors.sageDark} />
-                          <Text variant="caption" style={styles.citationText}>
+                        <View key={c.chunk_id} className="flex-row items-center gap-1.5 rounded-full bg-card px-2 py-1.5 shadow-sm shadow-black/5">
+                          <Ionicons name="document-text-outline" size={13} color="#059669" />
+                          <Text className="max-w-50 text-xs text-muted-foreground">
                             {c.document_filename}
                             {c.page ? ` · p.${c.page}` : ""}
                           </Text>
@@ -207,157 +192,33 @@ export default function CoachScreen() {
             }}
             ListFooterComponent={
               isSending ? (
-                <View style={[styles.typing, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
-                  <ActivityIndicator size="small" color={colors.accent} />
+                <View className="self-start rounded-[22px] bg-card px-5 py-3 shadow-sm shadow-black/5">
+                  <ActivityIndicator size="small" color={scheme.primary} />
                 </View>
               ) : null
             }
           />
         )}
 
-        <View style={[styles.inputBar, { backgroundColor: colors.surface, shadowColor: colors.shadowStrong }]}>
+        <View className="mb-6 flex-row items-end gap-2 rounded-2xl bg-card p-2 shadow-lg shadow-black/10">
           <TextInput
             value={draft}
             onChangeText={setDraft}
             placeholder={t("coach.inputPlaceholder")}
-            placeholderTextColor={colors.textMuted}
-            style={[styles.input, { color: colors.textPrimary }]}
+            placeholderTextColor={scheme.mutedForeground}
+            className="max-h-25 flex-1 px-3 py-2 text-[15px] text-foreground"
             multiline
           />
           <Pressable
             onPress={() => send(draft)}
             disabled={!draft.trim() || isSending}
-            style={[styles.sendButton, { backgroundColor: colors.accent, opacity: draft.trim() ? 1 : 0.5 }]}
+            className="size-11 items-center justify-center rounded-full bg-primary"
+            style={{ opacity: draft.trim() ? 1 : 0.5 }}
           >
-            <Ionicons name="arrow-up" size={20} color={colors.textOnAccent} />
+            <Ionicons name="arrow-up" size={20} color={scheme.primaryForeground} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  headerText: {
-    flex: 1,
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  list: {
-    paddingVertical: spacing.md,
-    gap: spacing.lg,
-    flexGrow: 1,
-  },
-  empty: {
-    paddingTop: spacing.xl,
-  },
-  emptyBody: {
-    marginTop: spacing.md,
-  },
-  prompts: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-  },
-  promptChip: {
-    borderRadius: radii.full,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 2,
-  },
-  bubbleWrap: {
-    maxWidth: "88%",
-  },
-  bubbleWrapMine: {
-    alignSelf: "flex-end",
-    alignItems: "flex-end",
-  },
-  bubbleWrapTheirs: {
-    alignSelf: "flex-start",
-    alignItems: "flex-start",
-  },
-  bubble: {
-    borderRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  citations: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  citationChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: radii.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 1,
-  },
-  citationText: {
-    maxWidth: 200,
-  },
-  typing: {
-    alignSelf: "flex-start",
-    borderRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  inputBar: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: spacing.sm,
-    borderRadius: radii.xl,
-    padding: spacing.sm,
-    marginBottom: spacing.lg,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 4,
-  },
-  input: {
-    flex: 1,
-    maxHeight: 100,
-    fontSize: 15,
-    fontFamily: fontFamilies.regular,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

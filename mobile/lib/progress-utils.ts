@@ -1,5 +1,7 @@
-import type { ColorScheme } from "../constants/theme";
+import type { THEME } from "./theme";
 import type { ConceptMastery } from "./api";
+
+type Scheme = (typeof THEME)["light"];
 
 /** Flattens a concept-mastery tree into concept_id -> name, for resolving a
  * WeakConcept (which only carries a concept_id) to a display name. Shared
@@ -13,9 +15,11 @@ export function flattenConceptNames(nodes: ConceptMastery[], out: Map<string, st
   return out;
 }
 
-export function masteryColor(colors: ColorScheme, score: number | null): string {
-  if (score === null) return colors.textMuted;
-  if (score >= 70) return colors.sage;
-  if (score >= 40) return colors.accent;
-  return colors.error;
+const SAGE = "hsl(152 55% 40%)";
+
+export function masteryColor(scheme: Scheme, score: number | null): string {
+  if (score === null) return scheme.mutedForeground;
+  if (score >= 70) return SAGE;
+  if (score >= 40) return scheme.primary;
+  return scheme.destructive;
 }

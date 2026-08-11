@@ -10,19 +10,23 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, useColorScheme, View } from "react-native";
 
-import { Button, Card, Screen, Tag, Text } from "../../components/ui";
-import { radii, spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Screen } from "../../components/ui/Screen";
+import { Tag } from "../../components/ui/Tag";
+import { Text } from "../../components/ui/text";
 import { ApiError, studyPlansApi, subjectsApi } from "../../lib/api";
 import type { StudyPlan, Subject } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 const MINUTE_OPTIONS = [15, 30, 45, 60];
 
 export default function StudyPlanScreen() {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const params = useLocalSearchParams<{ defaultDailyMinutes?: string }>();
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -66,82 +70,73 @@ export default function StudyPlanScreen() {
   if (plan) {
     return (
       <Screen>
-        <View style={styles.header}>
-          <Text variant="display">{plan.name}</Text>
-          <Text variant="body" style={{ color: colors.textSecondary, marginTop: spacing.xs }}>
-            {tn("studyPlan.sessionsScheduled", plan.items.length)}
-          </Text>
+        <View className="mt-6 mb-6">
+          <Text className="text-3xl font-bold">{plan.name}</Text>
+          <Text className="mt-1 text-muted-foreground">{tn("studyPlan.sessionsScheduled", plan.items.length)}</Text>
         </View>
         <FlatList
           data={plan.items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerClassName="gap-3 pb-32"
           renderItem={({ item }) => (
-            <Card style={styles.itemCard}>
-              <View style={styles.itemRow}>
-                <Text variant="label">{item.scheduled_date}</Text>
-                <Tag label={t(`activityType.${item.activity_type}`)} tone="accent" />
-              </View>
-              <Text variant="body">{t("common.minutes", { minutes: item.duration_minutes })}</Text>
+            <Card>
+              <CardContent className="gap-1">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm font-medium text-muted-foreground">{item.scheduled_date}</Text>
+                  <Tag label={t(`activityType.${item.activity_type}`)} tone="accent" />
+                </View>
+                <Text>{t("common.minutes", { minutes: item.duration_minutes })}</Text>
+              </CardContent>
             </Card>
           )}
         />
-        <Button
-          label={t("studyPlan.generateNewPlan")}
-          variant="secondary"
-          onPress={() => setPlan(null)}
-          style={styles.bottomAction}
-        />
+        <Button variant="secondary" onPress={() => setPlan(null)} className="mb-28">
+          <Text>{t("studyPlan.generateNewPlan")}</Text>
+        </Button>
       </Screen>
     );
   }
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Text variant="display">{t("studyPlan.title")}</Text>
-        <Text variant="body" style={{ color: colors.textSecondary, marginTop: spacing.xs }}>
-          {t("studyPlan.subtitle")}
-        </Text>
+      <View className="mt-6 mb-6">
+        <Text className="text-3xl font-bold">{t("studyPlan.title")}</Text>
+        <Text className="mt-1 text-muted-foreground">{t("studyPlan.subtitle")}</Text>
       </View>
 
-      <Text variant="label" style={styles.sectionLabel}>
-        {t("common.subjects")}
-      </Text>
-      <View style={styles.chipRow}>
+      <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("common.subjects")}</Text>
+      <View className="flex-row flex-wrap gap-2">
         {subjects.map((subject) => {
           const selected = selectedSubjectIds.includes(subject.id);
           return (
             <Pressable
               key={subject.id}
               onPress={() => toggleSubject(subject.id)}
-              style={[
-                styles.chip,
-                { backgroundColor: selected ? colors.primary : colors.surface, shadowColor: colors.shadow },
-              ]}
+              className={cn(
+                "rounded-full px-5 py-3 shadow-sm shadow-black/5",
+                selected ? "bg-primary" : "bg-card"
+              )}
             >
-              <Text style={{ color: selected ? colors.textOnPrimary : colors.textPrimary }}>{subject.name}</Text>
+              <Text className={selected ? "text-primary-foreground" : "text-foreground"}>{subject.name}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text variant="label" style={styles.sectionLabel}>
-        {t("studyPlan.dailyStudyTime")}
-      </Text>
-      <View style={styles.chipRow}>
+      <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("studyPlan.dailyStudyTime")}</Text>
+      <View className="flex-row flex-wrap gap-2">
         {MINUTE_OPTIONS.map((minutes) => {
           const selected = dailyMinutes === minutes;
           return (
             <Pressable
               key={minutes}
               onPress={() => setDailyMinutes(minutes)}
-              style={[
-                styles.chip,
-                { backgroundColor: selected ? colors.primary : colors.surface, shadowColor: colors.shadow },
-              ]}
+              className={cn(
+                "rounded-full px-5 py-3 shadow-sm shadow-black/5",
+                selected ? "bg-primary" : "bg-card"
+              )}
             >
-              <Text style={{ color: selected ? colors.textOnPrimary : colors.textPrimary }}>
+              <Text className={selected ? "text-primary-foreground" : "text-foreground"}>
                 {t("common.minutes", { minutes })}
               </Text>
             </Pressable>
@@ -149,67 +144,12 @@ export default function StudyPlanScreen() {
         })}
       </View>
 
-      {error ? (
-        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-          {error}
-        </Text>
-      ) : null}
+      {error ? <Text className="mt-6 text-sm text-destructive">{error}</Text> : null}
 
-      <Button
-        label={t("studyPlan.generatePlan")}
-        onPress={handleGenerate}
-        loading={isGenerating}
-        disabled={selectedSubjectIds.length === 0}
-        style={styles.generateButton}
-      />
+      <Button onPress={handleGenerate} disabled={selectedSubjectIds.length === 0 || isGenerating} className="mt-8 mb-28">
+        {isGenerating ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+        <Text>{t("studyPlan.generatePlan")}</Text>
+      </Button>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  sectionLabel: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  chip: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.full,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    elevation: 2,
-  },
-  error: {
-    marginTop: spacing.lg,
-  },
-  generateButton: {
-    marginTop: spacing.xl,
-    marginBottom: 110,
-  },
-  bottomAction: {
-    marginBottom: 110,
-  },
-  list: {
-    gap: spacing.md,
-    paddingBottom: 130,
-  },
-  itemCard: {
-    marginBottom: 0,
-  },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-});

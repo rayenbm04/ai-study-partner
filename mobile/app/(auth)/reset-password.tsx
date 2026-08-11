@@ -1,15 +1,17 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, useColorScheme, View } from "react-native";
 
-import { Button, Screen, Text, TextField } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
+import { TextField } from "../../components/ui/TextField";
 import { ApiError, authApi } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
 
 export default function ResetPasswordScreen() {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const router = useRouter();
   const [token, setToken] = useState("");
@@ -48,18 +50,14 @@ export default function ResetPasswordScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Text variant="display">{t("auth.resetPasswordTitle")}</Text>
-        <Text variant="body" style={styles.subtitle}>
-          {t("auth.resetPasswordSubtitle")}
-        </Text>
+      <View className="mt-16 mb-10">
+        <Text className="text-3xl font-bold">{t("auth.resetPasswordTitle")}</Text>
+        <Text className="mt-2 text-muted-foreground">{t("auth.resetPasswordSubtitle")}</Text>
       </View>
 
       <View>
         {done ? (
-          <Text variant="body" style={styles.sent}>
-            {t("auth.resetPasswordSuccess")}
-          </Text>
+          <Text className="mb-4">{t("auth.resetPasswordSuccess")}</Text>
         ) : (
           <>
             <TextField label={t("auth.resetCode")} value={token} onChangeText={setToken} autoCapitalize="none" />
@@ -69,7 +67,7 @@ export default function ResetPasswordScreen() {
               onChangeText={setNewPassword}
               secureTextEntry
               autoComplete="new-password"
-              style={styles.field}
+              className="mt-4"
             />
             <TextField
               label={t("auth.confirmNewPassword")}
@@ -78,49 +76,22 @@ export default function ResetPasswordScreen() {
               secureTextEntry
               autoComplete="new-password"
               error={confirmNewPassword.length > 0 && !passwordsMatch ? t("auth.passwordMismatchError") : null}
-              style={styles.field}
+              className="mt-4"
             />
           </>
         )}
-        {error ? (
-          <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-            {error}
-          </Text>
-        ) : null}
+        {error ? <Text className="mt-3 text-sm text-destructive">{error}</Text> : null}
         {done ? (
-          <Button label={t("auth.backToLogin")} onPress={() => router.replace("/(auth)/login")} style={styles.submit} />
+          <Button onPress={() => router.replace("/(auth)/login")} className="mt-6">
+            <Text>{t("auth.backToLogin")}</Text>
+          </Button>
         ) : (
-          <Button
-            label={t("auth.resetPasswordSubmit")}
-            onPress={handleSubmit}
-            loading={isSubmitting}
-            disabled={!token || !newPassword || !confirmNewPassword}
-            style={styles.submit}
-          />
+          <Button onPress={handleSubmit} disabled={isSubmitting || !token || !newPassword || !confirmNewPassword} className="mt-6">
+            {isSubmitting ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+            <Text>{t("auth.resetPasswordSubmit")}</Text>
+          </Button>
         )}
       </View>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.xxxl,
-    marginBottom: spacing.xxl,
-  },
-  subtitle: {
-    marginTop: spacing.sm,
-  },
-  sent: {
-    marginBottom: spacing.md,
-  },
-  field: {
-    marginTop: spacing.lg,
-  },
-  error: {
-    marginTop: spacing.md,
-  },
-  submit: {
-    marginTop: spacing.xl,
-  },
-});

@@ -1,10 +1,12 @@
 import { useFonts, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold } from "@expo-google-fonts/figtree";
 import { Caprasimo_400Regular } from "@expo-google-fonts/caprasimo";
+import { PortalHost } from "@rn-primitives/portal";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import "../global.css";
 import { AuthProvider, useAuth } from "../lib/auth-context";
 import { LanguageProvider } from "../lib/language-context";
 import { ThemeProvider, useTheme } from "../lib/theme-context";
@@ -67,6 +69,7 @@ export default function RootLayout() {
           </ThemeProvider>
         </LanguageProvider>
       </SafeAreaProvider>
+      <PortalHost />
     </GestureHandlerRootView>
   );
 }

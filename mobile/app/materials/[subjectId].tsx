@@ -9,22 +9,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
 
-import { Card, IconButton, Screen, Tag, Text } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Card, CardContent } from "../../components/ui/card";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Tag } from "../../components/ui/Tag";
+import { Text } from "../../components/ui/text";
 import { documentsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
 import type { Document, QuizListItem, Subject, Summary } from "../../lib/api";
 import { localeTags } from "../../lib/i18n/translations";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
 
 type DocumentSummaries = { document: Document; summaries: Summary[] };
 
 export default function SavedMaterialsScreen() {
   const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t, tn, language } = useLanguage();
 
   const SUMMARY_TYPE_LABELS: Record<string, string> = {
@@ -75,8 +78,8 @@ export default function SavedMaterialsScreen() {
   if (isLoading || !subject) {
     return (
       <Screen>
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={scheme.primary} />
         </View>
       </Screen>
     );
@@ -84,77 +87,71 @@ export default function SavedMaterialsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.headerRow}>
+      <ScrollView contentContainerClassName="pt-2 pb-16">
+        <View className="mb-3">
           <IconButton name="chevron-back" onPress={() => router.back()} />
         </View>
-        <Text variant="display" style={styles.title}>
-          {t("materials.title")}
-        </Text>
-        <Text variant="body" style={{ color: colors.textSecondary }}>
-          {subject.name}
-        </Text>
+        <Text className="mb-1 text-3xl font-bold">{t("materials.title")}</Text>
+        <Text className="text-muted-foreground">{subject.name}</Text>
 
-        <Text variant="title" style={styles.sectionLabel}>
-          {t("materials.quizzesAndExams")}
-        </Text>
+        <Text className="mt-8 mb-2 text-lg font-semibold">{t("materials.quizzesAndExams")}</Text>
         {quizzes.length === 0 ? (
           <Card>
-            <Text variant="body">{t("materials.noQuizzes")}</Text>
+            <CardContent>
+              <Text>{t("materials.noQuizzes")}</Text>
+            </CardContent>
           </Card>
         ) : (
           quizzes.map((quiz) => (
-            <Card key={quiz.id} onPress={() => router.push(`/quiz/${quiz.id}`)} style={styles.rowCard}>
-              <View style={styles.quizRow}>
-                <View style={styles.quizInfo}>
-                  <Text variant="body">{quiz.title}</Text>
-                  <Text variant="caption" style={{ marginTop: 2 }}>
-                    {tn("common.questionCount", quiz.question_count)} ·{" "}
-                    {new Date(quiz.created_at).toLocaleDateString(localeTags[language])}
-                  </Text>
-                </View>
-                <Tag label={quiz.kind === "exam" ? t("subjectDetail.exam") : t("subjectDetail.quiz")} tone={quiz.kind === "exam" ? "accent" : "neutral"} />
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </View>
-            </Card>
+            <Pressable key={quiz.id} onPress={() => router.push(`/quiz/${quiz.id}`)} className="mb-3">
+              <Card>
+                <CardContent className="flex-row items-center gap-2">
+                  <View className="flex-1">
+                    <Text>{quiz.title}</Text>
+                    <Text className="mt-0.5 text-xs text-muted-foreground">
+                      {tn("common.questionCount", quiz.question_count)} ·{" "}
+                      {new Date(quiz.created_at).toLocaleDateString(localeTags[language])}
+                    </Text>
+                  </View>
+                  <Tag label={quiz.kind === "exam" ? t("subjectDetail.exam") : t("subjectDetail.quiz")} tone={quiz.kind === "exam" ? "accent" : "neutral"} />
+                  <Ionicons name="chevron-forward" size={16} color={scheme.mutedForeground} />
+                </CardContent>
+              </Card>
+            </Pressable>
           ))
         )}
 
-        <Text variant="title" style={styles.sectionLabel}>
-          {t("materials.summaries")}
-        </Text>
+        <Text className="mt-8 mb-2 text-lg font-semibold">{t("materials.summaries")}</Text>
         {documentSummaries.length === 0 ? (
           <Card>
-            <Text variant="body">{t("materials.noSummaries")}</Text>
+            <CardContent>
+              <Text>{t("materials.noSummaries")}</Text>
+            </CardContent>
           </Card>
         ) : (
           documentSummaries.map(({ document, summaries }) => (
-            <Card key={document.id} style={styles.rowCard}>
-              <Text variant="label" style={{ marginBottom: spacing.sm }}>
-                {document.original_filename}
-              </Text>
-              {summaries.map((summary) => (
-                <View key={summary.id}>
-                  <Pressable
-                    style={styles.summaryRow}
-                    onPress={() => setExpandedSummaryId((current) => (current === summary.id ? null : summary.id))}
-                  >
-                    <Text variant="body" style={styles.summaryTypeLabel}>
-                      {SUMMARY_TYPE_LABELS[summary.summary_type] ?? summary.summary_type}
-                    </Text>
-                    <Ionicons
-                      name={expandedSummaryId === summary.id ? "chevron-up" : "chevron-down"}
-                      size={16}
-                      color={colors.textMuted}
-                    />
-                  </Pressable>
-                  {expandedSummaryId === summary.id ? (
-                    <Text variant="body" style={[styles.summaryContent, { color: colors.textSecondary }]}>
-                      {summary.content}
-                    </Text>
-                  ) : null}
-                </View>
-              ))}
+            <Card key={document.id} className="mb-3">
+              <CardContent>
+                <Text className="mb-2 text-sm font-medium text-muted-foreground">{document.original_filename}</Text>
+                {summaries.map((summary) => (
+                  <View key={summary.id}>
+                    <Pressable
+                      className="flex-row items-center justify-between py-2"
+                      onPress={() => setExpandedSummaryId((current) => (current === summary.id ? null : summary.id))}
+                    >
+                      <Text className="flex-1">{SUMMARY_TYPE_LABELS[summary.summary_type] ?? summary.summary_type}</Text>
+                      <Ionicons
+                        name={expandedSummaryId === summary.id ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color={scheme.mutedForeground}
+                      />
+                    </Pressable>
+                    {expandedSummaryId === summary.id ? (
+                      <Text className="pb-2 text-muted-foreground">{summary.content}</Text>
+                    ) : null}
+                  </View>
+                ))}
+              </CardContent>
             </Card>
           ))
         )}
@@ -162,48 +159,3 @@ export default function SavedMaterialsScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scroll: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xxxl,
-  },
-  headerRow: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    marginBottom: spacing.xs,
-  },
-  sectionLabel: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
-  },
-  rowCard: {
-    marginBottom: spacing.md,
-  },
-  quizRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  quizInfo: {
-    flex: 1,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.sm,
-  },
-  summaryTypeLabel: {
-    flex: 1,
-  },
-  summaryContent: {
-    paddingBottom: spacing.sm,
-  },
-});

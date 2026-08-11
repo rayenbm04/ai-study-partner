@@ -1,16 +1,19 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, useColorScheme, View } from "react-native";
 
-import { Button, IconButton, Screen, Text, TextField } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
+import { TextField } from "../../components/ui/TextField";
 import { ApiError, subjectsApi } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
 
 export default function NewSubjectScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -35,11 +38,11 @@ export default function NewSubjectScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerRow}>
+      <View className="mt-2">
         <IconButton name="close" onPress={() => router.back()} />
       </View>
-      <View style={styles.header}>
-        <Text variant="display">{t("subjectNew.title")}</Text>
+      <View className="mt-6 mb-8">
+        <Text className="text-3xl font-bold">{t("subjectNew.title")}</Text>
       </View>
       <TextField label={t("subjectNew.name")} value={name} onChangeText={setName} placeholder={t("subjectNew.namePlaceholder")} />
       <TextField
@@ -47,33 +50,13 @@ export default function NewSubjectScreen() {
         value={description}
         onChangeText={setDescription}
         multiline
-        style={styles.field}
+        className="mt-4"
       />
-      {error ? (
-        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-          {error}
-        </Text>
-      ) : null}
-      <Button label={t("subjectNew.createSubject")} onPress={handleCreate} loading={isSubmitting} disabled={!name.trim()} style={styles.action} />
+      {error ? <Text className="mt-3 text-sm text-destructive">{error}</Text> : null}
+      <Button onPress={handleCreate} disabled={isSubmitting || !name.trim()} className="mt-6">
+        {isSubmitting ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+        <Text>{t("subjectNew.createSubject")}</Text>
+      </Button>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  headerRow: {
-    marginTop: spacing.sm,
-  },
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  field: {
-    marginTop: spacing.lg,
-  },
-  action: {
-    marginTop: spacing.xl,
-  },
-  error: {
-    marginTop: spacing.md,
-  },
-});

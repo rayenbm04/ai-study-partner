@@ -1,17 +1,19 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, useColorScheme, View } from "react-native";
 
-import { Button, Screen, Text, TextField } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
+import { TextField } from "../../components/ui/TextField";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -39,11 +41,9 @@ export default function LoginScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <Text variant="display">{t("auth.loginTitle")}</Text>
-        <Text variant="body" style={styles.subtitle}>
-          {t("auth.loginSubtitle")}
-        </Text>
+      <View className="mt-16 mb-10">
+        <Text className="text-3xl font-bold">{t("auth.loginTitle")}</Text>
+        <Text className="mt-2 text-muted-foreground">{t("auth.loginSubtitle")}</Text>
       </View>
 
       <View>
@@ -61,46 +61,20 @@ export default function LoginScreen() {
           onChangeText={setPassword}
           secureTextEntry
           autoComplete="password"
-          style={styles.field}
+          className="mt-4"
         />
-        {error ? (
-          <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-            {error}
-          </Text>
-        ) : null}
-        <Button
-          label={t("auth.signIn")}
-          onPress={handleSubmit}
-          loading={isSubmitting}
-          disabled={!email || !password}
-          style={styles.submit}
-        />
-        <Button label={t("auth.createAccount")} variant="ghost" onPress={() => router.push("/(auth)/register")} />
-        <Button
-          label={t("auth.forgotPasswordLink")}
-          variant="ghost"
-          onPress={() => router.push("/(auth)/forgot-password")}
-        />
+        {error ? <Text className="mt-3 text-sm text-destructive">{error}</Text> : null}
+        <Button onPress={handleSubmit} disabled={isSubmitting || !email || !password} className="mt-6">
+          {isSubmitting ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+          <Text>{t("auth.signIn")}</Text>
+        </Button>
+        <Button variant="ghost" onPress={() => router.push("/(auth)/register")}>
+          <Text>{t("auth.createAccount")}</Text>
+        </Button>
+        <Button variant="ghost" onPress={() => router.push("/(auth)/forgot-password")}>
+          <Text>{t("auth.forgotPasswordLink")}</Text>
+        </Button>
       </View>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.xxxl,
-    marginBottom: spacing.xxl,
-  },
-  subtitle: {
-    marginTop: spacing.sm,
-  },
-  field: {
-    marginTop: spacing.lg,
-  },
-  submit: {
-    marginTop: spacing.xl,
-  },
-  error: {
-    marginTop: spacing.md,
-  },
-});

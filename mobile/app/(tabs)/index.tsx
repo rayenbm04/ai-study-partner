@@ -4,23 +4,27 @@
  * subject. A floating action button opens the AI Coach for a subject (picks
  * automatically when there's only one, otherwise asks which).
  */
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { FlatList, Pressable, RefreshControl, useColorScheme, View } from "react-native";
 
-import { Avatar, Button, Card, IconButton, Screen, Tag, Text } from "../../components/ui";
-import { radii, spacing } from "../../constants/theme";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
 import { analyticsApi, subjectsApi } from "../../lib/api";
 import type { OverviewAnalytics, Subject } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 export default function SubjectsScreen() {
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const router = useRouter();
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -64,141 +68,138 @@ export default function SubjectsScreen() {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <Text variant="label">{t("home.hello")}</Text>
-            <Text variant="display" style={styles.name}>
-              {user?.firstname ?? "there"}
-            </Text>
+      <View className="mt-6 mb-3">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-muted-foreground">{t("home.hello")}</Text>
+            <Text className="mt-0.5 text-3xl font-bold">{user?.firstname ?? "there"}</Text>
           </View>
-          <Avatar label={user?.firstname ?? "?"} />
+          <Avatar alt={user?.firstname ?? "?"}>
+            <AvatarFallback>
+              <Text className="font-semibold">{(user?.firstname ?? "?")[0]?.toUpperCase()}</Text>
+            </AvatarFallback>
+          </Avatar>
         </View>
       </View>
 
       <FlatList
         data={subjects}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerClassName="gap-3 pb-32"
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
         ListHeaderComponent={
           <>
-            <Card style={[styles.heroCard, { backgroundColor: colors.surface }]}>
-              <View style={styles.heroRow}>
-                <View style={[styles.heroIcon, { backgroundColor: colors.primaryLight }]}>
-                  <Ionicons name="flash" size={26} color={colors.accentDark} />
+            <Card className="mb-3 bg-primary/5">
+              <CardContent className="gap-4">
+                <View className="flex-row items-center gap-4">
+                  <View className="size-13 items-center justify-center rounded-full bg-primary/15">
+                    <Ionicons name="flash" size={26} color={scheme.primary} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-muted-foreground">{t("home.todaysMission")}</Text>
+                    <Text className="mt-0.5 text-lg font-semibold">
+                      {dueCount > 0 ? tn("home.cardsDue", dueCount) : t("home.allCaughtUp")}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {dueCount > 0 ? t("home.streakBody") : t("home.nothingDueBody")}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.heroText}>
-                  <Text variant="label">{t("home.todaysMission")}</Text>
-                  <Text variant="title" style={styles.heroTitle}>
-                    {dueCount > 0 ? tn("home.cardsDue", dueCount) : t("home.allCaughtUp")}
-                  </Text>
-                  <Text variant="caption">
-                    {dueCount > 0 ? t("home.streakBody") : t("home.nothingDueBody")}
-                  </Text>
-                </View>
-              </View>
-              <Button
-                label={dueCount > 0 ? t("home.continueReviewing") : t("home.reviewAnyway")}
-                onPress={() => router.push("/(tabs)/cards")}
-                style={styles.heroButton}
-              />
+                <Button onPress={() => router.push("/(tabs)/cards")}>
+                  <Text>{dueCount > 0 ? t("home.continueReviewing") : t("home.reviewAnyway")}</Text>
+                </Button>
+              </CardContent>
             </Card>
 
-            <Text variant="title" style={styles.sectionLabel}>
-              {t("home.yourSubjects")}
-            </Text>
+            <Text className="mb-1 text-lg font-semibold">{t("home.yourSubjects")}</Text>
           </>
         }
         ListEmptyComponent={
           !isLoading ? (
-            <Card style={styles.emptyCard}>
-              <Text variant="title">{t("home.noSubjectsTitle")}</Text>
-              <Text variant="body" style={styles.emptyBody}>
-                {t("home.noSubjectsBody")}
-              </Text>
-              <Button
-                label={t("home.newSubject")}
-                variant="secondary"
-                onPress={() => router.push("/subject/new")}
-                style={styles.newButton}
-              />
+            <Card className="mt-3">
+              <CardContent className="items-center gap-2 py-8">
+                <Text className="text-base font-semibold">{t("home.noSubjectsTitle")}</Text>
+                <Text className="text-center text-sm text-muted-foreground">{t("home.noSubjectsBody")}</Text>
+                <Button variant="secondary" onPress={() => router.push("/subject/new")} className="mt-2">
+                  <Text>{t("home.newSubject")}</Text>
+                </Button>
+              </CardContent>
             </Card>
           ) : null
         }
         ListFooterComponent={
           subjects.length > 0 ? (
-            <Button
-              label={t("home.newSubject")}
-              variant="secondary"
-              onPress={() => router.push("/subject/new")}
-              style={styles.newButton}
-            />
+            <Button variant="secondary" onPress={() => router.push("/subject/new")} className="mt-2">
+              <Text>{t("home.newSubject")}</Text>
+            </Button>
           ) : null
         }
         renderItem={({ item }) => {
           const stats = analyticsBySubject.get(item.id);
           const mastery = stats?.average_mastery ?? null;
           return (
-            <Card onPress={() => router.push(`/subject/${item.id}`)} style={styles.card}>
-              <View style={styles.cardRow}>
-                <Avatar label={item.name} size={44} />
-                <View style={styles.cardText}>
-                  <Text variant="subtitle">{item.name}</Text>
-                  {stats ? (
-                    <Text variant="caption">
-                      {t("home.conceptsPracticed", { practiced: stats.concepts_practiced, total: stats.concepts_total })}
+            <Pressable onPress={() => router.push(`/subject/${item.id}`)}>
+              <Card>
+                <CardContent className="gap-3">
+                  <View className="flex-row items-center gap-3">
+                    <Avatar alt={item.name}>
+                      <AvatarFallback>
+                        <Text className="font-semibold">{item.name.slice(0, 2).toUpperCase()}</Text>
+                      </AvatarFallback>
+                    </Avatar>
+                    <View className="flex-1">
+                      <Text className="font-semibold">{item.name}</Text>
+                      {stats ? (
+                        <Text className="text-xs text-muted-foreground">
+                          {t("home.conceptsPracticed", { practiced: stats.concepts_practiced, total: stats.concepts_total })}
+                        </Text>
+                      ) : (
+                        <Text className="text-xs text-muted-foreground">{t("home.noDocumentsYet")}</Text>
+                      )}
+                    </View>
+                    <Text className="text-lg font-semibold text-primary">
+                      {mastery !== null ? `${Math.round(mastery)}%` : "—"}
                     </Text>
-                  ) : (
-                    <Text variant="caption">{t("home.noDocumentsYet")}</Text>
-                  )}
-                </View>
-                <Text variant="title" style={{ color: colors.accentDark }}>
-                  {mastery !== null ? `${Math.round(mastery)}%` : "—"}
-                </Text>
-              </View>
-              <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${Math.max(4, mastery ?? 4)}%`, backgroundColor: colors.accent },
-                  ]}
-                />
-              </View>
-              {stats && stats.flashcards_due_count > 0 ? (
-                <Tag label={tn("home.dueTag", stats.flashcards_due_count)} tone="accent" style={styles.dueTag} />
-              ) : null}
-            </Card>
+                  </View>
+                  <View className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <View className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, mastery ?? 4)}%` }} />
+                  </View>
+                  {stats && stats.flashcards_due_count > 0 ? (
+                    <View className="self-start rounded-full bg-primary/10 px-2 py-0.5">
+                      <Text className="text-xs font-medium text-primary">{tn("home.dueTag", stats.flashcards_due_count)}</Text>
+                    </View>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </Pressable>
           );
         }}
       />
 
       <Pressable
         onPress={openCoach}
-        style={[styles.fab, { backgroundColor: colors.accent, shadowColor: colors.accent }]}
+        className="absolute right-5 bottom-24 size-15 items-center justify-center rounded-full bg-primary shadow-lg"
       >
-        <Ionicons name="chatbubble-ellipses" size={24} color={colors.textOnAccent} />
+        <Ionicons name="chatbubble-ellipses" size={24} color={scheme.primaryForeground} />
       </Pressable>
 
       {pickerOpen ? (
         <>
-          <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={() => setPickerOpen(false)} />
-          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-            <Text variant="display" style={styles.sheetTitle}>
-              {t("home.talkAboutWhich")}
-            </Text>
+          <Pressable className="absolute inset-0 bg-black/40" onPress={() => setPickerOpen(false)} />
+          <View className="absolute right-0 bottom-0 left-0 gap-2 rounded-t-2xl bg-popover p-5">
+            <View className="mb-4 h-1.5 w-11 self-center rounded-full bg-border" />
+            <Text className="mb-3 text-2xl font-bold">{t("home.talkAboutWhich")}</Text>
             {subjects.map((s) => (
-              <Card
+              <Pressable
                 key={s.id}
                 onPress={() => {
                   setPickerOpen(false);
                   router.push(`/coach/${s.id}`);
                 }}
-                style={styles.sheetRow}
+                className={cn("rounded-lg bg-input/30 px-4 py-3")}
               >
-                <Text variant="subtitle">{s.name}</Text>
-              </Card>
+                <Text className="font-semibold">{s.name}</Text>
+              </Pressable>
             ))}
           </View>
         </>
@@ -206,130 +207,3 @@ export default function SubjectsScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  headerText: {
-    flex: 1,
-  },
-  name: {
-    marginTop: spacing.xs / 2,
-  },
-  list: {
-    gap: spacing.md,
-    paddingBottom: 130,
-  },
-  heroCard: {
-    marginBottom: spacing.md,
-  },
-  heroRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroText: {
-    flex: 1,
-  },
-  heroTitle: {
-    marginTop: spacing.xs / 2,
-  },
-  heroButton: {
-    marginTop: spacing.lg,
-  },
-  sectionLabel: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xs,
-  },
-  card: {
-    marginBottom: 0,
-  },
-  cardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  cardText: {
-    flex: 1,
-  },
-  barTrack: {
-    height: 6,
-    borderRadius: radii.full,
-    marginTop: spacing.md,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: radii.full,
-  },
-  dueTag: {
-    marginTop: spacing.sm,
-  },
-  emptyCard: {
-    marginTop: spacing.md,
-  },
-  emptyBody: {
-    marginTop: spacing.xs,
-  },
-  newButton: {
-    marginTop: spacing.sm,
-  },
-  fab: {
-    position: "absolute",
-    right: spacing.lg,
-    bottom: 96,
-    width: 60,
-    height: 60,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    padding: spacing.xl,
-    gap: spacing.sm,
-  },
-  sheetHandle: {
-    width: 44,
-    height: 5,
-    borderRadius: radii.full,
-    alignSelf: "center",
-    marginBottom: spacing.lg,
-  },
-  sheetTitle: {
-    marginBottom: spacing.md,
-  },
-  sheetRow: {
-    marginBottom: 0,
-  },
-});

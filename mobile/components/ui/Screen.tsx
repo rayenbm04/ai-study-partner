@@ -3,12 +3,18 @@ import { Platform, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { spacing } from "../../constants/theme";
-import { useTheme } from "../../lib/theme-context";
 
 const WEB_MAX_WIDTH = 480;
 
 /** Standard screen wrapper — safe-area aware, themed background, consistent
  * horizontal padding so individual screens don't each reinvent it.
+ *
+ * Background comes from the shared mauve/base-nova palette (global.css's
+ * --background/--muted, same tokens the web app uses) via NativeWind
+ * classes, not the old theme-context colors — this is the one piece of the
+ * old kit every screen depends on, migrated first so the new palette
+ * applies everywhere immediately, ahead of each screen's own component
+ * migration.
  *
  * On web this is a phone-width app, not a full-bleed web page — full browser
  * width just stretches every card/button into something that never looked
@@ -16,12 +22,10 @@ const WEB_MAX_WIDTH = 480;
  * fixed-width column with a neutral gutter on either side; native is
  * untouched (there's no "gutter" concept on an actual phone). */
 export function Screen({ children, scroll: _scroll, style }: { children: ReactNode; scroll?: boolean; style?: object }) {
-  const { colors } = useTheme();
-
   if (Platform.OS === "web") {
     return (
-      <View style={[styles.webGutter, { backgroundColor: colors.backgroundAlt }]}>
-        <View style={[styles.webColumn, { backgroundColor: colors.background }]}>
+      <View className="bg-muted" style={styles.webGutter}>
+        <View className="bg-background" style={styles.webColumn}>
           <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
             <View style={[styles.content, style]}>{children}</View>
           </SafeAreaView>
@@ -31,7 +35,7 @@ export function Screen({ children, scroll: _scroll, style }: { children: ReactNo
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }, style]} edges={["top", "left", "right"]}>
+    <SafeAreaView className="bg-background" style={[styles.safeArea, style]} edges={["top", "left", "right"]}>
       <View style={styles.content}>{children}</View>
     </SafeAreaView>
   );

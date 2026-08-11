@@ -19,17 +19,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, useColorScheme, View } from "react-native";
 
-import { Button, Card, ProgressBar, Screen, Text, TextField } from "../components/ui";
-import { radii, spacing } from "../constants/theme";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { ProgressBar } from "../components/ui/ProgressBar";
+import { Screen } from "../components/ui/Screen";
+import { Text } from "../components/ui/text";
+import { TextField } from "../components/ui/TextField";
 import { ApiError, subjectsApi } from "../lib/api";
 import { useLanguage } from "../lib/language-context";
-import { useTheme } from "../lib/theme-context";
+import { THEME } from "../lib/theme";
+import { cn } from "../lib/utils";
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const MINUTE_OPTIONS = [
     { minutes: 15, sub: t("onboarding.minutes15Sub") },
@@ -67,136 +72,85 @@ export default function OnboardingScreen() {
 
   return (
     <Screen>
-      <View style={styles.progress}>
+      <View className="mt-6">
         <ProgressBar total={3} completed={step + 1} />
       </View>
 
       {step === 0 ? (
-        <View style={styles.body}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="library" size={28} color={colors.accentDark} />
+        <View className="mt-10">
+          <View className="mb-6 size-16 items-center justify-center rounded-full bg-primary/15">
+            <Ionicons name="library" size={28} color={scheme.primary} />
           </View>
-          <Text variant="display">{t("onboarding.step0Title")}</Text>
-          <Text variant="body" style={styles.subtitle}>
-            {t("onboarding.step0Subtitle")}
-          </Text>
-          <View style={styles.options}>
-            <Card
-              onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/onboarding" } })}
-              style={styles.choiceCard}
-            >
-              <Text variant="title">{t("onboarding.usePack")}</Text>
-              <Text variant="caption">{t("onboarding.usePackHint")}</Text>
-            </Card>
-            <Card onPress={() => setStep(1)} style={styles.choiceCard}>
-              <Text variant="title">{t("onboarding.addOwn")}</Text>
-              <Text variant="caption">{t("onboarding.addOwnHint")}</Text>
-            </Card>
+          <Text className="text-3xl font-bold">{t("onboarding.step0Title")}</Text>
+          <Text className="mt-2 mb-8 text-muted-foreground">{t("onboarding.step0Subtitle")}</Text>
+          <View className="gap-4">
+            <Pressable onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/onboarding" } })}>
+              <Card>
+                <CardContent>
+                  <Text className="text-lg font-semibold">{t("onboarding.usePack")}</Text>
+                  <Text className="mt-1 text-xs text-muted-foreground">{t("onboarding.usePackHint")}</Text>
+                </CardContent>
+              </Card>
+            </Pressable>
+            <Pressable onPress={() => setStep(1)}>
+              <Card>
+                <CardContent>
+                  <Text className="text-lg font-semibold">{t("onboarding.addOwn")}</Text>
+                  <Text className="mt-1 text-xs text-muted-foreground">{t("onboarding.addOwnHint")}</Text>
+                </CardContent>
+              </Card>
+            </Pressable>
           </View>
         </View>
       ) : step === 1 ? (
-        <View style={styles.body}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="school" size={28} color={colors.accentDark} />
+        <View className="mt-10">
+          <View className="mb-6 size-16 items-center justify-center rounded-full bg-primary/15">
+            <Ionicons name="school" size={28} color={scheme.primary} />
           </View>
-          <Text variant="display">{t("onboarding.step1Title")}</Text>
-          <Text variant="body" style={styles.subtitle}>
-            {t("onboarding.step1Subtitle")}
-          </Text>
+          <Text className="text-3xl font-bold">{t("onboarding.step1Title")}</Text>
+          <Text className="mt-2 mb-8 text-muted-foreground">{t("onboarding.step1Subtitle")}</Text>
           <TextField
             label={t("onboarding.subjectNameLabel")}
             placeholder={t("onboarding.subjectNamePlaceholder")}
             value={subjectName}
             onChangeText={setSubjectName}
-            style={styles.field}
+            className="mb-6"
           />
-          {error ? (
-            <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-              {error}
-            </Text>
-          ) : null}
-          <Button
-            label={t("onboarding.continue")}
-            onPress={() => setStep(2)}
-            disabled={!subjectName.trim()}
-            style={styles.action}
-          />
+          {error ? <Text className="mb-4 text-sm text-destructive">{error}</Text> : null}
+          <Button onPress={() => setStep(2)} disabled={!subjectName.trim()} className="mt-6">
+            <Text>{t("onboarding.continue")}</Text>
+          </Button>
         </View>
       ) : (
-        <View style={styles.body}>
-          <Text variant="display">{t("onboarding.step2Title")}</Text>
-          <Text variant="body" style={styles.subtitle}>
-            {t("onboarding.step2Subtitle")}
-          </Text>
-          <View style={styles.options}>
+        <View className="mt-10">
+          <Text className="text-3xl font-bold">{t("onboarding.step2Title")}</Text>
+          <Text className="mt-2 mb-8 text-muted-foreground">{t("onboarding.step2Subtitle")}</Text>
+          <View className="gap-4">
             {MINUTE_OPTIONS.map(({ minutes, sub }) => {
               const selected = dailyMinutes === minutes;
               return (
-                <Card
-                  key={minutes}
-                  onPress={() => setDailyMinutes(minutes)}
-                  style={[
-                    styles.option,
-                    selected && { backgroundColor: colors.primary },
-                  ]}
-                >
-                  <Text variant="title" style={selected ? { color: colors.textOnPrimary } : undefined}>
-                    {t("common.minutes", { minutes })}
-                  </Text>
-                  <Text variant="caption" style={selected ? { color: colors.textOnPrimary, opacity: 0.75 } : undefined}>
-                    {sub}
-                  </Text>
-                </Card>
+                <Pressable key={minutes} onPress={() => setDailyMinutes(minutes)}>
+                  <Card className={cn(selected && "bg-primary")}>
+                    <CardContent>
+                      <Text className={cn("text-lg font-semibold", selected && "text-primary-foreground")}>
+                        {t("common.minutes", { minutes })}
+                      </Text>
+                      <Text className={cn("mt-1 text-xs text-muted-foreground", selected && "text-primary-foreground/75")}>
+                        {sub}
+                      </Text>
+                    </CardContent>
+                  </Card>
+                </Pressable>
               );
             })}
           </View>
-          {error ? (
-            <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-              {error}
-            </Text>
-          ) : null}
-          <Button label={t("onboarding.getStarted")} onPress={handleFinish} loading={isSubmitting} style={styles.action} />
+          {error ? <Text className="mt-4 text-sm text-destructive">{error}</Text> : null}
+          <Button onPress={handleFinish} disabled={isSubmitting} className="mt-6">
+            {isSubmitting ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+            <Text>{t("onboarding.getStarted")}</Text>
+          </Button>
         </View>
       )}
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  progress: {
-    marginTop: spacing.lg,
-  },
-  body: {
-    marginTop: spacing.xxl,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg,
-  },
-  subtitle: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  field: {
-    marginBottom: spacing.lg,
-  },
-  options: {
-    gap: spacing.md,
-  },
-  option: {
-    width: "100%",
-  },
-  choiceCard: {
-    width: "100%",
-  },
-  action: {
-    marginTop: spacing.xl,
-  },
-  error: {
-    marginBottom: spacing.md,
-  },
-});

@@ -14,20 +14,24 @@
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Button, IconButton, Screen, Text, TextField } from "../../components/ui";
-import { radii, spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
+import { TextField } from "../../components/ui/TextField";
 import { quizzesApi } from "../../lib/api";
 import type { Quiz, QuizAttemptResult } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 export default function QuizAttemptScreen() {
   const { quizId } = useLocalSearchParams<{ quizId: string }>();
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -121,8 +125,8 @@ export default function QuizAttemptScreen() {
   if (isLoading || !quiz) {
     return (
       <Screen>
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={scheme.primary} />
         </View>
       </Screen>
     );
@@ -135,11 +139,9 @@ export default function QuizAttemptScreen() {
   if (timeUp) {
     return (
       <Screen>
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent} />
-          <Text variant="body" style={{ marginTop: spacing.md, color: colors.textSecondary }}>
-            {t("quiz.timeUp")}
-          </Text>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={scheme.primary} />
+          <Text className="mt-3 text-muted-foreground">{t("quiz.timeUp")}</Text>
         </View>
       </Screen>
     );
@@ -151,47 +153,36 @@ export default function QuizAttemptScreen() {
 
   return (
     <Screen>
-      <View style={styles.progressRow}>
+      <View className="mt-2 mb-6 flex-row items-center gap-3">
         <IconButton name="close" onPress={() => router.back()} size={40} />
-        <View style={styles.segments}>
+        <View className="flex-1 flex-row gap-1.5">
           {quiz.questions.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.segment, { backgroundColor: i <= currentIndex ? colors.accent : colors.border }]}
-            />
+            <View key={i} className={cn("h-1.5 flex-1 rounded-full", i <= currentIndex ? "bg-primary" : "bg-border")} />
           ))}
         </View>
         {remainingSeconds !== null ? <TimerChip seconds={remainingSeconds} /> : null}
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
-        <Text variant="label" style={{ color: colors.accentDark }}>
+      <ScrollView contentContainerClassName="pb-8">
+        <Text className="text-sm font-medium text-primary">
           {t("quiz.questionOf", { current: currentIndex + 1, total: quiz.questions.length })}
         </Text>
-        <Text variant="display" style={styles.question}>
-          {currentQuestion.question}
-        </Text>
+        <Text className="mt-3 text-3xl font-bold">{currentQuestion.question}</Text>
 
         {showsOptions ? (
-          <View style={styles.options}>
+          <View className="mt-8 gap-3">
             {currentQuestion.options!.map((option) => {
               const selected = currentAnswer === option;
               return (
                 <Pressable
                   key={option}
                   onPress={() => setCurrentAnswer(option)}
-                  style={[
-                    styles.optionRow,
-                    {
-                      backgroundColor: colors.surface,
-                      shadowColor: colors.shadow,
-                      borderColor: selected ? colors.accent : "transparent",
-                    },
-                  ]}
+                  className={cn(
+                    "rounded-xl border-2 p-5 shadow-sm shadow-black/5",
+                    selected ? "border-primary bg-card" : "border-transparent bg-card"
+                  )}
                 >
-                  <Text variant="body" style={{ fontWeight: selected ? "600" : "400" }}>
-                    {option}
-                  </Text>
+                  <Text className={cn(selected && "font-semibold")}>{option}</Text>
                 </Pressable>
               );
             })}
@@ -202,31 +193,28 @@ export default function QuizAttemptScreen() {
             value={currentAnswer}
             onChangeText={setCurrentAnswer}
             multiline={currentQuestion.type === "short_answer"}
-            style={styles.freeTextInput}
+            className="mt-8"
           />
         )}
       </ScrollView>
 
-      <Button
-        label={isLastQuestion ? t("quiz.finish") : t("quiz.continue")}
-        onPress={handleContinue}
-        loading={isSubmittingAnswer}
-        disabled={!currentAnswer.trim()}
-        style={styles.action}
-      />
+      <Button onPress={handleContinue} disabled={isSubmittingAnswer || !currentAnswer.trim()} className="mb-6">
+        {isSubmittingAnswer ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+        <Text>{isLastQuestion ? t("quiz.finish") : t("quiz.continue")}</Text>
+      </Button>
     </Screen>
   );
 }
 
 function TimerChip({ seconds }: { seconds: number }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const low = seconds <= 60;
   const mm = Math.floor(seconds / 60);
   const ss = seconds % 60;
   return (
-    <View style={[styles.timerChip, { backgroundColor: low ? colors.errorLight : colors.surfaceAlt }]}>
-      <Ionicons name="timer-outline" size={14} color={low ? colors.error : colors.textSecondary} />
-      <Text style={{ fontVariant: ["tabular-nums"], color: low ? colors.error : colors.textSecondary, fontWeight: "600" }}>
+    <View className={cn("h-8 flex-row items-center gap-1.5 rounded-full px-3", low ? "bg-destructive/10" : "bg-input/30")}>
+      <Ionicons name="timer-outline" size={14} color={low ? scheme.destructive : scheme.mutedForeground} />
+      <Text className={cn("font-semibold", low ? "text-destructive" : "text-muted-foreground")} style={{ fontVariant: ["tabular-nums"] }}>
         {mm}:{ss.toString().padStart(2, "0")}
       </Text>
     </View>
@@ -234,163 +222,47 @@ function TimerChip({ seconds }: { seconds: number }) {
 }
 
 function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: () => void }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const score = result.score !== null ? Math.round(result.score) : null;
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.resultsScroll}>
-        <View style={styles.scoreWrap}>
-          <View style={[styles.scoreRing, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
-            <Text variant="hero">{score !== null ? `${score}%` : "—"}</Text>
+      <ScrollView contentContainerClassName="pt-6 pb-8">
+        <View className="mb-8 items-center">
+          <View className="size-37 items-center justify-center rounded-full border-8 border-primary bg-card">
+            <Text className="text-4xl font-extrabold">{score !== null ? `${score}%` : "—"}</Text>
           </View>
-          <Text variant="display" style={styles.scoreTitle}>
-            {t("quiz.niceWork")}
-          </Text>
+          <Text className="mt-6 text-3xl font-bold">{t("quiz.niceWork")}</Text>
         </View>
 
         {result.answers.map((answer) => (
           <View
             key={answer.question_id}
-            style={[
-              styles.resultCard,
-              {
-                backgroundColor: colors.surface,
-                shadowColor: colors.shadow,
-                borderLeftColor: answer.is_correct ? colors.sage : colors.error,
-              },
-            ]}
+            className={cn(
+              "mt-3 rounded-xl border-l-4 bg-card p-5 shadow-sm shadow-black/5",
+              answer.is_correct ? "border-l-emerald-500" : "border-l-destructive"
+            )}
           >
-            <View style={styles.resultHeader}>
+            <View className="flex-row items-start gap-2">
               <Ionicons
                 name={answer.is_correct ? "checkmark-circle" : "close-circle"}
                 size={18}
-                color={answer.is_correct ? colors.sage : colors.error}
+                color={answer.is_correct ? "#10b981" : scheme.destructive}
               />
-              <Text variant="body" style={styles.resultQuestion}>
-                {answer.question}
-              </Text>
+              <Text className="flex-1">{answer.question}</Text>
             </View>
-            <Text variant="caption" style={styles.resultLabel}>
-              {t("quiz.yourAnswer", { answer: answer.student_answer ?? "—" })}
-            </Text>
+            <Text className="mt-2 text-xs text-muted-foreground">{t("quiz.yourAnswer", { answer: answer.student_answer ?? "—" })}</Text>
             {!answer.is_correct ? (
-              <Text variant="caption" style={styles.resultLabel}>
-                {t("quiz.correctAnswer", { answer: answer.correct_answer })}
-              </Text>
+              <Text className="mt-2 text-xs text-muted-foreground">{t("quiz.correctAnswer", { answer: answer.correct_answer })}</Text>
             ) : null}
-            {answer.explanation ? (
-              <Text variant="caption" style={[styles.resultExplanation, { color: colors.textSecondary }]}>
-                {answer.explanation}
-              </Text>
-            ) : null}
+            {answer.explanation ? <Text className="mt-2 text-xs text-muted-foreground italic">{answer.explanation}</Text> : null}
           </View>
         ))}
       </ScrollView>
-      <Button label={t("quiz.done")} onPress={onDone} style={styles.action} />
+      <Button onPress={onDone} className="mb-6">
+        <Text>{t("quiz.done")}</Text>
+      </Button>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  progressRow: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  segments: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 5,
-  },
-  timerChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    height: 32,
-    borderRadius: radii.full,
-  },
-  segment: {
-    flex: 1,
-    height: 6,
-    borderRadius: radii.full,
-  },
-  body: {
-    paddingBottom: spacing.xl,
-  },
-  question: {
-    marginTop: spacing.md,
-  },
-  options: {
-    marginTop: spacing.xl,
-    gap: spacing.md,
-  },
-  optionRow: {
-    borderRadius: radii.lg,
-    borderWidth: 2,
-    padding: spacing.lg,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  freeTextInput: {
-    marginTop: spacing.xl,
-  },
-  action: {
-    marginBottom: 24,
-  },
-  resultsScroll: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  scoreWrap: {
-    alignItems: "center",
-    marginBottom: spacing.xl,
-  },
-  scoreRing: {
-    width: 148,
-    height: 148,
-    borderRadius: radii.full,
-    borderWidth: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scoreTitle: {
-    marginTop: spacing.lg,
-  },
-  resultCard: {
-    marginTop: spacing.md,
-    borderRadius: radii.lg,
-    borderLeftWidth: 4,
-    padding: spacing.lg,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  resultHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-  resultQuestion: {
-    flex: 1,
-  },
-  resultLabel: {
-    marginTop: spacing.sm,
-  },
-  resultExplanation: {
-    marginTop: spacing.sm,
-    fontStyle: "italic",
-  },
-});

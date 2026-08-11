@@ -7,12 +7,12 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "expo-router/build/react-navigation/bottom-tabs";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { fontFamilies, fontSizes, radii } from "../constants/theme";
-import { useTheme } from "../lib/theme-context";
-import { Text } from "./ui";
+import { THEME } from "../lib/theme";
+import { cn } from "../lib/utils";
+import { Text } from "./ui/text";
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   index: "home",
@@ -23,26 +23,19 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const { colors, isDark } = useTheme();
+  const isDark = useColorScheme() === "dark";
+  const scheme = isDark ? THEME.dark : THEME.light;
   const insets = useSafeAreaInsets();
 
   return (
     <View
-      style={[
-        styles.wrap,
-        { bottom: Math.max(insets.bottom, 12) + 8 },
-        Platform.OS === "web" && styles.wrapWeb,
-      ]}
+      className={cn("absolute right-4 left-4", Platform.OS === "web" && "right-0 left-0 mx-auto w-112")}
+      style={{ bottom: Math.max(insets.bottom, 12) + 8 }}
       pointerEvents="box-none"
     >
       <View
-        style={[
-          styles.bar,
-          {
-            backgroundColor: isDark ? "rgba(34,31,28,0.92)" : "rgba(255,255,255,0.92)",
-            shadowColor: colors.shadowStrong,
-          },
-        ]}
+        className="h-17.5 flex-row items-center rounded-full px-2 shadow-xl shadow-black/20"
+        style={{ backgroundColor: isDark ? "rgba(28,25,31,0.92)" : "rgba(255,255,255,0.92)" }}
       >
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
@@ -56,20 +49,15 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           };
 
           return (
-            <Pressable key={route.key} onPress={onPress} style={styles.tab}>
-              {isFocused ? <View style={[styles.pill, { backgroundColor: colors.primaryLight }]} /> : null}
+            <Pressable key={route.key} onPress={onPress} className="h-full flex-1 items-center justify-center gap-1">
+              {isFocused ? <View className="absolute top-1.5 right-2.5 bottom-1.5 left-2.5 rounded-full bg-primary/15" /> : null}
               <Ionicons
                 name={isFocused ? icon : (`${icon}-outline` as keyof typeof Ionicons.glyphMap)}
                 size={20}
-                color={isFocused ? colors.accentDark : colors.textMuted}
-                style={styles.icon}
+                color={isFocused ? scheme.primary : scheme.mutedForeground}
+                className="z-10"
               />
-              <Text
-                style={[
-                  styles.label,
-                  { color: isFocused ? colors.accentDark : colors.textMuted },
-                ]}
-              >
+              <Text className="z-10 text-[11px] font-semibold" style={{ color: isFocused ? scheme.primary : scheme.mutedForeground }}>
                 {label}
               </Text>
             </Pressable>
@@ -79,62 +67,3 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-  },
-  // Matches Screen's WEB_MAX_WIDTH (480) minus its 16px side margins — the
-  // tab bar floats over the whole browser viewport (it's rendered by the
-  // Tabs navigator, outside any single screen's centered column), so it
-  // needs its own centering to line up with the content underneath it.
-  //
-  // `alignSelf: "center"` does NOT center an absolutely-positioned element —
-  // that's a flex-participation property and this element has been taken
-  // out of flex flow, so it was a no-op and the bar just hugged the left
-  // edge of the full browser width. left:0 + right:0 + a fixed (not "100%")
-  // width + auto horizontal margins is the actual CSS trick for centering
-  // an absolutely-positioned box.
-  wrapWeb: {
-    left: 0,
-    right: 0,
-    width: 448,
-    marginHorizontal: "auto",
-  },
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 70,
-    borderRadius: radii.full,
-    paddingHorizontal: 8,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 1,
-    shadowRadius: 32,
-    elevation: 6,
-  },
-  tab: {
-    flex: 1,
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-  },
-  pill: {
-    position: "absolute",
-    top: 6,
-    bottom: 6,
-    left: 10,
-    right: 10,
-    borderRadius: radii.full,
-  },
-  icon: {
-    zIndex: 1,
-  },
-  label: {
-    fontFamily: fontFamilies.semibold,
-    fontSize: fontSizes.xs - 1,
-    zIndex: 1,
-  },
-});

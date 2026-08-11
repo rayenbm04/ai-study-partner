@@ -8,18 +8,19 @@
  */
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, useColorScheme, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Screen, Text } from "../../components/ui";
-import { fontFamilies, radii, spacing } from "../../constants/theme";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
 import { flashcardsApi } from "../../lib/api";
 import type { Flashcard } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 export default function CardsScreen() {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const GRADES: { label: string; sub: string; quality: number; tone: "bad" | "neutral" | "good" }[] = [
     { label: t("cards.gradeAgain"), sub: t("cards.gradeAgainSub"), quality: 1, tone: "bad" },
@@ -78,8 +79,8 @@ export default function CardsScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
+        <View className="flex-1 items-center justify-center px-8">
+          <ActivityIndicator color={scheme.primary} />
         </View>
       </Screen>
     );
@@ -91,16 +92,12 @@ export default function CardsScreen() {
   if (cards.length === 0) {
     return (
       <Screen>
-        <View style={styles.center}>
-          <View style={[styles.doneIcon, { backgroundColor: colors.sageLight }]}>
-            <Ionicons name="checkmark" size={40} color={colors.sageDark} />
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="mb-6 size-21 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950">
+            <Ionicons name="checkmark" size={40} color={scheme.chart1} />
           </View>
-          <Text variant="display" style={styles.centerTitle}>
-            {t("cards.nothingDueTitle")}
-          </Text>
-          <Text variant="body" style={[styles.centerBody, { color: colors.textSecondary }]}>
-            {t("cards.nothingDueBody")}
-          </Text>
+          <Text className="text-center text-3xl font-bold">{t("cards.nothingDueTitle")}</Text>
+          <Text className="mt-3 text-center text-muted-foreground">{t("cards.nothingDueBody")}</Text>
         </View>
       </Screen>
     );
@@ -109,16 +106,12 @@ export default function CardsScreen() {
   if (done) {
     return (
       <Screen>
-        <View style={styles.center}>
-          <View style={[styles.doneIcon, { backgroundColor: colors.sageLight }]}>
-            <Ionicons name="checkmark" size={40} color={colors.sageDark} />
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="mb-6 size-21 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950">
+            <Ionicons name="checkmark" size={40} color={scheme.chart1} />
           </View>
-          <Text variant="display" style={styles.centerTitle}>
-            {t("cards.deckComplete")}
-          </Text>
-          <Text variant="body" style={[styles.centerBody, { color: colors.textSecondary }]}>
-            {tn("cards.reviewed", reviewed)}
-          </Text>
+          <Text className="text-center text-3xl font-bold">{t("cards.deckComplete")}</Text>
+          <Text className="mt-3 text-center text-muted-foreground">{tn("cards.reviewed", reviewed)}</Text>
         </View>
       </Screen>
     );
@@ -129,191 +122,67 @@ export default function CardsScreen() {
 
   return (
     <Screen>
-      <View style={styles.progressRow}>
-        <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${(reviewed / cards.length) * 100}%`, backgroundColor: colors.accent },
-            ]}
-          />
+      <View className="mt-4 flex-row items-center gap-3">
+        <View className="h-2 flex-1 overflow-hidden rounded-full bg-border">
+          <View className="h-full rounded-full bg-primary" style={{ width: `${(reviewed / cards.length) * 100}%` }} />
         </View>
-        <Text variant="label">
+        <Text className="text-sm font-medium text-muted-foreground">
           {index + 1}/{cards.length}
         </Text>
       </View>
 
-      <View style={styles.stage}>
-        <Pressable onPress={flip} style={styles.flipArea}>
+      <View className="flex-1 justify-center py-4">
+        <Pressable onPress={flip} className="h-90">
           <Animated.View
-            style={[
-              styles.face,
-              { backgroundColor: colors.surface, shadowColor: colors.shadowStrong, transform: [{ rotateY: frontRotate }] },
-            ]}
+            className="absolute size-full justify-between rounded-2xl bg-card p-6 shadow-lg shadow-black/10"
+            style={{ backfaceVisibility: "hidden", transform: [{ rotateY: frontRotate }] }}
           >
-            <Text variant="label" style={{ color: colors.accentDark }}>
-              {card.difficulty.toUpperCase()}
-            </Text>
-            <Text variant="display" style={styles.faceQuestion}>
+            <Text className="text-sm font-medium text-primary">{card.difficulty.toUpperCase()}</Text>
+            <Text className="flex-1 text-center text-2xl font-bold" style={{ textAlignVertical: "center" }}>
               {card.question}
             </Text>
-            <Text variant="caption">{t("cards.tapToReveal")}</Text>
+            <Text className="text-xs text-muted-foreground">{t("cards.tapToReveal")}</Text>
           </Animated.View>
           <Animated.View
-            style={[
-              styles.face,
-              styles.faceBack,
-              { backgroundColor: colors.cardBack, shadowColor: colors.shadowStrong, transform: [{ rotateY: backRotate }] },
-            ]}
+            className="absolute size-full justify-start gap-3 rounded-2xl bg-primary p-6 shadow-lg shadow-black/10"
+            style={{ backfaceVisibility: "hidden", transform: [{ rotateY: backRotate }] }}
           >
-            <Text variant="label" style={{ color: colors.accent }}>
-              {t("cards.answer")}
-            </Text>
-            <Text variant="body" style={[styles.faceAnswer, { color: colors.cardBackText }]}>
-              {card.answer}
-            </Text>
+            <Text className="text-sm font-medium text-primary-foreground/80">{t("cards.answer")}</Text>
+            <Text className="flex-1 text-lg text-primary-foreground">{card.answer}</Text>
           </Animated.View>
         </Pressable>
       </View>
 
       {flipped ? (
-        <View style={styles.gradeRow}>
+        <View className="mb-28 flex-row gap-2">
           {GRADES.map((g) => (
             <Pressable
               key={g.label}
               onPress={() => grade(g.quality)}
               disabled={isSubmitting}
-              style={[
-                styles.gradeButton,
-                {
-                  backgroundColor: g.tone === "bad" ? colors.errorLight : g.tone === "good" ? colors.sageLight : colors.surface,
-                  shadowColor: colors.shadow,
-                },
-              ]}
+              className={cn(
+                "flex-1 items-center rounded-xl py-3 shadow-sm shadow-black/5",
+                g.tone === "bad" ? "bg-destructive/10" : g.tone === "good" ? "bg-emerald-100 dark:bg-emerald-950" : "bg-card"
+              )}
             >
               <Text
-                style={{
-                  fontFamily: fontFamilies.semibold,
-                  color: g.tone === "bad" ? colors.error : g.tone === "good" ? colors.sageDark : colors.textPrimary,
-                }}
+                className={cn(
+                  "font-semibold",
+                  g.tone === "bad" ? "text-destructive" : g.tone === "good" ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"
+                )}
               >
                 {g.label}
               </Text>
-              <Text variant="caption" style={styles.gradeSub}>
-                {g.sub}
-              </Text>
+              <Text className="mt-0.5 text-xs text-muted-foreground">{g.sub}</Text>
             </Pressable>
           ))}
         </View>
       ) : (
-        <View style={styles.hint}>
-          <Ionicons name="swap-horizontal" size={16} color={colors.textMuted} />
-          <Text variant="caption" style={styles.hintText}>
-            {t("cards.tapToFlip")}
-          </Text>
+        <View className="mb-28 h-16 flex-row items-center justify-center gap-2">
+          <Ionicons name="swap-horizontal" size={16} color={scheme.mutedForeground} />
+          <Text className="ml-1 text-xs text-muted-foreground">{t("cards.tapToFlip")}</Text>
         </View>
       )}
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
-  },
-  doneIcon: {
-    width: 84,
-    height: 84,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.xl,
-  },
-  centerTitle: {
-    textAlign: "center",
-  },
-  centerBody: {
-    textAlign: "center",
-    marginTop: spacing.md,
-  },
-  progressRow: {
-    marginTop: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: radii.full,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: radii.full,
-  },
-  stage: {
-    flex: 1,
-    justifyContent: "center",
-    paddingVertical: spacing.lg,
-  },
-  flipArea: {
-    height: 360,
-  },
-  face: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: radii.xl,
-    padding: spacing.xl,
-    backfaceVisibility: "hidden",
-    justifyContent: "space-between",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 1,
-    shadowRadius: 30,
-    elevation: 6,
-  },
-  faceBack: {
-    justifyContent: "flex-start",
-    gap: spacing.md,
-  },
-  faceQuestion: {
-    flex: 1,
-    textAlignVertical: "center",
-  },
-  faceAnswer: {
-    flex: 1,
-  },
-  gradeRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: 110,
-  },
-  gradeButton: {
-    flex: 1,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 18,
-    elevation: 3,
-  },
-  gradeSub: {
-    marginTop: spacing.xs / 2,
-  },
-  hint: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    height: 66,
-    marginBottom: 110,
-  },
-  hintText: {
-    marginLeft: spacing.xs,
-  },
-});

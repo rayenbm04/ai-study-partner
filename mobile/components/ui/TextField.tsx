@@ -1,68 +1,27 @@
-import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { View, type TextInputProps } from "react-native";
 
-import { fontFamilies, fontSizes, radii, spacing } from "../../constants/theme";
-import { useTheme } from "../../lib/theme-context";
-import { Text } from "./Text";
+import { cn } from "../../lib/utils";
+import { Input } from "./input";
+import { Text } from "./text";
 
 export function TextField({
   label,
   error,
   style,
+  className,
   multiline,
   ...props
-}: TextInputProps & { label?: string; error?: string | null }) {
-  const { colors } = useTheme();
+}: TextInputProps & { label?: string; error?: string | null; className?: string }) {
   return (
     <View style={style}>
-      {label ? (
-        <Text variant="label" style={styles.label}>
-          {label}
-        </Text>
-      ) : null}
-      <TextInput
-        placeholderTextColor={colors.textMuted}
+      {label ? <Text className="mb-1.5 ml-1 text-sm font-medium text-muted-foreground">{label}</Text> : null}
+      <Input
         multiline={multiline}
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.surfaceAlt,
-            color: colors.textPrimary,
-            borderColor: error ? colors.error : "transparent",
-          },
-          multiline && styles.multiline,
-        ]}
+        aria-invalid={!!error}
+        className={cn(multiline && "h-24 py-2", className)}
         {...props}
       />
-      {error ? (
-        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-          {error}
-        </Text>
-      ) : null}
+      {error ? <Text className="mt-1 ml-1 text-xs text-destructive">{error}</Text> : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  label: {
-    marginBottom: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  input: {
-    minHeight: 56,
-    borderRadius: radii.full,
-    borderWidth: 1.5,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: fontSizes.base,
-    fontFamily: fontFamilies.regular,
-  },
-  multiline: {
-    borderRadius: radii.lg,
-    minHeight: 90,
-    textAlignVertical: "top",
-  },
-  error: {
-    marginTop: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-});

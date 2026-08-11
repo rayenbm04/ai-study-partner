@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { Modal, Pressable, ScrollView, useColorScheme, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { radii, spacing } from "../../constants/theme";
 import { useLanguage } from "../../lib/language-context";
 import type { Language } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
-import { Text } from "./Text";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
+import { Text } from "./text";
 
 const MONTH_NAMES: Record<Language, string[]> = {
   en: [
@@ -72,7 +72,7 @@ export function DatePickerField({
   maxYear?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { language } = useLanguage();
   const monthNames = MONTH_NAMES[language] ?? MONTH_NAMES.en;
   const weekdayNames = WEEKDAY_NAMES[language] ?? WEEKDAY_NAMES.en;
@@ -124,68 +124,54 @@ export function DatePickerField({
 
   return (
     <View style={style}>
-      {label ? (
-        <Text variant="label" style={styles.label}>
-          {label}
-        </Text>
-      ) : null}
+      {label ? <Text className="mb-1.5 ml-1 text-sm font-medium text-muted-foreground">{label}</Text> : null}
       <Pressable
         onPress={open}
-        style={[
-          styles.field,
-          {
-            backgroundColor: colors.surfaceAlt,
-            borderColor: error ? colors.error : "transparent",
-          },
-        ]}
+        className={cn(
+          "min-h-14 flex-row items-center justify-between rounded-full border bg-input/30 px-4",
+          error ? "border-destructive" : "border-transparent"
+        )}
       >
-        <Text variant="body" style={{ color: parsed ? colors.textPrimary : colors.textMuted }}>
-          {displayText || placeholder}
-        </Text>
-        <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
+        <Text className={cn(parsed ? "text-foreground" : "text-muted-foreground")}>{displayText || placeholder}</Text>
+        <Ionicons name="calendar-outline" size={20} color={scheme.mutedForeground} />
       </Pressable>
-      {error ? (
-        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-          {error}
-        </Text>
-      ) : null}
+      {error ? <Text className="mt-1 ml-1 text-xs text-destructive">{error}</Text> : null}
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <Pressable style={styles.overlay} onPress={() => setVisible(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetHeader}>
+        <Pressable className="flex-1 justify-end bg-black/40" onPress={() => setVisible(false)}>
+          <Pressable
+            className="max-h-[70%] rounded-t-2xl bg-popover p-5"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="mb-5 flex-row items-center justify-between">
               {step !== "year" ? (
                 <Pressable onPress={() => setStep(step === "day" ? "month" : "year")} hitSlop={8}>
-                  <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+                  <Ionicons name="chevron-back" size={22} color={scheme.foreground} />
                 </Pressable>
               ) : (
-                <View style={styles.headerSpacer} />
+                <View className="w-[22px]" />
               )}
-              <Text variant="subtitle">
+              <Text className="text-base font-semibold">
                 {step === "year" ? " " : step === "month" ? `${viewYear}` : `${monthNames[viewMonth]} ${viewYear}`}
               </Text>
               <Pressable onPress={() => setVisible(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
+                <Ionicons name="close" size={22} color={scheme.foreground} />
               </Pressable>
             </View>
 
             {step === "year" && (
-              <ScrollView style={styles.scrollArea}>
-                <View style={styles.grid}>
+              <ScrollView className="max-h-80">
+                <View className="flex-row flex-wrap gap-2 pb-4">
                   {years.map((y) => (
                     <Pressable
                       key={y}
                       onPress={() => selectYear(y)}
-                      style={[
-                        styles.yearCell,
-                        {
-                          backgroundColor: y === parsed?.year ? colors.accent : colors.surfaceAlt,
-                        },
-                      ]}
+                      className={cn(
+                        "grow basis-[22%] items-center rounded-lg py-3",
+                        y === parsed?.year ? "bg-primary" : "bg-input/30"
+                      )}
                     >
-                      <Text variant="body" style={{ color: y === parsed?.year ? colors.textOnAccent : colors.textPrimary }}>
-                        {y}
-                      </Text>
+                      <Text className={y === parsed?.year ? "text-primary-foreground" : "text-foreground"}>{y}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -193,25 +179,20 @@ export function DatePickerField({
             )}
 
             {step === "month" && (
-              <View style={styles.grid}>
+              <View className="flex-row flex-wrap gap-2 pb-4">
                 {monthNames.map((name, index) => (
                   <Pressable
                     key={name}
                     onPress={() => selectMonth(index)}
-                    style={[
-                      styles.monthCell,
-                      {
-                        backgroundColor:
-                          index === parsed?.month && viewYear === parsed?.year ? colors.accent : colors.surfaceAlt,
-                      },
-                    ]}
+                    className={cn(
+                      "grow basis-[30%] items-center rounded-lg py-3",
+                      index === parsed?.month && viewYear === parsed?.year ? "bg-primary" : "bg-input/30"
+                    )}
                   >
                     <Text
-                      variant="body"
-                      style={{
-                        color:
-                          index === parsed?.month && viewYear === parsed?.year ? colors.textOnAccent : colors.textPrimary,
-                      }}
+                      className={
+                        index === parsed?.month && viewYear === parsed?.year ? "text-primary-foreground" : "text-foreground"
+                      }
                     >
                       {name}
                     </Text>
@@ -222,30 +203,28 @@ export function DatePickerField({
 
             {step === "day" && (
               <View>
-                <View style={styles.weekdayRow}>
+                <View className="flex-row">
                   {weekdayNames.map((name) => (
-                    <View key={name} style={styles.dayCell}>
-                      <Text variant="caption">{name}</Text>
+                    <View key={name} className="w-[14.28%] items-center justify-center py-1">
+                      <Text className="text-xs text-muted-foreground">{name}</Text>
                     </View>
                   ))}
                 </View>
-                <View style={styles.dayGrid}>
+                <View className="flex-row flex-wrap">
                   {dayCells.map((day, index) => {
                     const isSelected =
                       day !== null && day === parsed?.day && viewMonth === parsed?.month && viewYear === parsed?.year;
                     return (
-                      <View key={index} style={styles.dayCell}>
+                      <View key={index} className="w-[14.28%] items-center justify-center py-1">
                         {day !== null ? (
                           <Pressable
                             onPress={() => selectDay(day)}
-                            style={[
-                              styles.dayButton,
-                              { backgroundColor: isSelected ? colors.accent : "transparent" },
-                            ]}
+                            className={cn(
+                              "h-9 w-9 items-center justify-center rounded-full",
+                              isSelected ? "bg-primary" : "bg-transparent"
+                            )}
                           >
-                            <Text variant="body" style={{ color: isSelected ? colors.textOnAccent : colors.textPrimary }}>
-                              {day}
-                            </Text>
+                            <Text className={isSelected ? "text-primary-foreground" : "text-foreground"}>{day}</Text>
                           </Pressable>
                         ) : null}
                       </View>
@@ -260,86 +239,3 @@ export function DatePickerField({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  label: {
-    marginBottom: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  field: {
-    minHeight: 56,
-    borderRadius: radii.full,
-    borderWidth: 1.5,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  error: {
-    marginTop: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(20,18,17,0.44)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    padding: spacing.lg,
-    maxHeight: "70%",
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.lg,
-  },
-  headerSpacer: {
-    width: 22,
-  },
-  scrollArea: {
-    maxHeight: 320,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  yearCell: {
-    flexBasis: "22%",
-    flexGrow: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    alignItems: "center",
-  },
-  monthCell: {
-    flexBasis: "30%",
-    flexGrow: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    alignItems: "center",
-  },
-  weekdayRow: {
-    flexDirection: "row",
-  },
-  dayGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  dayCell: {
-    width: `${100 / 7}%`,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.xs,
-  },
-  dayButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

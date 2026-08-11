@@ -9,22 +9,27 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
 
-import { Button, Card, IconButton, Screen, Tag, Text } from "../../components/ui";
-import { fontFamilies, radii, spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Tag } from "../../components/ui/Tag";
+import { Text } from "../../components/ui/text";
 import { ApiError, analyticsApi, documentsApi, examsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
 import type { Document, DocumentType, Subject, SubjectAnalytics, Summary, SummaryType } from "../../lib/api";
 import { confirmDestructiveAction } from "../../lib/confirm";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 const EXAM_DURATIONS = [15, 30, 45, 60];
 
 export default function SubjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
 
   const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
@@ -174,8 +179,8 @@ export default function SubjectDetailScreen() {
   if (isLoading || !subject) {
     return (
       <Screen>
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={scheme.primary} />
         </View>
       </Screen>
     );
@@ -185,144 +190,129 @@ export default function SubjectDetailScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.headerRow}>
+      <ScrollView contentContainerClassName="pt-2 pb-16">
+        <View className="mb-3">
           <IconButton name="chevron-back" onPress={() => router.back()} />
         </View>
-        <Text variant="display" style={styles.title}>
-          {subject.name}
-        </Text>
-        {subject.description ? <Text variant="body" style={{ color: colors.textSecondary }}>{subject.description}</Text> : null}
+        <Text className="mb-1 text-3xl font-bold">{subject.name}</Text>
+        {subject.description ? <Text className="text-muted-foreground">{subject.description}</Text> : null}
 
         {stats ? (
-          <Card onPress={() => router.push(`/concepts/${id}`)} style={styles.statsCard}>
-            <View style={styles.statsRow}>
-              <Stat label={t("subjectDetail.mastery")} value={stats.average_mastery !== null ? `${Math.round(stats.average_mastery)}%` : "—"} />
-              <Stat label={t("progress.weakSpots")} value={String(stats.weak_concept_count)} />
-              <Stat label={t("subjectDetail.dueCards")} value={String(stats.flashcards_due_count)} />
-            </View>
-            <View style={styles.statsHint}>
-              <Text variant="caption" style={{ color: colors.accentDark }}>
-                {t("subjectDetail.viewConceptMap")}
-              </Text>
-              <Ionicons name="chevron-forward" size={13} color={colors.accentDark} />
-            </View>
-          </Card>
+          <Pressable onPress={() => router.push(`/concepts/${id}`)} className="mt-6">
+            <Card>
+              <CardContent>
+                <View className="flex-row justify-between">
+                  <Stat label={t("subjectDetail.mastery")} value={stats.average_mastery !== null ? `${Math.round(stats.average_mastery)}%` : "—"} />
+                  <Stat label={t("progress.weakSpots")} value={String(stats.weak_concept_count)} />
+                  <Stat label={t("subjectDetail.dueCards")} value={String(stats.flashcards_due_count)} />
+                </View>
+                <View className="mt-3 flex-row items-center justify-center gap-1">
+                  <Text className="text-xs text-primary">{t("subjectDetail.viewConceptMap")}</Text>
+                  <Ionicons name="chevron-forward" size={13} color={scheme.primary} />
+                </View>
+              </CardContent>
+            </Card>
+          </Pressable>
         ) : null}
 
-        <View style={styles.actionsRow}>
-          <Button label={t("subjectDetail.askCoach")} onPress={() => router.push(`/coach/${id}`)} style={styles.coachButton} />
+        <View className="mt-6">
+          <Button onPress={() => router.push(`/coach/${id}`)}>
+            <Text>{t("subjectDetail.askCoach")}</Text>
+          </Button>
         </View>
-        <Pressable style={styles.materialsLink} onPress={() => router.push(`/materials/${id}`)}>
-          <Text variant="caption" style={{ color: colors.accentDark }}>
-            {t("subjectDetail.viewSavedMaterials")}
-          </Text>
-          <Ionicons name="chevron-forward" size={13} color={colors.accentDark} />
+        <Pressable className="mt-3 flex-row items-center justify-center gap-1 self-center" onPress={() => router.push(`/materials/${id}`)}>
+          <Text className="text-xs text-primary">{t("subjectDetail.viewSavedMaterials")}</Text>
+          <Ionicons name="chevron-forward" size={13} color={scheme.primary} />
         </Pressable>
 
-        <View style={styles.sectionHeaderRow}>
-          <Text variant="title">{t("subjectDetail.documents")}</Text>
+        <View className="mt-8 mb-2 flex-row items-center justify-between">
+          <Text className="text-lg font-semibold">{t("subjectDetail.documents")}</Text>
           <IconButton name="add" onPress={handleUpload} size={36} />
         </View>
         {isUploading ? (
-          <View style={styles.uploadingRow}>
-            <ActivityIndicator color={colors.accent} size="small" />
-            <Text variant="caption" style={{ color: colors.textSecondary }}>
-              {t("subjectDetail.uploading")}
-            </Text>
+          <View className="mb-2 flex-row items-center gap-2">
+            <ActivityIndicator color={scheme.primary} size="small" />
+            <Text className="text-xs text-muted-foreground">{t("subjectDetail.uploading")}</Text>
           </View>
         ) : null}
-        {documentError ? (
-          <Text variant="caption" style={[styles.documentError, { color: colors.error }]}>
-            {documentError}
-          </Text>
-        ) : null}
+        {documentError ? <Text className="mb-2 text-xs text-destructive">{documentError}</Text> : null}
         {documents.length === 0 ? (
           <Card>
-            <Text variant="body" style={styles.emptyDocsText}>
-              {t("subjectDetail.noDocuments")}
-            </Text>
-            <Button
-              label={t("subjectDetail.uploadDocument")}
-              variant="secondary"
-              onPress={handleUpload}
-              loading={isUploading}
-              style={styles.emptyUploadButton}
-            />
+            <CardContent>
+              <Text className="mb-3">{t("subjectDetail.noDocuments")}</Text>
+              <Button variant="secondary" onPress={handleUpload} disabled={isUploading}>
+                {isUploading ? <ActivityIndicator color={scheme.foreground} /> : null}
+                <Text>{t("subjectDetail.uploadDocument")}</Text>
+              </Button>
+            </CardContent>
           </Card>
         ) : (
           documents.map((doc) => (
-            <Card key={doc.id} style={styles.docCard}>
-              <View style={styles.docRow}>
-                <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
-                <Pressable style={styles.docName} onPress={() => handlePreview(doc)} hitSlop={4}>
-                  <Text variant="body" numberOfLines={1}>
-                    {doc.original_filename}
-                  </Text>
-                </Pressable>
-                <View style={styles.docTags}>
-                  <Tag label={DOCUMENT_STATUS_LABELS[doc.status]} tone={doc.status === "ready" ? "sage" : "neutral"} />
-                  {doc.document_type ? <Tag label={DOCUMENT_TYPE_LABELS[doc.document_type]} tone="accent" /> : null}
+            <Card key={doc.id} className="mb-3">
+              <CardContent>
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="document-text-outline" size={20} color={scheme.mutedForeground} />
+                  <Pressable className="flex-1" onPress={() => handlePreview(doc)} hitSlop={4}>
+                    <Text numberOfLines={1}>{doc.original_filename}</Text>
+                  </Pressable>
+                  <View className="flex-row gap-1">
+                    <Tag label={DOCUMENT_STATUS_LABELS[doc.status]} tone={doc.status === "ready" ? "sage" : "neutral"} />
+                    {doc.document_type ? <Tag label={DOCUMENT_TYPE_LABELS[doc.document_type]} tone="accent" /> : null}
+                  </View>
+                  <Pressable onPress={() => handleDelete(doc)} hitSlop={8} className="ml-1">
+                    <Ionicons name="close-circle" size={20} color={scheme.destructive} />
+                  </Pressable>
                 </View>
-                <Pressable onPress={() => handleDelete(doc)} hitSlop={8} style={styles.docDelete}>
-                  <Ionicons name="close-circle" size={20} color={colors.error} />
-                </Pressable>
-              </View>
-              {doc.status === "ready" ? (
-                <View style={styles.docActions}>
-                  <DocAction
-                    icon="help-circle-outline"
-                    label={t("subjectDetail.quiz")}
-                    loading={generatingFor === doc.id}
-                    onPress={() => handleGenerateQuiz(doc.id)}
-                  />
-                  <DocAction icon="timer-outline" label={t("subjectDetail.exam")} onPress={() => setExamSheetDocId(doc.id)} />
-                  <DocAction
-                    icon="reader-outline"
-                    label={t("subjectDetail.summary")}
-                    onPress={() => {
-                      setSummarySheetDocId(doc.id);
-                      setSummaryResult(null);
-                    }}
-                  />
-                  <DocAction
-                    icon="chatbubble-ellipses-outline"
-                    label={t("subjectDetail.ask")}
-                    onPress={() => router.push(`/coach/${id}?documentId=${doc.id}`)}
-                  />
-                </View>
-              ) : null}
+                {doc.status === "ready" ? (
+                  <View className="mt-3 flex-row gap-2">
+                    <DocAction
+                      icon="help-circle-outline"
+                      label={t("subjectDetail.quiz")}
+                      loading={generatingFor === doc.id}
+                      onPress={() => handleGenerateQuiz(doc.id)}
+                    />
+                    <DocAction icon="timer-outline" label={t("subjectDetail.exam")} onPress={() => setExamSheetDocId(doc.id)} />
+                    <DocAction
+                      icon="reader-outline"
+                      label={t("subjectDetail.summary")}
+                      onPress={() => {
+                        setSummarySheetDocId(doc.id);
+                        setSummaryResult(null);
+                      }}
+                    />
+                    <DocAction
+                      icon="chatbubble-ellipses-outline"
+                      label={t("subjectDetail.ask")}
+                      onPress={() => router.push(`/coach/${id}?documentId=${doc.id}`)}
+                    />
+                  </View>
+                ) : null}
+              </CardContent>
             </Card>
           ))
         )}
 
         {readyDocuments.length === 0 && documents.length > 0 ? (
-          <Text variant="caption" style={styles.processingNote}>
-            {t("subjectDetail.processingNote")}
-          </Text>
+          <Text className="mt-2 text-xs text-muted-foreground">{t("subjectDetail.processingNote")}</Text>
         ) : null}
       </ScrollView>
 
       {examSheetDocId ? (
         <Sheet onClose={() => (isGeneratingExam ? null : setExamSheetDocId(null))}>
-          <Text variant="display" style={styles.sheetTitle}>
-            {t("subjectDetail.timedExam")}
-          </Text>
-          <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.lg }}>
-            {t("subjectDetail.examDurationPrompt")}
-          </Text>
-          <View style={styles.durationRow}>
+          <Text className="mb-1 text-2xl font-bold">{t("subjectDetail.timedExam")}</Text>
+          <Text className="mb-6 text-muted-foreground">{t("subjectDetail.examDurationPrompt")}</Text>
+          <View className="flex-row gap-2">
             {EXAM_DURATIONS.map((minutes) => (
               <Pressable
                 key={minutes}
                 disabled={isGeneratingExam}
                 onPress={() => handleGenerateExam(minutes)}
-                style={[styles.durationChip, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
+                className="h-14 flex-1 items-center justify-center rounded-full bg-card shadow-sm shadow-black/5"
               >
                 {isGeneratingExam ? (
-                  <ActivityIndicator color={colors.accent} size="small" />
+                  <ActivityIndicator color={scheme.primary} size="small" />
                 ) : (
-                  <Text style={{ fontFamily: fontFamilies.semibold }}>{t("common.minutes", { minutes })}</Text>
+                  <Text className="font-semibold">{t("common.minutes", { minutes })}</Text>
                 )}
               </Pressable>
             ))}
@@ -334,39 +324,33 @@ export default function SubjectDetailScreen() {
         <Sheet onClose={closeSummarySheet}>
           {summaryResult ? (
             <>
-              <Text variant="display" style={styles.sheetTitle}>
+              <Text className="mb-1 text-2xl font-bold">
                 {SUMMARY_TYPES.find((s) => s.type === summaryResult.summary_type)?.label ?? t("subjectDetail.summary")}
               </Text>
-              <ScrollView style={styles.summaryScroll}>
-                <Text variant="body" style={{ color: colors.textSecondary }}>
-                  {summaryResult.content}
-                </Text>
+              <ScrollView className="max-h-90">
+                <Text className="text-muted-foreground">{summaryResult.content}</Text>
               </ScrollView>
-              <Button label={t("subjectDetail.chooseAnotherType")} variant="secondary" onPress={() => setSummaryResult(null)} style={styles.sheetAction} />
+              <Button variant="secondary" onPress={() => setSummaryResult(null)} className="mt-6">
+                <Text>{t("subjectDetail.chooseAnotherType")}</Text>
+              </Button>
             </>
           ) : isSummaryLoading ? (
-            <View style={styles.summaryLoading}>
-              <ActivityIndicator color={colors.accent} />
-              <Text variant="caption" style={styles.summaryLoadingText}>
-                {t("subjectDetail.readingDocument")}
-              </Text>
+            <View className="items-center gap-3 py-10">
+              <ActivityIndicator color={scheme.primary} />
+              <Text className="mt-1 text-xs text-muted-foreground">{t("subjectDetail.readingDocument")}</Text>
             </View>
           ) : (
             <>
-              <Text variant="display" style={styles.sheetTitle}>
-                {t("subjectDetail.summarize")}
-              </Text>
-              <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.lg }}>
-                {t("subjectDetail.summarizePrompt")}
-              </Text>
-              <View style={styles.summaryTypeGrid}>
+              <Text className="mb-1 text-2xl font-bold">{t("subjectDetail.summarize")}</Text>
+              <Text className="mb-6 text-muted-foreground">{t("subjectDetail.summarizePrompt")}</Text>
+              <View className="flex-row flex-wrap gap-2">
                 {SUMMARY_TYPES.map(({ type, label }) => (
                   <Pressable
                     key={type}
                     onPress={() => handleGenerateSummary(type)}
-                    style={[styles.summaryTypeChip, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
+                    className="rounded-full bg-card px-5 py-3 shadow-sm shadow-black/5"
                   >
-                    <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13.5 }}>{label}</Text>
+                    <Text className="text-[13.5px] font-semibold">{label}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -389,29 +373,29 @@ function DocAction({
   onPress: () => void;
   loading?: boolean;
 }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   return (
-    <Pressable onPress={onPress} disabled={loading} style={[styles.docAction, { backgroundColor: colors.surfaceAlt }]}>
+    <Pressable onPress={onPress} disabled={loading} className="h-11 flex-1 flex-row items-center justify-center gap-1.5 rounded-full bg-input/30">
       {loading ? (
-        <ActivityIndicator size="small" color={colors.accent} />
+        <ActivityIndicator size="small" color={scheme.primary} />
       ) : (
-        <Ionicons name={icon} size={16} color={colors.textPrimary} />
+        <Ionicons name={icon} size={16} color={scheme.foreground} />
       )}
-      <Text style={{ fontSize: 12.5, fontFamily: fontFamilies.semibold, color: colors.textPrimary }}>{label}</Text>
+      <Text className="text-[12.5px] font-semibold">{label}</Text>
     </Pressable>
   );
 }
 
 function Sheet({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   return (
     <>
-      <Pressable style={[styles.backdrop, { backgroundColor: colors.overlay }]} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-        <View style={styles.sheetTopRow}>
-          <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-          <Pressable onPress={onClose} style={styles.sheetClose} hitSlop={12}>
-            <Ionicons name="close" size={20} color={colors.textMuted} />
+      <Pressable className="absolute inset-0 bg-black/40" onPress={onClose} />
+      <View className="absolute right-0 bottom-0 left-0 max-h-[80%] rounded-t-2xl bg-background p-6">
+        <View className="mb-6">
+          <View className="h-1.5 w-11 self-center rounded-full bg-border" />
+          <Pressable onPress={onClose} hitSlop={12} className="absolute -top-1.5 right-0">
+            <Ionicons name="close" size={20} color={scheme.mutedForeground} />
           </Pressable>
         </View>
         {children}
@@ -422,179 +406,9 @@ function Sheet({ children, onClose }: { children: ReactNode; onClose: () => void
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.stat}>
-      <Text variant="title">{value}</Text>
-      <Text variant="caption">{label}</Text>
+    <View className="items-center">
+      <Text className="text-lg font-semibold">{value}</Text>
+      <Text className="text-xs text-muted-foreground">{label}</Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scroll: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xxxl,
-  },
-  headerRow: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    marginBottom: spacing.xs,
-  },
-  statsCard: {
-    marginTop: spacing.lg,
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statsHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "center",
-    gap: 2,
-    marginTop: spacing.md,
-  },
-  stat: {
-    alignItems: "center",
-  },
-  actionsRow: {
-    marginTop: spacing.lg,
-  },
-  coachButton: {},
-  materialsLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "center",
-    gap: 2,
-    marginTop: spacing.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
-  },
-  uploadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  documentError: {
-    marginBottom: spacing.sm,
-  },
-  emptyDocsText: {
-    marginBottom: spacing.md,
-  },
-  emptyUploadButton: {},
-  docCard: {
-    marginBottom: spacing.md,
-  },
-  docRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  docTags: {
-    flexDirection: "row",
-    gap: spacing.xs,
-  },
-  docName: {
-    flex: 1,
-  },
-  docDelete: {
-    marginLeft: spacing.xs,
-  },
-  docActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  docAction: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    height: 44,
-    borderRadius: radii.full,
-  },
-  processingNote: {
-    marginTop: spacing.sm,
-  },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    maxHeight: "80%",
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    padding: spacing.xl,
-  },
-  sheetTopRow: {
-    marginBottom: spacing.lg,
-  },
-  sheetHandle: {
-    width: 44,
-    height: 5,
-    borderRadius: radii.full,
-    alignSelf: "center",
-  },
-  sheetClose: {
-    position: "absolute",
-    right: 0,
-    top: -6,
-  },
-  sheetTitle: {
-    marginBottom: spacing.xs,
-  },
-  sheetAction: {
-    marginTop: spacing.lg,
-  },
-  durationRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  durationChip: {
-    flex: 1,
-    height: 56,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  summaryTypeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  summaryTypeChip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radii.full,
-  },
-  summaryScroll: {
-    maxHeight: 360,
-  },
-  summaryLoading: {
-    alignItems: "center",
-    paddingVertical: spacing.xxl,
-    gap: spacing.md,
-  },
-  summaryLoadingText: {
-    marginTop: spacing.xs,
-  },
-});

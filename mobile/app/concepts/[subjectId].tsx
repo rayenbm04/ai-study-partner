@@ -12,20 +12,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, ScrollView, useColorScheme, View } from "react-native";
 
-import { Card, IconButton, Screen, Tag, Text } from "../../components/ui";
-import { fontFamilies, radii, spacing } from "../../constants/theme";
+import { Card, CardContent } from "../../components/ui/card";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Tag } from "../../components/ui/Tag";
+import { Text } from "../../components/ui/text";
 import { progressApi, subjectsApi } from "../../lib/api";
 import type { ConceptMastery, Subject, WeakConcept } from "../../lib/api";
 import { flattenConceptNames, masteryColor } from "../../lib/progress-utils";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
+import { cn } from "../../lib/utils";
 
 export default function ConceptMapScreen() {
   const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const REASON_LABEL: Record<WeakConcept["reason"], string> = {
     repeated_errors: t("weakConceptReason.repeatedErrors"),
@@ -63,8 +67,8 @@ export default function ConceptMapScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={scheme.primary} />
         </View>
       </Screen>
     );
@@ -74,48 +78,44 @@ export default function ConceptMapScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.headerRow}>
+      <ScrollView contentContainerClassName="pt-2 pb-16">
+        <View className="mb-3">
           <IconButton name="chevron-back" onPress={() => router.back()} />
         </View>
-        <Text variant="display">{t("concepts.title")}</Text>
-        <Text variant="body" style={[styles.subtitle, { color: colors.textSecondary }]}>
-          {subject?.name}
-        </Text>
+        <Text className="text-3xl font-bold">{t("concepts.title")}</Text>
+        <Text className="mt-1 text-muted-foreground">{subject?.name}</Text>
 
         {weakConcepts.length > 0 ? (
           <>
-            <Text variant="title" style={styles.sectionLabel}>
-              {t("progress.weakSpots")}
-            </Text>
-            <View style={styles.weakList}>
+            <Text className="mt-8 mb-2 text-lg font-semibold">{t("progress.weakSpots")}</Text>
+            <View className="gap-2">
               {weakConcepts.map((w) => (
-                <Card key={w.id} style={styles.weakCard}>
-                  <View style={styles.weakRow}>
-                    <Ionicons name="alert-circle" size={18} color={colors.error} />
-                    <Text variant="subtitle" style={styles.weakName}>
-                      {namesById.get(w.concept_id) ?? t("progress.unknownConcept")}
-                    </Text>
-                  </View>
-                  <View style={styles.weakMeta}>
-                    <Tag label={REASON_LABEL[w.reason]} tone="error" />
-                    <Text variant="caption">{t("concepts.confidence", { percent: Math.round(w.confidence * 100) })}</Text>
-                  </View>
+                <Card key={w.id}>
+                  <CardContent>
+                    <View className="flex-row items-center gap-2">
+                      <Ionicons name="alert-circle" size={18} color={scheme.destructive} />
+                      <Text className="flex-1 text-base font-semibold">{namesById.get(w.concept_id) ?? t("progress.unknownConcept")}</Text>
+                    </View>
+                    <View className="mt-3 flex-row items-center justify-between">
+                      <Tag label={REASON_LABEL[w.reason]} tone="error" />
+                      <Text className="text-xs text-muted-foreground">{t("concepts.confidence", { percent: Math.round(w.confidence * 100) })}</Text>
+                    </View>
+                  </CardContent>
                 </Card>
               ))}
             </View>
           </>
         ) : null}
 
-        <Text variant="title" style={styles.sectionLabel}>
-          {t("concepts.masteryByConcept")}
-        </Text>
+        <Text className="mt-8 mb-2 text-lg font-semibold">{t("concepts.masteryByConcept")}</Text>
         {tree.length === 0 ? (
           <Card>
-            <Text variant="body">{t("concepts.noConceptsTracked")}</Text>
+            <CardContent>
+              <Text>{t("concepts.noConceptsTracked")}</Text>
+            </CardContent>
           </Card>
         ) : (
-          <Card style={styles.treeCard}>
+          <Card className="overflow-hidden py-0">
             {tree.map((node, i) => (
               <ConceptRow key={node.concept_id} node={node} depth={0} isLast={i === tree.length - 1} />
             ))}
@@ -127,49 +127,34 @@ export default function ConceptMapScreen() {
 }
 
 function ConceptRow({ node, depth, isLast }: { node: ConceptMastery; depth: number; isLast: boolean }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const isParent = node.children.length > 0;
-  const color = masteryColor(colors, node.mastery_score);
+  const color = masteryColor(scheme, node.mastery_score);
+  const noBorder = isLast && depth === 0 && !isParent;
 
   return (
     <View>
       <View
-        style={[
-          styles.conceptRow,
-          { paddingLeft: spacing.md + depth * spacing.lg, borderBottomColor: colors.border },
-          isLast && depth === 0 && !isParent ? styles.noBorder : null,
-        ]}
+        className={cn("flex-row items-center gap-3 py-3 pr-4", !noBorder && "border-b border-border")}
+        style={{ paddingLeft: 12 + depth * 16 }}
       >
-        <View style={styles.conceptText}>
-          <Text
-            style={{
-              fontFamily: isParent ? fontFamilies.semibold : fontFamilies.regular,
-              fontSize: isParent ? 15.5 : 14.5,
-              color: colors.textPrimary,
-            }}
-          >
-            {node.name}
-          </Text>
+        <View className="flex-1">
+          <Text className={cn(isParent ? "text-[15.5px] font-semibold" : "text-[14.5px]")}>{node.name}</Text>
           {!isParent ? (
-            <View style={[styles.miniBarTrack, { backgroundColor: colors.border }]}>
-              <View
-                style={[
-                  styles.miniBarFill,
-                  { width: `${Math.max(3, node.mastery_score ?? 3)}%`, backgroundColor: color },
-                ]}
-              />
+            <View className="mt-1.5 h-1 overflow-hidden rounded-full bg-border">
+              <View className="h-full rounded-full" style={{ width: `${Math.max(3, node.mastery_score ?? 3)}%`, backgroundColor: color }} />
             </View>
           ) : null}
         </View>
-        <View style={styles.conceptScoreWrap}>
+        <View className="flex-row items-center gap-1">
           {node.trend ? (
             <Ionicons
               name={node.trend === "up" ? "trending-up" : node.trend === "down" ? "trending-down" : "remove"}
               size={14}
-              color={node.trend === "up" ? colors.sage : node.trend === "down" ? colors.error : colors.textMuted}
+              color={node.trend === "up" ? "hsl(152 55% 40%)" : node.trend === "down" ? scheme.destructive : scheme.mutedForeground}
             />
           ) : null}
-          <Text style={{ fontFamily: fontFamilies.semibold, fontSize: 13.5, color }}>
+          <Text className="text-[13.5px] font-semibold" style={{ color }}>
             {node.mastery_score !== null ? `${Math.round(node.mastery_score)}%` : "—"}
           </Text>
         </View>
@@ -180,78 +165,3 @@ function ConceptRow({ node, depth, isLast }: { node: ConceptMastery; depth: numb
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scroll: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xxxl,
-  },
-  headerRow: {
-    marginBottom: spacing.md,
-  },
-  subtitle: {
-    marginTop: spacing.xs,
-  },
-  sectionLabel: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
-  },
-  weakList: {
-    gap: spacing.sm,
-  },
-  weakCard: {
-    marginBottom: 0,
-  },
-  weakRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  weakName: {
-    flex: 1,
-  },
-  weakMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.md,
-  },
-  treeCard: {
-    padding: 0,
-    overflow: "hidden",
-  },
-  conceptRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingRight: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-  },
-  noBorder: {
-    borderBottomWidth: 0,
-  },
-  conceptText: {
-    flex: 1,
-  },
-  miniBarTrack: {
-    height: 5,
-    borderRadius: radii.full,
-    marginTop: 6,
-    overflow: "hidden",
-  },
-  miniBarFill: {
-    height: "100%",
-    borderRadius: radii.full,
-  },
-  conceptScoreWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-});

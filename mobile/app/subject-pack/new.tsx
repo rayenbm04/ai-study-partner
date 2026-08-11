@@ -11,20 +11,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
 
-import { Button, Card, IconButton, Screen, Text } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
 import { accountApi, ApiError, curriculumApi, subjectPacksApi } from "../../lib/api";
 import type { AcademicLevel, Country, CurriculumSubject, EducationSystem, Section } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
 
 type Step = "country" | "system" | "level" | "section" | "preview";
 
 export default function SubjectPackPickerScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
@@ -179,28 +182,20 @@ export default function SubjectPackPickerScreen() {
 
   return (
     <Screen>
-      <View style={styles.headerRow}>
+      <View className="mt-2">
         <IconButton name="chevron-back" onPress={goBack} />
       </View>
-      <Text variant="display" style={styles.title}>
-        {title}
-      </Text>
-      <Text variant="body" style={[styles.subtitle, { color: colors.textSecondary }]}>
-        {subtitle}
-      </Text>
+      <Text className="mt-6 text-3xl font-bold">{title}</Text>
+      <Text className="mt-1 mb-8 text-muted-foreground">{subtitle}</Text>
 
-      {error ? (
-        <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-          {error}
-        </Text>
-      ) : null}
+      {error ? <Text className="mb-4 text-sm text-destructive">{error}</Text> : null}
 
       {isLoadingOptions ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={scheme.primary} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerClassName="gap-2 pb-16">
           {step === "country" &&
             (countries.length === 0 ? (
               <EmptyState text={t("subjectPack.noCountries")} />
@@ -219,18 +214,17 @@ export default function SubjectPackPickerScreen() {
                 <EmptyState text={t("subjectPack.noSubjectsFound")} />
               ) : (
                 previewSubjects.map((s) => (
-                  <Card key={s.id} style={styles.previewCard}>
-                    <Text variant="body">{s.name}</Text>
+                  <Card key={s.id} className="py-3">
+                    <CardContent>
+                      <Text>{s.name}</Text>
+                    </CardContent>
                   </Card>
                 ))
               )}
-              <Button
-                label={tn("subjectPack.addSubjects", previewSubjects.length)}
-                onPress={handleApply}
-                loading={isApplying}
-                disabled={previewSubjects.length === 0}
-                style={styles.applyButton}
-              />
+              <Button onPress={handleApply} disabled={isApplying || previewSubjects.length === 0} className="mt-4">
+                {isApplying ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+                <Text>{tn("subjectPack.addSubjects", previewSubjects.length)}</Text>
+              </Button>
             </>
           )}
         </ScrollView>
@@ -240,64 +234,19 @@ export default function SubjectPackPickerScreen() {
 }
 
 function OptionRow({ label, onPress }: { label: string; onPress: () => void }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   return (
-    <Card onPress={onPress} style={styles.optionCard}>
-      <View style={styles.optionRow}>
-        <Text variant="body">{label}</Text>
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-      </View>
-    </Card>
+    <Pressable onPress={onPress}>
+      <Card className="py-3">
+        <CardContent className="flex-row items-center justify-between">
+          <Text>{label}</Text>
+          <Ionicons name="chevron-forward" size={18} color={scheme.mutedForeground} />
+        </CardContent>
+      </Card>
+    </Pressable>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
-  return (
-    <Text variant="body" style={styles.empty}>
-      {text}
-    </Text>
-  );
+  return <Text className="mt-8 text-center">{text}</Text>;
 }
-
-const styles = StyleSheet.create({
-  headerRow: {
-    marginTop: spacing.sm,
-  },
-  title: {
-    marginTop: spacing.lg,
-  },
-  subtitle: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xl,
-  },
-  loading: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  list: {
-    paddingBottom: spacing.xxxl,
-    gap: spacing.sm,
-  },
-  optionCard: {
-    paddingVertical: spacing.md,
-  },
-  optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  previewCard: {
-    paddingVertical: spacing.md,
-  },
-  applyButton: {
-    marginTop: spacing.lg,
-  },
-  error: {
-    marginBottom: spacing.md,
-  },
-  empty: {
-    textAlign: "center",
-    marginTop: spacing.xxl,
-  },
-});

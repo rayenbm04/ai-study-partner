@@ -5,6 +5,7 @@
  * works fine for a single short string and it's already wired for
  * web/native).
  */
+import { colorScheme as nativewindColorScheme } from "nativewind";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
 
@@ -36,6 +37,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isDark = preference === "system" ? systemScheme === "dark" : preference === "dark";
+
+  // Mirrors isDark into NativeWind's own colorScheme so RNR components
+  // (styled with Tailwind `dark:` classes, not this context) stay in sync
+  // with the same preference — old and new UI kits share one dark-mode
+  // source of truth during the migration off the old kit.
+  useEffect(() => {
+    nativewindColorScheme.set(isDark ? "dark" : "light");
+  }, [isDark]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({

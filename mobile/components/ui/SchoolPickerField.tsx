@@ -5,19 +5,18 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
+  useColorScheme,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 
-import { radii, spacing } from "../../constants/theme";
 import { schoolsApi } from "../../lib/api";
 import type { School } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
-import { Button } from "./Button";
-import { Text } from "./Text";
+import { THEME } from "../../lib/theme";
+import { Button } from "./button";
+import { Text } from "./text";
 import { TextField } from "./TextField";
 
 /** Search-or-create picker for the schools catalog (backend/app/domain/entities/school.py) —
@@ -38,7 +37,7 @@ export function SchoolPickerField({
   placeholder?: string;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
 
   const [visible, setVisible] = useState(false);
@@ -93,28 +92,22 @@ export function SchoolPickerField({
 
   return (
     <View style={style}>
-      {label ? (
-        <Text variant="label" style={styles.label}>
-          {label}
-        </Text>
-      ) : null}
+      {label ? <Text className="mb-1.5 ml-1 text-sm font-medium text-muted-foreground">{label}</Text> : null}
       <Pressable
         onPress={open}
-        style={[styles.field, { backgroundColor: colors.surfaceAlt }]}
+        className="min-h-14 flex-row items-center justify-between rounded-full bg-input/30 px-4"
       >
-        <Text variant="body" style={{ color: value ? colors.textPrimary : colors.textMuted }}>
-          {value ? value.name : placeholder}
-        </Text>
-        <Ionicons name="search" size={18} color={colors.textSecondary} />
+        <Text className={value ? "text-foreground" : "text-muted-foreground"}>{value ? value.name : placeholder}</Text>
+        <Ionicons name="search" size={18} color={scheme.mutedForeground} />
       </Pressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <Pressable style={styles.overlay} onPress={() => setVisible(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetHeader}>
-              <Text variant="subtitle">{t("auth.schoolPickerTitle")}</Text>
+        <Pressable className="flex-1 justify-end bg-black/40" onPress={() => setVisible(false)}>
+          <Pressable className="max-h-[75%] rounded-t-2xl bg-popover p-5" onPress={(e) => e.stopPropagation()}>
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-base font-semibold">{t("auth.schoolPickerTitle")}</Text>
               <Pressable onPress={() => setVisible(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={colors.textPrimary} />
+                <Ionicons name="close" size={22} color={scheme.foreground} />
               </Pressable>
             </View>
 
@@ -126,24 +119,26 @@ export function SchoolPickerField({
               }}
               placeholder={t("auth.schoolSearchPlaceholder")}
               autoFocus
-              style={styles.searchField}
+              className="mb-4"
             />
 
-            <ScrollView style={styles.results} keyboardShouldPersistTaps="handled">
+            <ScrollView className="max-h-64" keyboardShouldPersistTaps="handled">
               {isLoading ? (
-                <ActivityIndicator color={colors.accent} style={styles.loading} />
+                <ActivityIndicator color={scheme.primary} className="mt-5" />
               ) : (
                 <>
                   {results.map((school) => (
-                    <Pressable key={school.id} onPress={() => select(school)} style={styles.resultRow}>
-                      <Text variant="body">{school.name}</Text>
+                    <Pressable key={school.id} onPress={() => select(school)} className="gap-1 px-1 py-3">
+                      <Text>{school.name}</Text>
                       {school.city || school.country ? (
-                        <Text variant="caption">{[school.city, school.country].filter(Boolean).join(", ")}</Text>
+                        <Text className="text-xs text-muted-foreground">
+                          {[school.city, school.country].filter(Boolean).join(", ")}
+                        </Text>
                       ) : null}
                     </Pressable>
                   ))}
                   {results.length === 0 && !query.trim() ? (
-                    <Text variant="caption" style={styles.empty}>
+                    <Text className="mt-5 text-center text-xs text-muted-foreground">
                       {t("auth.schoolSearchHint")}
                     </Text>
                   ) : null}
@@ -153,32 +148,23 @@ export function SchoolPickerField({
 
             {query.trim() ? (
               showCreateForm ? (
-                <View style={styles.createForm}>
+                <View className="mt-2">
                   <TextField
                     label={t("auth.schoolCountry")}
                     value={newCountry}
                     onChangeText={setNewCountry}
-                    style={styles.createField}
+                    className="mt-2"
                   />
-                  <TextField
-                    label={t("auth.schoolCity")}
-                    value={newCity}
-                    onChangeText={setNewCity}
-                    style={styles.createField}
-                  />
-                  <Button
-                    label={t("auth.schoolCreateConfirm", { name: query.trim() })}
-                    onPress={handleCreate}
-                    loading={isCreating}
-                    style={styles.createField}
-                  />
+                  <TextField label={t("auth.schoolCity")} value={newCity} onChangeText={setNewCity} className="mt-2" />
+                  <Button onPress={handleCreate} disabled={isCreating} className="mt-2">
+                    {isCreating ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+                    <Text>{t("auth.schoolCreateConfirm", { name: query.trim() })}</Text>
+                  </Button>
                 </View>
               ) : (
-                <Pressable onPress={() => setShowCreateForm(true)} style={styles.addRow}>
-                  <Ionicons name="add-circle-outline" size={20} color={colors.accentDark} />
-                  <Text variant="body" style={{ color: colors.accentDark }}>
-                    {t("auth.schoolNotListed", { name: query.trim() })}
-                  </Text>
+                <Pressable onPress={() => setShowCreateForm(true)} className="mt-2 flex-row items-center gap-2 px-1 py-3">
+                  <Ionicons name="add-circle-outline" size={20} color={scheme.primary} />
+                  <Text style={{ color: scheme.primary }}>{t("auth.schoolNotListed", { name: query.trim() })}</Text>
                 </Pressable>
               )
             ) : null}
@@ -188,67 +174,3 @@ export function SchoolPickerField({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  label: {
-    marginBottom: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  field: {
-    minHeight: 56,
-    borderRadius: radii.full,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(20,18,17,0.44)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-    padding: spacing.lg,
-    maxHeight: "75%",
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.md,
-  },
-  searchField: {
-    marginBottom: spacing.md,
-  },
-  results: {
-    maxHeight: 260,
-  },
-  loading: {
-    marginTop: spacing.lg,
-  },
-  resultRow: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
-  },
-  empty: {
-    textAlign: "center",
-    marginTop: spacing.lg,
-  },
-  addRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  createForm: {
-    marginTop: spacing.sm,
-  },
-  createField: {
-    marginTop: spacing.sm,
-  },
-});

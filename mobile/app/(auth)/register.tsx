@@ -1,14 +1,18 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, ScrollView, useColorScheme, View } from "react-native";
 
-import { Button, DatePickerField, Screen, SchoolPickerField, Text, TextField } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Button } from "../../components/ui/button";
+import { DatePickerField } from "../../components/ui/DatePickerField";
+import { Screen } from "../../components/ui/Screen";
+import { SchoolPickerField } from "../../components/ui/SchoolPickerField";
+import { Text } from "../../components/ui/text";
+import { TextField } from "../../components/ui/TextField";
 import { ApiError } from "../../lib/api";
 import type { School } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/language-context";
-import { useTheme } from "../../lib/theme-context";
+import { THEME } from "../../lib/theme";
 
 // Mirrors the backend's RegisterRequest pseudo pattern (app/api/v1/schemas/auth.py):
 // no whitespace, no '@', 3-50 chars.
@@ -27,7 +31,7 @@ function isValidDateOfBirth(value: string): boolean {
 
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const { colors } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const router = useRouter();
   const [firstname, setFirstname] = useState("");
@@ -102,125 +106,81 @@ export default function RegisterScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <Text variant="display">{t("auth.registerTitle")}</Text>
-        <Text variant="body" style={styles.subtitle}>
-          {t("auth.registerSubtitle")}
-        </Text>
-      </View>
-
-      <View>
-        <View style={styles.row}>
-          <TextField label={t("auth.firstName")} value={firstname} onChangeText={setFirstname} style={styles.rowField} />
-          <TextField label={t("auth.lastName")} value={lastname} onChangeText={setLastname} style={styles.rowField} />
+      <ScrollView contentContainerClassName="pb-16" keyboardShouldPersistTaps="handled">
+        <View className="mt-16 mb-10">
+          <Text className="text-3xl font-bold">{t("auth.registerTitle")}</Text>
+          <Text className="mt-2 text-muted-foreground">{t("auth.registerSubtitle")}</Text>
         </View>
-        <TextField
-          label={t("auth.email")}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          style={styles.field}
-        />
-        <TextField
-          label={t("auth.pseudo")}
-          value={pseudo}
-          onChangeText={setPseudo}
-          autoCapitalize="none"
-          autoComplete="username"
-          error={pseudo.length > 0 && !pseudoValid ? t("auth.pseudoError") : null}
-          style={styles.field}
-        />
-        {!(pseudo.length > 0 && !pseudoValid) ? (
-          <Text variant="caption" style={styles.hint}>
-            {t("auth.pseudoHint")}
-          </Text>
-        ) : null}
-        <DatePickerField
-          label={t("auth.dateOfBirth")}
-          value={dateOfBirth}
-          onChange={setDateOfBirth}
-          placeholder={t("auth.dateOfBirthPlaceholder")}
-          error={dateOfBirth.length > 0 && !dateOfBirthValid ? t("auth.dateOfBirthError") : null}
-          style={styles.field}
-        />
-        <SchoolPickerField
-          label={t("auth.schoolName")}
-          value={school}
-          onChange={setSchool}
-          placeholder={t("auth.schoolName")}
-          style={styles.field}
-        />
-        <TextField
-          label={t("auth.password")}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="new-password"
-          style={styles.field}
-        />
-        <Text variant="caption" style={styles.hint}>
-          {t("auth.passwordHint")}
-        </Text>
-        <TextField
-          label={t("auth.confirmPassword")}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoComplete="new-password"
-          error={confirmPassword.length > 0 && !passwordsMatch ? t("auth.passwordMismatchError") : null}
-          style={styles.field}
-        />
-        {error ? (
-          <Text variant="caption" style={[styles.error, { color: colors.error }]}>
-            {error}
-          </Text>
-        ) : null}
-        <Button
-          label={t("auth.createAccountSubmit")}
-          onPress={handleSubmit}
-          loading={isSubmitting}
-          disabled={!canSubmit}
-          style={styles.submit}
-        />
-        <Button label={t("auth.haveAccount")} variant="ghost" onPress={() => router.back()} />
-      </View>
+
+        <View>
+          <View className="flex-row gap-3">
+            <TextField label={t("auth.firstName")} value={firstname} onChangeText={setFirstname} className="flex-1" />
+            <TextField label={t("auth.lastName")} value={lastname} onChangeText={setLastname} className="flex-1" />
+          </View>
+          <TextField
+            label={t("auth.email")}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            style={{ marginTop: 16 }}
+          />
+          <TextField
+            label={t("auth.pseudo")}
+            value={pseudo}
+            onChangeText={setPseudo}
+            autoCapitalize="none"
+            autoComplete="username"
+            error={pseudo.length > 0 && !pseudoValid ? t("auth.pseudoError") : null}
+            style={{ marginTop: 16 }}
+          />
+          {!(pseudo.length > 0 && !pseudoValid) ? (
+            <Text className="mt-1 ml-2 text-xs text-muted-foreground">{t("auth.pseudoHint")}</Text>
+          ) : null}
+          <DatePickerField
+            label={t("auth.dateOfBirth")}
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+            placeholder={t("auth.dateOfBirthPlaceholder")}
+            error={dateOfBirth.length > 0 && !dateOfBirthValid ? t("auth.dateOfBirthError") : null}
+            style={{ marginTop: 16 }}
+          />
+          <SchoolPickerField
+            label={t("auth.schoolName")}
+            value={school}
+            onChange={setSchool}
+            placeholder={t("auth.schoolName")}
+            style={{ marginTop: 16 }}
+          />
+          <TextField
+            label={t("auth.password")}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="new-password"
+            style={{ marginTop: 16 }}
+          />
+          <Text className="mt-1 ml-2 text-xs text-muted-foreground">{t("auth.passwordHint")}</Text>
+          <TextField
+            label={t("auth.confirmPassword")}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            autoComplete="new-password"
+            error={confirmPassword.length > 0 && !passwordsMatch ? t("auth.passwordMismatchError") : null}
+            style={{ marginTop: 16 }}
+          />
+          {error ? <Text className="mt-3 text-sm text-destructive">{error}</Text> : null}
+          <Button onPress={handleSubmit} disabled={isSubmitting || !canSubmit} className="mt-6">
+            {isSubmitting ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+            <Text>{t("auth.createAccountSubmit")}</Text>
+          </Button>
+          <Button variant="ghost" onPress={() => router.back()}>
+            <Text>{t("auth.haveAccount")}</Text>
+          </Button>
+        </View>
       </ScrollView>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    marginTop: spacing.xxxl,
-    marginBottom: spacing.xxl,
-  },
-  subtitle: {
-    marginTop: spacing.sm,
-  },
-  row: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  rowField: {
-    flex: 1,
-  },
-  field: {
-    marginTop: spacing.lg,
-  },
-  hint: {
-    marginTop: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  error: {
-    marginTop: spacing.md,
-  },
-  submit: {
-    marginTop: spacing.xl,
-  },
-});

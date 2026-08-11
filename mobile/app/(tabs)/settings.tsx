@@ -1,17 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, useColorScheme, View } from "react-native";
 
-import { Avatar, Button, Card, IconButton, Screen, Text } from "../../components/ui";
-import { spacing } from "../../constants/theme";
+import { Avatar, AvatarFallback } from "../../components/ui/avatar";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { IconButton } from "../../components/ui/IconButton";
+import { Screen } from "../../components/ui/Screen";
+import { Text } from "../../components/ui/text";
 import { accountApi, subjectPacksApi } from "../../lib/api";
 import type { AppliedSubjectPack } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { confirmDestructiveAction } from "../../lib/confirm";
 import { languageNames, type Language } from "../../lib/i18n/translations";
 import { useLanguage } from "../../lib/language-context";
+import { THEME } from "../../lib/theme";
 import { useTheme } from "../../lib/theme-context";
+import { cn } from "../../lib/utils";
 
 function packLabel(pack: AppliedSubjectPack): string {
   const parts = [pack.country_name, pack.academic_level_name];
@@ -23,7 +29,8 @@ const LANGUAGE_OPTIONS: Language[] = ["en", "fr", "ar"];
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
-  const { colors, isDark, setDark } = useTheme();
+  const { isDark, setDark } = useTheme();
+  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
   const { language, setLanguage, t, tn } = useLanguage();
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
@@ -93,168 +100,110 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.scroll}>
-      <View style={styles.header}>
-        <Text variant="display">{t("settings.title")}</Text>
-      </View>
+      <ScrollView contentContainerClassName="pb-16">
+        <Text className="mt-6 mb-8 text-3xl font-bold">{t("settings.title")}</Text>
 
-      <Card style={styles.profileCard}>
-        <Avatar label={user?.firstname ?? "?"} size={56} />
-        <View style={styles.profileText}>
-          <Text variant="subtitle">
-            {user?.firstname} {user?.lastname}
-          </Text>
-          <Text variant="caption" style={{ marginTop: 4 }}>
-            {user?.email}
-          </Text>
-        </View>
-      </Card>
+        <Card>
+          <CardContent className="flex-row items-center gap-4">
+            <Avatar alt={user?.firstname ?? "?"} className="size-14">
+              <AvatarFallback>
+                <Text className="text-lg font-semibold">{(user?.firstname ?? "?")[0]?.toUpperCase()}</Text>
+              </AvatarFallback>
+            </Avatar>
+            <View className="flex-1">
+              <Text className="text-base font-semibold">
+                {user?.firstname} {user?.lastname}
+              </Text>
+              <Text className="mt-1 text-xs text-muted-foreground">{user?.email}</Text>
+            </View>
+          </CardContent>
+        </Card>
 
-      <Text variant="label" style={styles.sectionLabel}>
-        {t("settings.appearance")}
-      </Text>
-      <Card style={styles.rowsCard}>
-        <View style={styles.row}>
-          <Text variant="body" style={styles.rowLabel}>
-            {t("settings.darkMode")}
-          </Text>
-          <Switch
-            value={isDark}
-            onValueChange={setDark}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor="#FFFFFF"
+        <Text className="mt-8 mb-2 ml-1 text-sm font-medium text-muted-foreground">{t("settings.appearance")}</Text>
+        <Card className="overflow-hidden py-0">
+          <View className="flex-row items-center justify-between px-5 py-4">
+            <Text className="flex-1">{t("settings.darkMode")}</Text>
+            <Switch value={isDark} onValueChange={setDark} trackColor={{ false: scheme.border, true: scheme.primary }} thumbColor="#FFFFFF" />
+          </View>
+        </Card>
+
+        <Text className="mt-8 mb-2 ml-1 text-sm font-medium text-muted-foreground">{t("settings.language")}</Text>
+        <Card className="overflow-hidden py-0">
+          {LANGUAGE_OPTIONS.map((option, index) => (
+            <Pressable
+              key={option}
+              onPress={() => handleSelectLanguage(option)}
+              className={cn(
+                "flex-row items-center justify-between px-5 py-4",
+                index < LANGUAGE_OPTIONS.length - 1 && "border-b border-border"
+              )}
+            >
+              <Text className="flex-1">{languageNames[option]}</Text>
+              {language === option ? <Ionicons name="checkmark-circle" size={22} color={scheme.primary} /> : null}
+            </Pressable>
+          ))}
+        </Card>
+
+        <View className="mt-8 mb-2 flex-row items-center justify-between">
+          <Text className="ml-1 text-sm font-medium text-muted-foreground">{t("settings.subjects")}</Text>
+          <IconButton
+            name="add"
+            size={32}
+            onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/(tabs)/settings" } })}
           />
         </View>
-      </Card>
-
-      <Text variant="label" style={styles.sectionLabel}>
-        {t("settings.language")}
-      </Text>
-      <Card style={styles.rowsCard}>
-        {LANGUAGE_OPTIONS.map((option, index) => (
-          <Pressable
-            key={option}
-            onPress={() => handleSelectLanguage(option)}
-            style={[
-              styles.row,
-              index < LANGUAGE_OPTIONS.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-            ]}
-          >
-            <Text variant="body" style={styles.rowLabel}>
-              {languageNames[option]}
-            </Text>
-            {language === option ? <Ionicons name="checkmark-circle" size={22} color={colors.accentDark} /> : null}
-          </Pressable>
-        ))}
-      </Card>
-
-      <View style={styles.sectionHeaderRow}>
-        <Text variant="label" style={[styles.sectionLabel, styles.sectionLabelInline]}>
-          {t("settings.subjects")}
-        </Text>
-        <IconButton
-          name="add"
-          size={32}
-          onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/(tabs)/settings" } })}
-        />
-      </View>
-      {isLoadingPacks ? (
-        <ActivityIndicator color={colors.accent} style={styles.packsLoading} />
-      ) : packs.length === 0 ? (
-        <Card>
-          <Text variant="body" style={{ color: colors.textSecondary }}>
-            {t("settings.noPacks")}
-          </Text>
-        </Card>
-      ) : (
-        <Card style={styles.rowsCard}>
-          {packs.map((pack, index) => {
-            const key = `${pack.academic_level_id}:${pack.section_id ?? ""}`;
-            return (
-              <View
-                key={key}
-                style={[styles.row, index < packs.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}
-              >
-                <View style={styles.rowLabel}>
-                  <Text variant="body">{packLabel(pack)}</Text>
-                  <Text variant="caption">{tn("settings.subjectCount", pack.subject_count)}</Text>
+        {isLoadingPacks ? (
+          <ActivityIndicator color={scheme.primary} className="mt-3" />
+        ) : packs.length === 0 ? (
+          <Card>
+            <CardContent>
+              <Text className="text-muted-foreground">{t("settings.noPacks")}</Text>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden py-0">
+            {packs.map((pack, index) => {
+              const key = `${pack.academic_level_id}:${pack.section_id ?? ""}`;
+              return (
+                <View
+                  key={key}
+                  className={cn(
+                    "flex-row items-center justify-between px-5 py-4",
+                    index < packs.length - 1 && "border-b border-border"
+                  )}
+                >
+                  <View className="flex-1">
+                    <Text>{packLabel(pack)}</Text>
+                    <Text className="text-xs text-muted-foreground">{tn("settings.subjectCount", pack.subject_count)}</Text>
+                  </View>
+                  {removingPackKey === key ? (
+                    <ActivityIndicator color={scheme.destructive} size="small" />
+                  ) : (
+                    <Button variant="ghost" onPress={() => handleRemovePack(pack)}>
+                      <Text>{t("settings.remove")}</Text>
+                    </Button>
+                  )}
                 </View>
-                {removingPackKey === key ? (
-                  <ActivityIndicator color={colors.error} size="small" />
-                ) : (
-                  <Button label={t("settings.remove")} variant="ghost" onPress={() => handleRemovePack(pack)} />
-                )}
-              </View>
-            );
-          })}
+              );
+            })}
+          </Card>
+        )}
+
+        <Text className="mt-8 mb-2 ml-1 text-sm font-medium text-destructive">{t("settings.dangerZone")}</Text>
+        <Card>
+          <CardContent>
+            <Text className="mb-4 text-muted-foreground">{t("settings.resetAccountBody")}</Text>
+            <Button variant="secondary" onPress={handleResetAccount} disabled={isResetting}>
+              {isResetting ? <ActivityIndicator color={scheme.foreground} /> : null}
+              <Text>{t("settings.resetAccount")}</Text>
+            </Button>
+          </CardContent>
         </Card>
-      )}
 
-      <Text variant="label" style={[styles.sectionLabel, { color: colors.error }]}>
-        {t("settings.dangerZone")}
-      </Text>
-      <Card>
-        <Text variant="body" style={{ color: colors.textSecondary, marginBottom: spacing.md }}>
-          {t("settings.resetAccountBody")}
-        </Text>
-        <Button label={t("settings.resetAccount")} variant="secondary" onPress={handleResetAccount} loading={isResetting} />
-      </Card>
-
-      <Button label={t("settings.signOut")} variant="secondary" onPress={logout} style={styles.signOut} />
+        <Button variant="secondary" onPress={logout} className="mt-10 mb-28">
+          <Text>{t("settings.signOut")}</Text>
+        </Button>
       </ScrollView>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionLabelInline: {
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  packsLoading: {
-    marginTop: spacing.md,
-  },
-  profileCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  profileText: {
-    flex: 1,
-  },
-  sectionLabel: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.sm,
-  },
-  rowsCard: {
-    padding: 0,
-    overflow: "hidden",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  rowLabel: {
-    flex: 1,
-  },
-  signOut: {
-    marginTop: spacing.xxl,
-    marginBottom: 110,
-  },
-});
