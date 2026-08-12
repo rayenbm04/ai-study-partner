@@ -5,7 +5,6 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  useColorScheme,
   View,
   type StyleProp,
   type ViewStyle,
@@ -15,6 +14,7 @@ import { schoolsApi } from "../../lib/api";
 import type { School } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { Button } from "./button";
 import { Text } from "./text";
 import { TextField } from "./TextField";
@@ -37,7 +37,8 @@ export function SchoolPickerField({
   placeholder?: string;
   style?: StyleProp<ViewStyle>;
 }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
 
   const [visible, setVisible] = useState(false);

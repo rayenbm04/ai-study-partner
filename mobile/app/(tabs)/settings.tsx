@@ -1,7 +1,7 @@
 import { CheckCircleIcon, PlusIcon } from "phosphor-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, View } from "react-native";
 
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
@@ -30,7 +30,7 @@ const LANGUAGE_OPTIONS: Language[] = ["en", "fr", "ar"];
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
   const { isDark, setDark } = useTheme();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { language, setLanguage, t, tn } = useLanguage();
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);

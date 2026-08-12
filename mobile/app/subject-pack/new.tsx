@@ -11,7 +11,7 @@
 import { CaretLeftIcon, CaretRightIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -22,12 +22,14 @@ import { accountApi, ApiError, curriculumApi, subjectPacksApi } from "../../lib/
 import type { AcademicLevel, Country, CurriculumSubject, EducationSystem, Section } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 
 type Step = "country" | "system" | "level" | "section" | "preview";
 
 export default function SubjectPackPickerScreen() {
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
@@ -234,7 +236,8 @@ export default function SubjectPackPickerScreen() {
 }
 
 function OptionRow({ label, onPress }: { label: string; onPress: () => void }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   return (
     <Pressable onPress={onPress}>
       <Card className="py-3">

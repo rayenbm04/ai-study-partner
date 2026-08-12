@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, type Theme } from "expo-router/react-navigation";
+import { DarkTheme, DefaultTheme, type Theme } from "@react-navigation/native";
 
 // Mirrors frontend/app/globals.css (mauve/base-nova shadcn preset) —
 // converted from OKLCH to HSL via scripts/oklch-to-hsl.mjs so mobile and

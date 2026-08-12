@@ -10,7 +10,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, FlatList, Pressable, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -21,12 +21,14 @@ import { ApiError, studyPlansApi, subjectsApi } from "../../lib/api";
 import type { StudyPlan, Subject } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 const MINUTE_OPTIONS = [15, 30, 45, 60];
 
 export default function StudyPlanScreen() {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const params = useLocalSearchParams<{ defaultDailyMinutes?: string }>();
   const [subjects, setSubjects] = useState<Subject[]>([]);

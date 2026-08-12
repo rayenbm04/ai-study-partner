@@ -19,7 +19,6 @@ import {
   Platform,
   Pressable,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 
@@ -30,6 +29,7 @@ import { chatApi, documentsApi, subjectsApi } from "../../lib/api";
 import type { Citation, Document, Message, Subject } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 export default function CoachScreen() {
@@ -39,7 +39,8 @@ export default function CoachScreen() {
     documentId?: string;
   }>();
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const SUGGESTED_PROMPTS = [t("coach.promptExplain"), t("coach.promptSummarize"), t("coach.promptQuiz")];
   const listRef = useRef<FlatList<Message>>(null);

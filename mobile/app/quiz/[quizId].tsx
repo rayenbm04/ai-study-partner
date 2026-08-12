@@ -14,7 +14,7 @@
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { CheckCircleIcon, TimerIcon, XCircleIcon, XIcon } from "phosphor-react-native";
 
 import { Button } from "../../components/ui/button";
@@ -26,12 +26,14 @@ import { quizzesApi } from "../../lib/api";
 import type { Quiz, QuizAttemptResult } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 export default function QuizAttemptScreen() {
   const { quizId } = useLocalSearchParams<{ quizId: string }>();
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -207,7 +209,8 @@ export default function QuizAttemptScreen() {
 }
 
 function TimerChip({ seconds }: { seconds: number }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const low = seconds <= 60;
   const mm = Math.floor(seconds / 60);
   const ss = seconds % 60;
@@ -222,7 +225,8 @@ function TimerChip({ seconds }: { seconds: number }) {
 }
 
 function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: () => void }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const score = result.score !== null ? Math.round(result.score) : null;
 

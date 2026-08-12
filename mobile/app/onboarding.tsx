@@ -19,7 +19,7 @@
 import { BooksIcon, GraduationCapIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -30,11 +30,13 @@ import { TextField } from "../components/ui/TextField";
 import { ApiError, subjectsApi } from "../lib/api";
 import { useLanguage } from "../lib/language-context";
 import { THEME } from "../lib/theme";
+import { useTheme } from "../lib/theme-context";
 import { cn } from "../lib/utils";
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const MINUTE_OPTIONS = [
     { minutes: 15, sub: t("onboarding.minutes15Sub") },

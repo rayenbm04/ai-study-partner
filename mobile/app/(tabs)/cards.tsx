@@ -8,7 +8,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, Animated, Pressable, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, View } from "react-native";
 import { ArrowsLeftRightIcon, CheckIcon } from "phosphor-react-native";
 
 import { Screen } from "../../components/ui/Screen";
@@ -17,10 +17,12 @@ import { flashcardsApi } from "../../lib/api";
 import type { Flashcard } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 export default function CardsScreen() {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const GRADES: { label: string; sub: string; quality: number; tone: "bad" | "neutral" | "good" }[] = [
     { label: t("cards.gradeAgain"), sub: t("cards.gradeAgainSub"), quality: 1, tone: "bad" },

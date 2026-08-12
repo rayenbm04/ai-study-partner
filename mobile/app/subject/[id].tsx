@@ -21,7 +21,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -34,6 +34,7 @@ import type { Document, DocumentType, Subject, SubjectAnalytics, Summary, Summar
 import { confirmDestructiveAction } from "../../lib/confirm";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 const EXAM_DURATIONS = [15, 30, 45, 60];
@@ -41,7 +42,8 @@ const EXAM_DURATIONS = [15, 30, 45, 60];
 export default function SubjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
 
   const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
@@ -385,7 +387,8 @@ function DocAction({
   onPress: () => void;
   loading?: boolean;
 }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   return (
     <Pressable onPress={onPress} disabled={loading} className="h-11 flex-1 flex-row items-center justify-center gap-1.5 rounded-full bg-input/30">
       {loading ? (
@@ -399,7 +402,8 @@ function DocAction({
 }
 
 function Sheet({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   return (
     <>
       <Pressable className="absolute inset-0 bg-black/40" onPress={onClose} />

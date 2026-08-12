@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, useColorScheme, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { DatePickerField } from "../../components/ui/DatePickerField";
@@ -13,6 +13,7 @@ import type { School } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 
 // Mirrors the backend's RegisterRequest pseudo pattern (app/api/v1/schemas/auth.py):
 // no whitespace, no '@', 3-50 chars.
@@ -31,7 +32,8 @@ function isValidDateOfBirth(value: string): boolean {
 
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const router = useRouter();
   const [firstname, setFirstname] = useState("");

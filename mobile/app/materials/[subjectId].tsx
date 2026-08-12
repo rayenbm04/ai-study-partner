@@ -9,7 +9,7 @@ import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, CaretUpIcon } from "phosp
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
 import { Card, CardContent } from "../../components/ui/card";
 import { IconButton } from "../../components/ui/IconButton";
@@ -21,13 +21,15 @@ import type { Document, QuizListItem, Subject, Summary } from "../../lib/api";
 import { localeTags } from "../../lib/i18n/translations";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 
 type DocumentSummaries = { document: Document; summaries: Summary[] };
 
 export default function SavedMaterialsScreen() {
   const { subjectId } = useLocalSearchParams<{ subjectId: string }>();
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t, tn, language } = useLanguage();
 
   const SUMMARY_TYPE_LABELS: Record<string, string> = {

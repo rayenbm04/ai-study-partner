@@ -25,8 +25,7 @@
     },
     "scheme": "aistudycoach",
     "plugins": [
-      "expo-router",
-      "expo-sharing"
+      "expo-router"
     ]
   }
 }

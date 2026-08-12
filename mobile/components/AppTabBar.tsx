@@ -5,12 +5,13 @@
  * isn't a dependency here, so the "glass" look is approximated with a
  * semi-opaque themed surface instead of a real backdrop blur.
  */
-import type { BottomTabBarProps } from "expo-router/build/react-navigation/bottom-tabs";
+import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { CalendarBlankIcon, ChartLineIcon, GearIcon, HouseIcon, StackIcon, type Icon as PhosphorIcon } from "phosphor-react-native";
-import { Platform, Pressable, useColorScheme, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { THEME } from "../lib/theme";
+import { useTheme } from "../lib/theme-context";
 import { cn } from "../lib/utils";
 import { Text } from "./ui/text";
 
@@ -23,7 +24,7 @@ const ICONS: Record<string, PhosphorIcon> = {
 };
 
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const isDark = useColorScheme() === "dark";
+  const { isDark } = useTheme();
   const scheme = isDark ? THEME.dark : THEME.light;
   const insets = useSafeAreaInsets();
 

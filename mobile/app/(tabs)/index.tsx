@@ -8,7 +8,7 @@ import { ChatCircleDotsIcon, LightningIcon } from "phosphor-react-native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { FlatList, Pressable, RefreshControl, useColorScheme, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
@@ -20,11 +20,13 @@ import type { OverviewAnalytics, Subject } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 export default function SubjectsScreen() {
   const { user } = useAuth();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t, tn } = useLanguage();
   const router = useRouter();
   const [subjects, setSubjects] = useState<Subject[]>([]);

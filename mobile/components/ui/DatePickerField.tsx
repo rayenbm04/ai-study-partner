@@ -1,10 +1,11 @@
 import { CalendarBlankIcon, CaretLeftIcon, XIcon } from "phosphor-react-native";
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, useColorScheme, View, type StyleProp, type ViewStyle } from "react-native";
+import { Modal, Pressable, ScrollView, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { useLanguage } from "../../lib/language-context";
 import type { Language } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 import { Text } from "./text";
 
@@ -72,7 +73,8 @@ export function DatePickerField({
   maxYear?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { language } = useLanguage();
   const monthNames = MONTH_NAMES[language] ?? MONTH_NAMES.en;
   const weekdayNames = WEEKDAY_NAMES[language] ?? WEEKDAY_NAMES.en;

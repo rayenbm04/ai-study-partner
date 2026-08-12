@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { XIcon } from "phosphor-react-native";
 import { useState } from "react";
-import { ActivityIndicator, useColorScheme, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { IconButton } from "../../components/ui/IconButton";
@@ -11,10 +11,12 @@ import { TextField } from "../../components/ui/TextField";
 import { ApiError, subjectsApi } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 
 export default function NewSubjectScreen() {
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, useColorScheme, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { Screen } from "../../components/ui/Screen";
@@ -9,9 +9,11 @@ import { TextField } from "../../components/ui/TextField";
 import { ApiError, authApi } from "../../lib/api";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 
 export default function ResetPasswordScreen() {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const router = useRouter();
   const [token, setToken] = useState("");

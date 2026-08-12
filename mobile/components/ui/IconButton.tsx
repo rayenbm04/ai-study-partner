@@ -1,7 +1,8 @@
 import type { Icon as PhosphorIcon } from "phosphor-react-native";
-import { Pressable, useColorScheme, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, type StyleProp, type ViewStyle } from "react-native";
 
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 import { cn } from "../../lib/utils";
 
 /** Circular floating icon button — the back arrows, settings gears and
@@ -20,7 +21,8 @@ export function IconButton({
   style?: StyleProp<ViewStyle>;
   className?: string;
 }) {
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   return (
     <Pressable
       onPress={onPress}

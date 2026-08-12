@@ -13,7 +13,7 @@ import { StackIcon, WarningCircleIcon } from "phosphor-react-native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, ScrollView, useColorScheme, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 
 import { RadarChart } from "../../components/RadarChart";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
@@ -29,6 +29,7 @@ import type { ConceptMastery, OverviewAnalytics, Subject, WeakConcept } from "..
 import { flattenConceptNames, masteryColor } from "../../lib/progress-utils";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
+import { useTheme } from "../../lib/theme-context";
 
 type SubjectProgress = {
   subject: Subject;
@@ -38,7 +39,8 @@ type SubjectProgress = {
 
 export default function ProgressScreen() {
   const router = useRouter();
-  const scheme = useColorScheme() === "dark" ? THEME.dark : THEME.light;
+  const { isDark } = useTheme();
+  const scheme = isDark ? THEME.dark : THEME.light;
   const { t } = useLanguage();
   const REASON_LABEL: Record<WeakConcept["reason"], string> = {
     repeated_errors: t("weakConceptReason.repeatedErrors"),
