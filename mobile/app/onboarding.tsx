@@ -16,7 +16,7 @@
  * instead of being silently dropped. A real "default daily minutes" user
  * setting would be a small, separate backend addition later.
  */
-import { Ionicons } from "@expo/vector-icons";
+import { BooksIcon, GraduationCapIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, useColorScheme, View } from "react-native";
@@ -79,7 +79,7 @@ export default function OnboardingScreen() {
       {step === 0 ? (
         <View className="mt-10">
           <View className="mb-6 size-16 items-center justify-center rounded-full bg-primary/15">
-            <Ionicons name="library" size={28} color={scheme.primary} />
+            <BooksIcon size={28} color={scheme.primary} weight="fill" />
           </View>
           <Text className="text-3xl font-bold">{t("onboarding.step0Title")}</Text>
           <Text className="mt-2 mb-8 text-muted-foreground">{t("onboarding.step0Subtitle")}</Text>
@@ -105,7 +105,7 @@ export default function OnboardingScreen() {
       ) : step === 1 ? (
         <View className="mt-10">
           <View className="mb-6 size-16 items-center justify-center rounded-full bg-primary/15">
-            <Ionicons name="school" size={28} color={scheme.primary} />
+            <GraduationCapIcon size={28} color={scheme.primary} weight="fill" />
           </View>
           <Text className="text-3xl font-bold">{t("onboarding.step1Title")}</Text>
           <Text className="mt-2 mb-8 text-muted-foreground">{t("onboarding.step1Subtitle")}</Text>

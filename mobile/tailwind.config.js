@@ -7,6 +7,12 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      fontFamily: {
+        serif: ["NotoSerif_400Regular"],
+        "serif-medium": ["NotoSerif_500Medium"],
+        "serif-semibold": ["NotoSerif_600SemiBold"],
+        "serif-bold": ["NotoSerif_700Bold"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

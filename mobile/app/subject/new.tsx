@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { XIcon } from "phosphor-react-native";
 import { useState } from "react";
 import { ActivityIndicator, useColorScheme, View } from "react-native";
 
@@ -39,7 +40,7 @@ export default function NewSubjectScreen() {
   return (
     <Screen>
       <View className="mt-2">
-        <IconButton name="close" onPress={() => router.back()} />
+        <IconButton icon={XIcon} onPress={() => router.back()} />
       </View>
       <View className="mt-6 mb-8">
         <Text className="text-3xl font-bold">{t("subjectNew.title")}</Text>

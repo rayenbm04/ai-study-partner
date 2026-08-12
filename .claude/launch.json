@@ -6,6 +6,12 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "cd /d D:\\PROJECTS\\ai-study-partner\\ai-study-partner\\mobile && npx expo start --web"],
       "port": 8081
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d D:\\PROJECTS\\ai-study-partner\\ai-study-partner\\frontend && npm run dev"],
+      "port": 3000
     }
   ]
 }

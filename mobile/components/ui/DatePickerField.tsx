@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { CalendarBlankIcon, CaretLeftIcon, XIcon } from "phosphor-react-native";
 import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, useColorScheme, View, type StyleProp, type ViewStyle } from "react-native";
 
@@ -133,7 +133,7 @@ export function DatePickerField({
         )}
       >
         <Text className={cn(parsed ? "text-foreground" : "text-muted-foreground")}>{displayText || placeholder}</Text>
-        <Ionicons name="calendar-outline" size={20} color={scheme.mutedForeground} />
+        <CalendarBlankIcon size={20} color={scheme.mutedForeground} />
       </Pressable>
       {error ? <Text className="mt-1 ml-1 text-xs text-destructive">{error}</Text> : null}
 
@@ -146,7 +146,7 @@ export function DatePickerField({
             <View className="mb-5 flex-row items-center justify-between">
               {step !== "year" ? (
                 <Pressable onPress={() => setStep(step === "day" ? "month" : "year")} hitSlop={8}>
-                  <Ionicons name="chevron-back" size={22} color={scheme.foreground} />
+                  <CaretLeftIcon size={22} color={scheme.foreground} />
                 </Pressable>
               ) : (
                 <View className="w-[22px]" />
@@ -155,7 +155,7 @@ export function DatePickerField({
                 {step === "year" ? " " : step === "month" ? `${viewYear}` : `${monthNames[viewMonth]} ${viewYear}`}
               </Text>
               <Pressable onPress={() => setVisible(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={scheme.foreground} />
+                <XIcon size={22} color={scheme.foreground} />
               </Pressable>
             </View>
 

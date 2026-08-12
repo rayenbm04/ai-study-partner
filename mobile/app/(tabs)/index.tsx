@@ -4,7 +4,7 @@
  * subject. A floating action button opens the AI Coach for a subject (picks
  * automatically when there's only one, otherwise asks which).
  */
-import { Ionicons } from "@expo/vector-icons";
+import { ChatCircleDotsIcon, LightningIcon } from "phosphor-react-native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
@@ -93,7 +93,7 @@ export default function SubjectsScreen() {
               <CardContent className="gap-4">
                 <View className="flex-row items-center gap-4">
                   <View className="size-13 items-center justify-center rounded-full bg-primary/15">
-                    <Ionicons name="flash" size={26} color={scheme.primary} />
+                    <LightningIcon size={26} color={scheme.primary} weight="fill" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm font-medium text-muted-foreground">{t("home.todaysMission")}</Text>
@@ -180,7 +180,7 @@ export default function SubjectsScreen() {
         onPress={openCoach}
         className="absolute right-5 bottom-24 size-15 items-center justify-center rounded-full bg-primary shadow-lg"
       >
-        <Ionicons name="chatbubble-ellipses" size={24} color={scheme.primaryForeground} />
+        <ChatCircleDotsIcon size={24} color={scheme.primaryForeground} weight="fill" />
       </Pressable>
 
       {pickerOpen ? (

@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { CheckCircleIcon, PlusIcon } from "phosphor-react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, useColorScheme, View } from "react-native";
@@ -139,7 +139,7 @@ export default function SettingsScreen() {
               )}
             >
               <Text className="flex-1">{languageNames[option]}</Text>
-              {language === option ? <Ionicons name="checkmark-circle" size={22} color={scheme.primary} /> : null}
+              {language === option ? <CheckCircleIcon size={22} color={scheme.primary} weight="fill" /> : null}
             </Pressable>
           ))}
         </Card>
@@ -147,7 +147,7 @@ export default function SettingsScreen() {
         <View className="mt-8 mb-2 flex-row items-center justify-between">
           <Text className="ml-1 text-sm font-medium text-muted-foreground">{t("settings.subjects")}</Text>
           <IconButton
-            name="add"
+            icon={PlusIcon}
             size={32}
             onPress={() => router.push({ pathname: "/subject-pack/new", params: { returnTo: "/(tabs)/settings" } })}
           />

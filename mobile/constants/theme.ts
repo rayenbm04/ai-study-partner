@@ -118,15 +118,15 @@ export const fontWeights = {
   bold: "700",
 } as const;
 
-// Figtree (body) + Caprasimo (display serif) are loaded via
-// @expo-google-fonts/* in app/_layout.tsx; these are the family names those
-// packages register.
+// Noto Serif is loaded via @expo-google-fonts/noto-serif in app/_layout.tsx
+// (matching frontend's font-serif preset); these are the family names that
+// package registers.
 export const fontFamilies = {
-  regular: "Figtree_400Regular",
-  medium: "Figtree_500Medium",
-  semibold: "Figtree_600SemiBold",
-  bold: "Figtree_700Bold",
-  display: "Caprasimo_400Regular",
+  regular: "NotoSerif_400Regular",
+  medium: "NotoSerif_500Medium",
+  semibold: "NotoSerif_600SemiBold",
+  bold: "NotoSerif_700Bold",
+  display: "NotoSerif_700Bold",
 } as const;
 
 export const spacing = {

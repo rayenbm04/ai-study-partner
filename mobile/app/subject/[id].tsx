@@ -5,7 +5,19 @@
  * during ingestion, hence the polling effect below — a document sits at
  * pending/processing for a bit before that badge is available.
  */
-import { Ionicons } from "@expo/vector-icons";
+import {
+  BookOpenTextIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  ChatCircleDotsIcon,
+  FileTextIcon,
+  PlusIcon,
+  QuestionIcon,
+  TimerIcon,
+  XCircleIcon,
+  XIcon,
+  type Icon as PhosphorIcon,
+} from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useFocusEffect } from "expo-router";
@@ -192,7 +204,7 @@ export default function SubjectDetailScreen() {
     <Screen>
       <ScrollView contentContainerClassName="pt-2 pb-16">
         <View className="mb-3">
-          <IconButton name="chevron-back" onPress={() => router.back()} />
+          <IconButton icon={CaretLeftIcon} onPress={() => router.back()} />
         </View>
         <Text className="mb-1 text-3xl font-bold">{subject.name}</Text>
         {subject.description ? <Text className="text-muted-foreground">{subject.description}</Text> : null}
@@ -208,7 +220,7 @@ export default function SubjectDetailScreen() {
                 </View>
                 <View className="mt-3 flex-row items-center justify-center gap-1">
                   <Text className="text-xs text-primary">{t("subjectDetail.viewConceptMap")}</Text>
-                  <Ionicons name="chevron-forward" size={13} color={scheme.primary} />
+                  <CaretRightIcon size={13} color={scheme.primary} />
                 </View>
               </CardContent>
             </Card>
@@ -222,12 +234,12 @@ export default function SubjectDetailScreen() {
         </View>
         <Pressable className="mt-3 flex-row items-center justify-center gap-1 self-center" onPress={() => router.push(`/materials/${id}`)}>
           <Text className="text-xs text-primary">{t("subjectDetail.viewSavedMaterials")}</Text>
-          <Ionicons name="chevron-forward" size={13} color={scheme.primary} />
+          <CaretRightIcon size={13} color={scheme.primary} />
         </Pressable>
 
         <View className="mt-8 mb-2 flex-row items-center justify-between">
           <Text className="text-lg font-semibold">{t("subjectDetail.documents")}</Text>
-          <IconButton name="add" onPress={handleUpload} size={36} />
+          <IconButton icon={PlusIcon} onPress={handleUpload} size={36} />
         </View>
         {isUploading ? (
           <View className="mb-2 flex-row items-center gap-2">
@@ -251,7 +263,7 @@ export default function SubjectDetailScreen() {
             <Card key={doc.id} className="mb-3">
               <CardContent>
                 <View className="flex-row items-center gap-2">
-                  <Ionicons name="document-text-outline" size={20} color={scheme.mutedForeground} />
+                  <FileTextIcon size={20} color={scheme.mutedForeground} />
                   <Pressable className="flex-1" onPress={() => handlePreview(doc)} hitSlop={4}>
                     <Text numberOfLines={1}>{doc.original_filename}</Text>
                   </Pressable>
@@ -260,20 +272,20 @@ export default function SubjectDetailScreen() {
                     {doc.document_type ? <Tag label={DOCUMENT_TYPE_LABELS[doc.document_type]} tone="accent" /> : null}
                   </View>
                   <Pressable onPress={() => handleDelete(doc)} hitSlop={8} className="ml-1">
-                    <Ionicons name="close-circle" size={20} color={scheme.destructive} />
+                    <XCircleIcon size={20} color={scheme.destructive} weight="fill" />
                   </Pressable>
                 </View>
                 {doc.status === "ready" ? (
                   <View className="mt-3 flex-row gap-2">
                     <DocAction
-                      icon="help-circle-outline"
+                      icon={QuestionIcon}
                       label={t("subjectDetail.quiz")}
                       loading={generatingFor === doc.id}
                       onPress={() => handleGenerateQuiz(doc.id)}
                     />
-                    <DocAction icon="timer-outline" label={t("subjectDetail.exam")} onPress={() => setExamSheetDocId(doc.id)} />
+                    <DocAction icon={TimerIcon} label={t("subjectDetail.exam")} onPress={() => setExamSheetDocId(doc.id)} />
                     <DocAction
-                      icon="reader-outline"
+                      icon={BookOpenTextIcon}
                       label={t("subjectDetail.summary")}
                       onPress={() => {
                         setSummarySheetDocId(doc.id);
@@ -281,7 +293,7 @@ export default function SubjectDetailScreen() {
                       }}
                     />
                     <DocAction
-                      icon="chatbubble-ellipses-outline"
+                      icon={ChatCircleDotsIcon}
                       label={t("subjectDetail.ask")}
                       onPress={() => router.push(`/coach/${id}?documentId=${doc.id}`)}
                     />
@@ -363,12 +375,12 @@ export default function SubjectDetailScreen() {
 }
 
 function DocAction({
-  icon,
+  icon: IconComp,
   label,
   onPress,
   loading,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: PhosphorIcon;
   label: string;
   onPress: () => void;
   loading?: boolean;
@@ -379,7 +391,7 @@ function DocAction({
       {loading ? (
         <ActivityIndicator size="small" color={scheme.primary} />
       ) : (
-        <Ionicons name={icon} size={16} color={scheme.foreground} />
+        <IconComp size={16} color={scheme.foreground} />
       )}
       <Text className="text-[12.5px] font-semibold">{label}</Text>
     </Pressable>
@@ -395,7 +407,7 @@ function Sheet({ children, onClose }: { children: ReactNode; onClose: () => void
         <View className="mb-6">
           <View className="h-1.5 w-11 self-center rounded-full bg-border" />
           <Pressable onPress={onClose} hitSlop={12} className="absolute -top-1.5 right-0">
-            <Ionicons name="close" size={20} color={scheme.mutedForeground} />
+            <XIcon size={20} color={scheme.mutedForeground} />
           </Pressable>
         </View>
         {children}

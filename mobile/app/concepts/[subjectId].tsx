@@ -8,7 +8,7 @@
  * flagged (repeated wrong answers / slow to answer / decayed since last
  * check), not just a bare count.
  */
-import { Ionicons } from "@expo/vector-icons";
+import { CaretLeftIcon, MinusIcon, TrendDownIcon, TrendUpIcon, WarningCircleIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
@@ -80,7 +80,7 @@ export default function ConceptMapScreen() {
     <Screen>
       <ScrollView contentContainerClassName="pt-2 pb-16">
         <View className="mb-3">
-          <IconButton name="chevron-back" onPress={() => router.back()} />
+          <IconButton icon={CaretLeftIcon} onPress={() => router.back()} />
         </View>
         <Text className="text-3xl font-bold">{t("concepts.title")}</Text>
         <Text className="mt-1 text-muted-foreground">{subject?.name}</Text>
@@ -93,7 +93,7 @@ export default function ConceptMapScreen() {
                 <Card key={w.id}>
                   <CardContent>
                     <View className="flex-row items-center gap-2">
-                      <Ionicons name="alert-circle" size={18} color={scheme.destructive} />
+                      <WarningCircleIcon size={18} color={scheme.destructive} weight="fill" />
                       <Text className="flex-1 text-base font-semibold">{namesById.get(w.concept_id) ?? t("progress.unknownConcept")}</Text>
                     </View>
                     <View className="mt-3 flex-row items-center justify-between">
@@ -148,11 +148,16 @@ function ConceptRow({ node, depth, isLast }: { node: ConceptMastery; depth: numb
         </View>
         <View className="flex-row items-center gap-1">
           {node.trend ? (
-            <Ionicons
-              name={node.trend === "up" ? "trending-up" : node.trend === "down" ? "trending-down" : "remove"}
-              size={14}
-              color={node.trend === "up" ? "hsl(152 55% 40%)" : node.trend === "down" ? scheme.destructive : scheme.mutedForeground}
-            />
+            (() => {
+              const TrendIcon = node.trend === "up" ? TrendUpIcon : node.trend === "down" ? TrendDownIcon : MinusIcon;
+              return (
+                <TrendIcon
+                  size={14}
+                  color={node.trend === "up" ? "hsl(152 55% 40%)" : node.trend === "down" ? scheme.destructive : scheme.mutedForeground}
+                />
+              );
+            })()
+          
           ) : null}
           <Text className="text-[13.5px] font-semibold" style={{ color }}>
             {node.mastery_score !== null ? `${Math.round(node.mastery_score)}%` : "—"}

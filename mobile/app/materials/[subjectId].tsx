@@ -5,7 +5,7 @@
  * is generated on this screen; it's purely a browsing view for material that
  * would otherwise be lost once its generation sheet/screen was closed.
  */
-import { Ionicons } from "@expo/vector-icons";
+import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, CaretUpIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
@@ -89,7 +89,7 @@ export default function SavedMaterialsScreen() {
     <Screen>
       <ScrollView contentContainerClassName="pt-2 pb-16">
         <View className="mb-3">
-          <IconButton name="chevron-back" onPress={() => router.back()} />
+          <IconButton icon={CaretLeftIcon} onPress={() => router.back()} />
         </View>
         <Text className="mb-1 text-3xl font-bold">{t("materials.title")}</Text>
         <Text className="text-muted-foreground">{subject.name}</Text>
@@ -114,7 +114,7 @@ export default function SavedMaterialsScreen() {
                     </Text>
                   </View>
                   <Tag label={quiz.kind === "exam" ? t("subjectDetail.exam") : t("subjectDetail.quiz")} tone={quiz.kind === "exam" ? "accent" : "neutral"} />
-                  <Ionicons name="chevron-forward" size={16} color={scheme.mutedForeground} />
+                  <CaretRightIcon size={16} color={scheme.mutedForeground} />
                 </CardContent>
               </Card>
             </Pressable>
@@ -140,11 +140,11 @@ export default function SavedMaterialsScreen() {
                       onPress={() => setExpandedSummaryId((current) => (current === summary.id ? null : summary.id))}
                     >
                       <Text className="flex-1">{SUMMARY_TYPE_LABELS[summary.summary_type] ?? summary.summary_type}</Text>
-                      <Ionicons
-                        name={expandedSummaryId === summary.id ? "chevron-up" : "chevron-down"}
-                        size={16}
-                        color={scheme.mutedForeground}
-                      />
+                      {expandedSummaryId === summary.id ? (
+                        <CaretUpIcon size={16} color={scheme.mutedForeground} />
+                      ) : (
+                        <CaretDownIcon size={16} color={scheme.mutedForeground} />
+                      )}
                     </Pressable>
                     {expandedSummaryId === summary.id ? (
                       <Text className="pb-2 text-muted-foreground">{summary.content}</Text>

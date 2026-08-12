@@ -9,7 +9,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, Animated, Pressable, useColorScheme, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ArrowsLeftRightIcon, CheckIcon } from "phosphor-react-native";
 
 import { Screen } from "../../components/ui/Screen";
 import { Text } from "../../components/ui/text";
@@ -94,7 +94,7 @@ export default function CardsScreen() {
       <Screen>
         <View className="flex-1 items-center justify-center px-8">
           <View className="mb-6 size-21 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950">
-            <Ionicons name="checkmark" size={40} color={scheme.chart1} />
+            <CheckIcon size={40} color={scheme.chart1} />
           </View>
           <Text className="text-center text-3xl font-bold">{t("cards.nothingDueTitle")}</Text>
           <Text className="mt-3 text-center text-muted-foreground">{t("cards.nothingDueBody")}</Text>
@@ -108,7 +108,7 @@ export default function CardsScreen() {
       <Screen>
         <View className="flex-1 items-center justify-center px-8">
           <View className="mb-6 size-21 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950">
-            <Ionicons name="checkmark" size={40} color={scheme.chart1} />
+            <CheckIcon size={40} color={scheme.chart1} />
           </View>
           <Text className="text-center text-3xl font-bold">{t("cards.deckComplete")}</Text>
           <Text className="mt-3 text-center text-muted-foreground">{tn("cards.reviewed", reviewed)}</Text>
@@ -179,7 +179,7 @@ export default function CardsScreen() {
         </View>
       ) : (
         <View className="mb-28 h-16 flex-row items-center justify-center gap-2">
-          <Ionicons name="swap-horizontal" size={16} color={scheme.mutedForeground} />
+          <ArrowsLeftRightIcon size={16} color={scheme.mutedForeground} />
           <Text className="ml-1 text-xs text-muted-foreground">{t("cards.tapToFlip")}</Text>
         </View>
       )}

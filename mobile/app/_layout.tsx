@@ -1,5 +1,4 @@
-import { useFonts, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold } from "@expo-google-fonts/figtree";
-import { Caprasimo_400Regular } from "@expo-google-fonts/caprasimo";
+import { useFonts, NotoSerif_400Regular, NotoSerif_500Medium, NotoSerif_600SemiBold, NotoSerif_700Bold } from "@expo-google-fonts/noto-serif";
 import { PortalHost } from "@rn-primitives/portal";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -49,11 +48,10 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Figtree_400Regular,
-    Figtree_500Medium,
-    Figtree_600SemiBold,
-    Figtree_700Bold,
-    Caprasimo_400Regular,
+    NotoSerif_400Regular,
+    NotoSerif_500Medium,
+    NotoSerif_600SemiBold,
+    NotoSerif_700Bold,
   });
 
   if (!fontsLoaded) return null;

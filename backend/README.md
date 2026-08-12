@@ -78,8 +78,13 @@ alembic upgrade head
 ## Run the API
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0
 ```
+
+`--host 0.0.0.0` is required, not optional — uvicorn's default (`127.0.0.1`) only accepts
+connections from the same machine, so the mobile app's LAN-IP `EXPO_PUBLIC_API_URL`
+(needed for physical devices / Expo Go, see `mobile/.env`) can't reach it and requests
+fail before ever reaching this process (nothing logged, no server-side error).
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
 

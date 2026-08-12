@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import type { Icon as PhosphorIcon } from "phosphor-react-native";
 import { Pressable, useColorScheme, type StyleProp, type ViewStyle } from "react-native";
 
 import { THEME } from "../../lib/theme";
@@ -8,13 +8,13 @@ import { cn } from "../../lib/utils";
  * history clocks that sit in a soft-shadowed pill throughout the design
  * (nav bars, subject headers, chat header). */
 export function IconButton({
-  name,
+  icon: Icon,
   onPress,
   size = 44,
   style,
   className,
 }: {
-  name: keyof typeof Ionicons.glyphMap;
+  icon: PhosphorIcon;
   onPress: () => void;
   size?: number;
   style?: StyleProp<ViewStyle>;
@@ -27,7 +27,7 @@ export function IconButton({
       className={cn("items-center justify-center rounded-full bg-card shadow-sm shadow-black/10 active:opacity-85", className)}
       style={[{ width: size, height: size }, style]}
     >
-      <Ionicons name={name} size={Math.round(size * 0.4)} color={scheme.foreground} />
+      <Icon size={Math.round(size * 0.4)} color={scheme.foreground} />
     </Pressable>
   );
 }

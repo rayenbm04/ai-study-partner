@@ -15,7 +15,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { CheckCircleIcon, TimerIcon, XCircleIcon, XIcon } from "phosphor-react-native";
 
 import { Button } from "../../components/ui/button";
 import { IconButton } from "../../components/ui/IconButton";
@@ -154,7 +154,7 @@ export default function QuizAttemptScreen() {
   return (
     <Screen>
       <View className="mt-2 mb-6 flex-row items-center gap-3">
-        <IconButton name="close" onPress={() => router.back()} size={40} />
+        <IconButton icon={XIcon} onPress={() => router.back()} size={40} />
         <View className="flex-1 flex-row gap-1.5">
           {quiz.questions.map((_, i) => (
             <View key={i} className={cn("h-1.5 flex-1 rounded-full", i <= currentIndex ? "bg-primary" : "bg-border")} />
@@ -213,7 +213,7 @@ function TimerChip({ seconds }: { seconds: number }) {
   const ss = seconds % 60;
   return (
     <View className={cn("h-8 flex-row items-center gap-1.5 rounded-full px-3", low ? "bg-destructive/10" : "bg-input/30")}>
-      <Ionicons name="timer-outline" size={14} color={low ? scheme.destructive : scheme.mutedForeground} />
+      <TimerIcon size={14} color={low ? scheme.destructive : scheme.mutedForeground} />
       <Text className={cn("font-semibold", low ? "text-destructive" : "text-muted-foreground")} style={{ fontVariant: ["tabular-nums"] }}>
         {mm}:{ss.toString().padStart(2, "0")}
       </Text>
@@ -245,11 +245,11 @@ function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: ()
             )}
           >
             <View className="flex-row items-start gap-2">
-              <Ionicons
-                name={answer.is_correct ? "checkmark-circle" : "close-circle"}
-                size={18}
-                color={answer.is_correct ? "#10b981" : scheme.destructive}
-              />
+              {answer.is_correct ? (
+                <CheckCircleIcon size={18} color="#10b981" weight="fill" />
+              ) : (
+                <XCircleIcon size={18} color={scheme.destructive} weight="fill" />
+              )}
               <Text className="flex-1">{answer.question}</Text>
             </View>
             <Text className="mt-2 text-xs text-muted-foreground">{t("quiz.yourAnswer", { answer: answer.student_answer ?? "—" })}</Text>

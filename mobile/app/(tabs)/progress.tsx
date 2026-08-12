@@ -9,7 +9,7 @@
  * GET /subjects/{id}/progress, GET /subjects/{id}/weak-concepts) — no
  * streaks/badges/estimated-minutes invented for a card that needs filling.
  */
-import { Ionicons } from "@expo/vector-icons";
+import { StackIcon, WarningCircleIcon } from "phosphor-react-native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
@@ -125,7 +125,7 @@ export default function ProgressScreen() {
               <Card className="flex-1">
                 <CardContent className="items-center p-4">
                   <View className="size-11 items-center justify-center rounded-full bg-primary/15">
-                    <Ionicons name="albums" size={22} color={scheme.primary} />
+                    <StackIcon size={22} color={scheme.primary} weight="fill" />
                   </View>
                   <Text className="mt-2 text-xl font-bold">
                     <AnimatedNumber value={dueToday} />
@@ -136,7 +136,7 @@ export default function ProgressScreen() {
               <Card className="flex-1">
                 <CardContent className="items-center p-4">
                   <View className="size-11 items-center justify-center rounded-full bg-destructive/10">
-                    <Ionicons name="alert-circle" size={22} color={scheme.destructive} />
+                    <WarningCircleIcon size={22} color={scheme.destructive} weight="fill" />
                   </View>
                   <Text className="mt-2 text-xl font-bold">
                     <AnimatedNumber value={weakSpotsTotal} />

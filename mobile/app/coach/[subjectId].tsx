@@ -9,7 +9,7 @@
  * only searches that document instead of the whole subject, and the screen
  * starts a fresh conversation rather than resuming the subject's general one.
  */
-import { Ionicons } from "@expo/vector-icons";
+import { ArrowUpIcon, CaretLeftIcon, FileTextIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -129,7 +129,7 @@ export default function CoachScreen() {
     <Screen>
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={16}>
         <View className="mt-2 mb-2 flex-row items-center gap-3">
-          <IconButton name="chevron-back" onPress={() => router.back()} />
+          <IconButton icon={CaretLeftIcon} onPress={() => router.back()} />
           <View className="flex-1">
             <Text className="text-base font-semibold">{t("coach.title")}</Text>
             <Text className="text-xs text-emerald-600 dark:text-emerald-400" numberOfLines={1}>
@@ -178,7 +178,7 @@ export default function CoachScreen() {
                     <View className="mt-2 flex-row flex-wrap gap-1">
                       {item.citations.map((c: Citation) => (
                         <View key={c.chunk_id} className="flex-row items-center gap-1.5 rounded-full bg-card px-2 py-1.5 shadow-sm shadow-black/5">
-                          <Ionicons name="document-text-outline" size={13} color="#059669" />
+                          <FileTextIcon size={13} color="#059669" />
                           <Text className="max-w-50 text-xs text-muted-foreground">
                             {c.document_filename}
                             {c.page ? ` · p.${c.page}` : ""}
@@ -215,7 +215,7 @@ export default function CoachScreen() {
             className="size-11 items-center justify-center rounded-full bg-primary"
             style={{ opacity: draft.trim() ? 1 : 0.5 }}
           >
-            <Ionicons name="arrow-up" size={20} color={scheme.primaryForeground} />
+            <ArrowUpIcon size={20} color={scheme.primaryForeground} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>

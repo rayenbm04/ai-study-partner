@@ -8,7 +8,7 @@
  * added, then calls subjectPacksApi.applyPack and hands control back to
  * whichever screen pushed this one.
  */
-import { Ionicons } from "@expo/vector-icons";
+import { CaretLeftIcon, CaretRightIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, useColorScheme, View } from "react-native";
@@ -183,7 +183,7 @@ export default function SubjectPackPickerScreen() {
   return (
     <Screen>
       <View className="mt-2">
-        <IconButton name="chevron-back" onPress={goBack} />
+        <IconButton icon={CaretLeftIcon} onPress={goBack} />
       </View>
       <Text className="mt-6 text-3xl font-bold">{title}</Text>
       <Text className="mt-1 mb-8 text-muted-foreground">{subtitle}</Text>
@@ -240,7 +240,7 @@ function OptionRow({ label, onPress }: { label: string; onPress: () => void }) {
       <Card className="py-3">
         <CardContent className="flex-row items-center justify-between">
           <Text>{label}</Text>
-          <Ionicons name="chevron-forward" size={18} color={scheme.mutedForeground} />
+          <CaretRightIcon size={18} color={scheme.mutedForeground} />
         </CardContent>
       </Card>
     </Pressable>

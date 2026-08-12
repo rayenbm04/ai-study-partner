@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { MagnifyingGlassIcon, PlusCircleIcon, XIcon } from "phosphor-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -98,7 +98,7 @@ export function SchoolPickerField({
         className="min-h-14 flex-row items-center justify-between rounded-full bg-input/30 px-4"
       >
         <Text className={value ? "text-foreground" : "text-muted-foreground"}>{value ? value.name : placeholder}</Text>
-        <Ionicons name="search" size={18} color={scheme.mutedForeground} />
+        <MagnifyingGlassIcon size={18} color={scheme.mutedForeground} />
       </Pressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
@@ -107,7 +107,7 @@ export function SchoolPickerField({
             <View className="mb-4 flex-row items-center justify-between">
               <Text className="text-base font-semibold">{t("auth.schoolPickerTitle")}</Text>
               <Pressable onPress={() => setVisible(false)} hitSlop={8}>
-                <Ionicons name="close" size={22} color={scheme.foreground} />
+                <XIcon size={22} color={scheme.foreground} />
               </Pressable>
             </View>
 
@@ -163,7 +163,7 @@ export function SchoolPickerField({
                 </View>
               ) : (
                 <Pressable onPress={() => setShowCreateForm(true)} className="mt-2 flex-row items-center gap-2 px-1 py-3">
-                  <Ionicons name="add-circle-outline" size={20} color={scheme.primary} />
+                  <PlusCircleIcon size={20} color={scheme.primary} />
                   <Text style={{ color: scheme.primary }}>{t("auth.schoolNotListed", { name: query.trim() })}</Text>
                 </Pressable>
               )
