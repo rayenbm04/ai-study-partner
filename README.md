@@ -49,7 +49,7 @@ PDF / DOCX / PPTX / XLS / images
    Chat • Summaries • Flashcards • Quizzes/Exams • Progress • Study Plan
 ```
 
-Every student-facing feature reads from and writes back to that same per-subject concept graph, which is what makes this a tutor with memory rather than a chat log.
+Every student-facing feature reads from and writes back to that same per-subject concept graph, which is what makes this a tutor with memory rather than a chat log. Full step-by-step breakdown of both the ingestion side and the retrieval/answer side above, accurate to the current code: [`docs/RAG_PIPELINE.md`](docs/RAG_PIPELINE.md).
 
 ---
 
@@ -297,5 +297,6 @@ Cloud APIs' free tiers (Gemini, Groq, Cerebras, OpenRouter) are generous enough 
 
 - [`backend/README.md`](backend/README.md) — full technical breakdown: layered architecture, every engine, migrations, LLM configuration, complete API reference, testing.
 - [`mobile/README.md`](mobile/README.md) — design system, i18n, structure, API client, what's built vs. pending.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the six-engine model, database schema, API contract, rollout plan.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the six-engine model, database schema, API contract, rollout plan (pre-implementation design doc).
+- [`docs/RAG_PIPELINE.md`](docs/RAG_PIPELINE.md) — as-built, step-by-step walkthrough of ingestion (extract → chunk → embed → classify → tag) and retrieval (condense → expand → retrieve → rerank → answer), accurate to the current code.
 - [`docs/LLM_PROVIDERS.md`](docs/LLM_PROVIDERS.md) — cloud LLM/embedding provider comparison, the Cerebras + Groq strategy in full, and the card-free local-embedding fallback.
