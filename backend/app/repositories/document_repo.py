@@ -25,6 +25,9 @@ def _to_entity(model: DocumentModel) -> Document:
         lesson_id=model.lesson_id,
         classification_confidence=model.classification_confidence,
         classified_at=model.classified_at,
+        content_hash=model.content_hash,
+        processing_step=model.processing_step,
+        processing_progress=model.processing_progress,
     )
 
 
@@ -33,7 +36,14 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
         self._session = session
 
     async def create(
-        self, *, document_id: str, subject_id: str, original_filename: str, storage_path: str, file_type: str
+        self,
+        *,
+        document_id: str,
+        subject_id: str,
+        original_filename: str,
+        storage_path: str,
+        file_type: str,
+        content_hash: str | None = None,
     ) -> Document:
         model = DocumentModel(
             id=document_id,
@@ -42,6 +52,7 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
             storage_path=storage_path,
             file_type=file_type,
             status="pending",
+            content_hash=content_hash,
         )
         self._session.add(model)
         await self._session.flush()
@@ -50,6 +61,19 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
 
     async def get_by_id(self, document_id: str) -> Document | None:
         model = await self._session.get(DocumentModel, document_id)
+        return _to_entity(model) if model else None
+
+    async def get_by_subject_and_hash(self, subject_id: str, content_hash: str) -> Document | None:
+        stmt = (
+            select(DocumentModel)
+            .where(
+                DocumentModel.subject_id == subject_id,
+                DocumentModel.content_hash == content_hash,
+                DocumentModel.status != "failed",
+            )
+            .order_by(DocumentModel.uploaded_at.desc())
+        )
+        model = (await self._session.execute(stmt)).scalars().first()
         return _to_entity(model) if model else None
 
     async def list_by_subject(self, subject_id: str) -> list[Document]:
@@ -72,17 +96,27 @@ class SqlAlchemyDocumentRepository(DocumentRepository):
         model.status = "processing"
         await self._session.flush()
 
+    async def update_progress(self, document_id: str, *, step: str, progress: int) -> None:
+        model = await self._get_model_or_raise(document_id)
+        model.processing_step = step
+        model.processing_progress = progress
+        await self._session.flush()
+
     async def mark_ready(self, document_id: str, *, page_count: int) -> None:
         model = await self._get_model_or_raise(document_id)
         model.status = "ready"
         model.page_count = page_count
         model.error_message = None
+        model.processing_step = None
+        model.processing_progress = None
         await self._session.flush()
 
     async def mark_failed(self, document_id: str, *, error_message: str) -> None:
         model = await self._get_model_or_raise(document_id)
         model.status = "failed"
         model.error_message = error_message
+        model.processing_step = None
+        model.processing_progress = None
         await self._session.flush()
 
     async def set_classification(

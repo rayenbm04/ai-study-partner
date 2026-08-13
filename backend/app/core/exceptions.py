@@ -9,6 +9,12 @@ from fastapi import status
 
 class DomainError(Exception):
     status_code: int = status.HTTP_400_BAD_REQUEST
+    # Optional machine-readable code, additive to `message` — most
+    # DomainErrors don't set one (the mobile app branches on HTTP status
+    # today, see mobile/lib/api/client.ts), but a few callers benefit from
+    # branching on something more specific than a status code, e.g.
+    # distinguishing USAGE_LIMIT_EXCEEDED from a generic 429.
+    code: str | None = None
 
     def __init__(self, message: str):
         super().__init__(message)
@@ -258,3 +264,15 @@ class InvalidStudyPlanItemStatusError(DomainError):
 
     def __init__(self, status_value: str, allowed: tuple[str, ...]):
         super().__init__(f"'{status_value}' is not a valid study plan item status. Expected one of: {', '.join(allowed)}.")
+
+
+class UsageLimitExceededError(DomainError):
+    """Raised by UsageService when settings.usage_limits_enabled is True and
+    a user has hit their daily quota — only reachable once that flag is
+    turned on (off by default, see app/core/config.py)."""
+
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    code = "USAGE_LIMIT_EXCEEDED"
+
+    def __init__(self, resource: str, daily_limit: int):
+        super().__init__(f"You've reached today's limit of {daily_limit} {resource}. Try again tomorrow.")

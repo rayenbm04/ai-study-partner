@@ -25,6 +25,7 @@ from app.services.rag.query_rewrite import condense_question, expand_query
 from app.services.rag.rerank import rerank
 from app.services.rag.retriever import RetrievedChunk, VectorRetriever
 from app.services.subject_service import SubjectService
+from app.services.usage_service import UsageService
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class ChatService:
         retrieval_top_k: int,
         final_context_chunks: int,
         history_messages: int,
+        usage_service: UsageService | None = None,
     ):
         self._conversations = conversation_repo
         self._messages = message_repo
@@ -71,6 +73,7 @@ class ChatService:
         self._documents = document_repo
         self._llm = llm_provider
         self._subjects = subject_service
+        self._usage = usage_service
         self._retriever = VectorRetriever(
             chunk_repo=chunk_repo,
             embedding_repo=embedding_repo,
@@ -97,6 +100,8 @@ class ChatService:
         used when a student opens the coach from a specific upload rather
         than the subject as a whole."""
         await self._subjects.get_owned(user_id, subject_id)  # 404s if this user doesn't own the subject
+        if self._usage is not None:
+            await self._usage.check_ai_request_limit(user_id)
         conversation = await self._get_or_create_conversation(
             user_id=user_id, subject_id=subject_id, conversation_id=conversation_id, question=question
         )
@@ -148,6 +153,11 @@ class ChatService:
         assistant_message = await self._messages.create(
             conversation_id=conversation.id, role="assistant", content=answer_text, citations=citations
         )
+
+        if self._usage is not None:
+            await self._usage.record(
+                user_id=user_id, event_type="chat_message", model=self._llm.model_name, document_id=document_id
+            )
 
         return ChatTurnResult(
             conversation=conversation, user_message=user_message, assistant_message=assistant_message

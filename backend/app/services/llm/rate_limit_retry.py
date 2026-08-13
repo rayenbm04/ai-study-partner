@@ -31,13 +31,18 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 
-MAX_ATTEMPTS = 3
-DEFAULT_DELAY_SECONDS = 15.0
-MAX_DELAY_SECONDS = 90.0
+# Env-configurable (MAX_RETRIES / INITIAL_RETRY_DELAY / MAX_RETRY_DELAY) so a
+# stricter or more generous provider tier can be dialed in without a code
+# change — see Settings in app/core/config.py for the full rationale.
+MAX_ATTEMPTS = settings.max_retries
+DEFAULT_DELAY_SECONDS = settings.initial_retry_delay
+MAX_DELAY_SECONDS = settings.max_retry_delay
 
 
 async def retry_on_rate_limit(

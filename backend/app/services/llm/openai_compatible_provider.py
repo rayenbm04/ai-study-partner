@@ -69,6 +69,10 @@ class OpenAICompatibleProvider(LLMProvider):
         # to coincide (OpenAI, most OpenRouter models).
         self._vision_model = vision_model or model
 
+    @property
+    def model_name(self) -> str:
+        return self._model
+
     async def complete(
         self,
         *,

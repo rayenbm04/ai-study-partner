@@ -85,6 +85,21 @@ class Settings(BaseSettings):
     storage_dir: str = "./uploads"
     max_upload_mb: int = 50
 
+    # Re-uploading a file already ingested for the same subject (identical
+    # sha256 of the raw bytes) returns the existing document instead of
+    # reprocessing it — avoids burning API quota on accidental re-uploads.
+    document_dedup_enabled: bool = True
+
+    # Usage tracking (Phase-agnostic — architecture, not a paywall). Every
+    # LLM/embedding call and every document processed is logged per-user via
+    # UsageService regardless of these limits; the limits below are only
+    # enforced when usage_limits_enabled is True. Off by default so existing
+    # dev/test flows and the current single-tier product aren't affected —
+    # flip it on once free/premium tiers actually exist.
+    usage_limits_enabled: bool = False
+    free_daily_ai_requests: int = 50
+    free_daily_documents: int = 10
+
     # Chunking — character-based (no tokenizer dependency). Parent chunks keep
     # enough surrounding context for coherent concept tagging and citations;
     # child chunks are what gets embedded and retrieved for RAG precision.
@@ -92,9 +107,27 @@ class Settings(BaseSettings):
     chunk_child_chars: int = 220
     chunk_overlap_chars: int = 40
 
-    # Concept tagging
+    # Concept tagging. Runs as a background follow-up *after* a document is
+    # marked ready (see ingestion_task.py) — it enriches the subject's
+    # knowledge graph but nothing on the RAG-critical path depends on it.
+    # Batched (concept_tag_batch_size chunks per LLM call, not one call per
+    # chunk) since it's the ingestion step with the most chunks to process.
     concept_tag_relevance_threshold: float = 0.5
     max_new_concepts_per_chunk: int = 3
+    concept_tag_batch_size: int = 6
+
+    # Cloud-API concurrency/retry tuning — shared by every LLMProvider and
+    # EmbeddingProvider implementation. Kept as env-configurable knobs (not
+    # hardcoded) so a stricter/more generous provider tier can be dialed in
+    # without a code change. Concurrency is bounded (never "fire N requests
+    # at once with no cap") specifically to avoid the burst-429 pattern large
+    # documents used to trigger.
+    llm_max_concurrency: int = 3
+    embedding_max_concurrency: int = 5
+    embedding_batch_size: int = 100
+    max_retries: int = 3
+    initial_retry_delay: float = 15.0
+    max_retry_delay: float = 90.0
 
     # Document classification (type + curriculum chapter/lesson placement).
     # Runs once per document on parent-chunk text, capped the same way

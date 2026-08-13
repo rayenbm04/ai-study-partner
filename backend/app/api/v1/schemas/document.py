@@ -19,6 +19,10 @@ class DocumentResponse(BaseModel):
     lesson_id: str | None
     classification_confidence: float | None
     classified_at: datetime | None
+    # Additive — optional fine-grained detail on top of `status` for a richer
+    # "still processing" UI. Both are null outside of status == "processing".
+    processing_step: str | None = None
+    processing_progress: int | None = None
 
     @classmethod
     def from_entity(cls, document: Document) -> "DocumentResponse":
@@ -36,4 +40,6 @@ class DocumentResponse(BaseModel):
             lesson_id=document.lesson_id,
             classification_confidence=document.classification_confidence,
             classified_at=document.classified_at,
+            processing_step=document.processing_step,
+            processing_progress=document.processing_progress,
         )

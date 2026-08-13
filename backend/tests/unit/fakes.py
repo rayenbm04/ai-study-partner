@@ -311,7 +311,7 @@ class FakeDocumentRepository(DocumentRepository):
     def __init__(self):
         self._by_id: dict[str, Document] = {}
 
-    async def create(self, *, document_id, subject_id, original_filename, storage_path, file_type):
+    async def create(self, *, document_id, subject_id, original_filename, storage_path, file_type, content_hash=None):
         document = Document(
             id=document_id,
             subject_id=subject_id,
@@ -322,12 +322,22 @@ class FakeDocumentRepository(DocumentRepository):
             page_count=None,
             error_message=None,
             uploaded_at=datetime.now(timezone.utc),
+            content_hash=content_hash,
         )
         self._by_id[document.id] = document
         return document
 
     async def get_by_id(self, document_id):
         return self._by_id.get(document_id)
+
+    async def get_by_subject_and_hash(self, subject_id, content_hash):
+        return next(
+            (
+                d for d in self._by_id.values()
+                if d.subject_id == subject_id and d.content_hash == content_hash and d.status != "failed"
+            ),
+            None,
+        )
 
     async def list_by_subject(self, subject_id):
         docs = [d for d in self._by_id.values() if d.subject_id == subject_id]
@@ -336,13 +346,24 @@ class FakeDocumentRepository(DocumentRepository):
     async def mark_processing(self, document_id):
         self._by_id[document_id] = replace(self._by_id[document_id], status="processing")
 
+    async def update_progress(self, document_id, *, step, progress):
+        self._by_id[document_id] = replace(
+            self._by_id[document_id], processing_step=step, processing_progress=progress
+        )
+
     async def mark_ready(self, document_id, *, page_count):
         self._by_id[document_id] = replace(
-            self._by_id[document_id], status="ready", page_count=page_count, error_message=None
+            self._by_id[document_id],
+            status="ready", page_count=page_count, error_message=None,
+            processing_step=None, processing_progress=None,
         )
 
     async def mark_failed(self, document_id, *, error_message):
-        self._by_id[document_id] = replace(self._by_id[document_id], status="failed", error_message=error_message)
+        self._by_id[document_id] = replace(
+            self._by_id[document_id],
+            status="failed", error_message=error_message,
+            processing_step=None, processing_progress=None,
+        )
 
     async def set_classification(self, document_id, *, document_type, chapter_id, lesson_id, confidence):
         self._by_id[document_id] = replace(
@@ -536,6 +557,27 @@ class FakeConceptRepository(ConceptRepository):
         return [self._by_id[cid] for cid in concept_ids if cid in self._by_id]
 
 
+class FakeUsageEventRepository:
+    def __init__(self):
+        self.events: list[dict] = []
+
+    async def record(self, *, user_id, event_type, provider=None, model=None, tokens=None, document_id=None):
+        self.events.append(
+            {
+                "user_id": user_id, "event_type": event_type, "provider": provider, "model": model,
+                "tokens": tokens, "document_id": document_id, "created_at": datetime.now(timezone.utc),
+            }
+        )
+
+    async def count_since(self, *, user_id, event_types, since):
+        matches = [
+            e for e in self.events
+            if e["user_id"] == user_id and e["created_at"] >= since
+            and (event_types is None or e["event_type"] in event_types)
+        ]
+        return len(matches)
+
+
 class FakeConceptChunkRepository(ConceptChunkRepository):
     def __init__(self):
         self.links: list[tuple[str, str, float]] = []
@@ -616,6 +658,10 @@ class FakeLLMProvider(LLMProvider):
         self._vision_response = vision_response
         self.calls: list[dict] = []
         self.vision_calls: list[dict] = []
+
+    @property
+    def model_name(self) -> str:
+        return "fake-llm"
 
     async def complete(self, *, prompt, system=None, temperature=0.2, max_output_tokens=2048, response_json=False):
         self.calls.append({"prompt": prompt, "system": system, "response_json": response_json})

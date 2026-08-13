@@ -1,4 +1,5 @@
 import json
+import math
 
 import pytest
 
@@ -61,7 +62,7 @@ def _build_pipeline(*, llm_response: str = '{"matched": [], "new_concepts": []}'
 
 async def test_run_processes_document_end_to_end():
     pipeline, document_repo, chunk_repo, embedding_repo, concept_repo, storage, llm, *_ = _build_pipeline(
-        llm_response=json.dumps({"matched": [], "new_concepts": [{"name": "Ohm's Law", "description": "V=IR", "prerequisites": []}]})
+        llm_response=json.dumps({"document_type": "other"})
     )
 
     document = await document_repo.create(
@@ -77,8 +78,6 @@ async def test_run_processes_document_end_to_end():
     assert updated.status == "ready"
     assert updated.page_count is not None
     assert updated.error_message is None
-    # The shared fake LLM response has no "document_type" key, so classification
-    # falls back to "other" defensively rather than raising.
     assert updated.document_type == "other"
 
     chunks = await chunk_repo.list_by_document("doc-1")
@@ -91,20 +90,52 @@ async def test_run_processes_document_end_to_end():
         assert len(vector) == 4
         assert model_name == "fake-embedder"
 
+    # Concept tagging is NOT part of run() — it's a separate, best-effort
+    # follow-up (see tag_concepts() tests below) so "ready" doesn't wait on
+    # one LLM call per parent chunk.
+    assert await concept_repo.list_by_subject("subj-1") == []
+    assert len(llm.calls) == 1  # just the one classification call
+
+
+async def test_tag_concepts_batches_parent_chunks_into_few_llm_calls():
+    """The whole point of tag_concepts(): tagging N parent chunks should take
+    ceil(N / batch_size) LLM calls, not N — this is the fix for ingestion
+    firing one LLM call per chunk on large documents."""
+    pipeline, document_repo, chunk_repo, _embedding_repo, concept_repo, storage, llm, *_ = _build_pipeline(
+        llm_response=json.dumps(
+            {"chunks": [{"index": 0, "matched": [], "new_concepts": [
+                {"name": "Ohm's Law", "description": "V=IR", "prerequisites": []}
+            ]}]}
+        )
+    )
+    document = await document_repo.create(
+        document_id="doc-1", subject_id="subj-1", original_filename="notes.txt", storage_path="subj-1/doc-1/notes.txt", file_type=".txt"
+    )
+    # Long enough to produce several parent chunks at the test's chunk_parent_chars=200.
+    content = ("Ohm's law relates voltage, current, and resistance. " * 40).encode("utf-8")
+    await storage.save(subject_id="subj-1", document_id="doc-1", filename="notes.txt", content=content)
+    await pipeline.run(document.id)
+    llm.calls.clear()  # drop the classification call from run() — only count tag_concepts' calls
+
+    await pipeline.tag_concepts(document.id)
+
+    chunks = await chunk_repo.list_by_document("doc-1")
+    parent_count = len([c for c in chunks if c.chunk_type == "parent"])
+    assert parent_count > 6  # otherwise this test isn't exercising batching at all
+    assert len(llm.calls) == math.ceil(parent_count / 6)  # default concept_tag_batch_size
+
     concepts = await concept_repo.list_by_subject("subj-1")
     assert any(c.name == "Ohm's Law" for c in concepts)
 
-    # one LLM call per parent chunk, plus one classification call for the document
-    parent_count = len([c for c in chunks if c.chunk_type == "parent"])
-    assert len(llm.calls) == parent_count + 1
+
+async def test_tag_concepts_on_document_with_no_chunks_does_not_raise():
+    pipeline, *_ = _build_pipeline()
+    await pipeline.tag_concepts("does-not-exist")  # should just no-op
 
 
 async def test_run_classifies_document_type_and_links_curriculum_chapter():
     llm = FakeLLMProvider(
-        responses=[
-            json.dumps({"document_type": "cours", "chapter": "Circuits", "lesson": None, "confidence": 0.9}),
-            *[json.dumps({"matched": [], "new_concepts": []})] * 10,
-        ]
+        response=json.dumps({"document_type": "cours", "chapter": "Circuits", "lesson": None, "confidence": 0.9})
     )
     pipeline, document_repo, chunk_repo, _embedding_repo, _concept_repo, storage, _llm, subject_repo, curriculum_repo = (
         _build_pipeline(llm=llm)

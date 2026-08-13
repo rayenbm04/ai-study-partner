@@ -138,6 +138,101 @@ async def test_non_json_response_is_handled_gracefully():
     assert tagged_ids == []
 
 
+async def test_tag_chunks_batches_multiple_chunks_into_one_call():
+    llm = FakeLLMProvider(
+        response=json.dumps(
+            {
+                "chunks": [
+                    {"index": 0, "matched": [], "new_concepts": [
+                        {"name": "Derivatives", "description": "Rate of change", "prerequisites": []}
+                    ]},
+                    {"index": 1, "matched": [], "new_concepts": [
+                        {"name": "Integrals", "description": "Area under a curve", "prerequisites": ["Derivatives"]}
+                    ]},
+                ]
+            }
+        )
+    )
+    concept_repo = FakeConceptRepository()
+    concept_chunk_repo = FakeConceptChunkRepository()
+    tagger = ConceptTagger(
+        llm_provider=llm, concept_repo=concept_repo, concept_chunk_repo=concept_chunk_repo,
+        relevance_threshold=0.5, max_new_concepts=3,
+    )
+
+    await tagger.tag_chunks(
+        subject_id="subj-1",
+        chunks=[("chunk-1", "d/dx of x^2 is 2x"), ("chunk-2", "integral of 2x is x^2")],
+    )
+
+    assert len(llm.calls) == 1  # one call tagged both chunks
+    concepts = {c.name: c for c in await concept_repo.list_by_subject("subj-1")}
+    assert set(concepts) == {"Derivatives", "Integrals"}
+    assert (concepts["Derivatives"].id, "chunk-1", 1.0) in concept_chunk_repo.links
+    assert (concepts["Integrals"].id, "chunk-2", 1.0) in concept_chunk_repo.links
+    assert concept_repo.prerequisites == [(concepts["Integrals"].id, concepts["Derivatives"].id)]
+
+
+async def test_tag_chunks_dedupes_same_new_concept_proposed_by_two_chunks():
+    llm = FakeLLMProvider(
+        response=json.dumps(
+            {
+                "chunks": [
+                    {"index": 0, "matched": [], "new_concepts": [
+                        {"name": "Newton's First Law", "description": "Inertia", "prerequisites": []}
+                    ]},
+                    {"index": 1, "matched": [], "new_concepts": [
+                        {"name": "Newton's First Law", "description": "Inertia", "prerequisites": []}
+                    ]},
+                ]
+            }
+        )
+    )
+    concept_repo = FakeConceptRepository()
+    concept_chunk_repo = FakeConceptChunkRepository()
+    tagger = ConceptTagger(
+        llm_provider=llm, concept_repo=concept_repo, concept_chunk_repo=concept_chunk_repo,
+        relevance_threshold=0.5, max_new_concepts=3,
+    )
+
+    await tagger.tag_chunks(subject_id="subj-1", chunks=[("chunk-1", "..."), ("chunk-2", "...")])
+
+    concepts = await concept_repo.list_by_subject("subj-1")
+    assert len(concepts) == 1  # created once, not twice
+    assert {chunk_id for _cid, chunk_id, _rel in concept_chunk_repo.links} == {"chunk-1", "chunk-2"}
+
+
+async def test_tag_chunks_empty_list_makes_no_llm_call():
+    llm = FakeLLMProvider(response="{}")
+    tagger = ConceptTagger(
+        llm_provider=llm, concept_repo=FakeConceptRepository(), concept_chunk_repo=FakeConceptChunkRepository(),
+        relevance_threshold=0.5, max_new_concepts=3,
+    )
+
+    await tagger.tag_chunks(subject_id="subj-1", chunks=[])
+
+    assert llm.calls == []
+
+
+async def test_tag_chunks_matches_existing_concept_for_specific_chunk():
+    concept_repo = FakeConceptRepository()
+    existing = await concept_repo.create(subject_id="subj-1", name="Limits", description=None)
+    llm = FakeLLMProvider(
+        response=json.dumps(
+            {"chunks": [{"index": 0, "matched": [{"name": "Limits", "relevance": 0.9}], "new_concepts": []}]}
+        )
+    )
+    concept_chunk_repo = FakeConceptChunkRepository()
+    tagger = ConceptTagger(
+        llm_provider=llm, concept_repo=concept_repo, concept_chunk_repo=concept_chunk_repo,
+        relevance_threshold=0.5, max_new_concepts=3,
+    )
+
+    await tagger.tag_chunks(subject_id="subj-1", chunks=[("chunk-1", "lim x->0 sin(x)/x")])
+
+    assert concept_chunk_repo.links == [(existing.id, "chunk-1", 0.9)]
+
+
 async def test_existing_concepts_are_included_in_prompt():
     concept_repo = FakeConceptRepository()
     await concept_repo.create(subject_id="subj-1", name="Limits", description=None)

@@ -32,5 +32,8 @@ class DocumentModel(Base):
     )
     classification_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    processing_step: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    processing_progress: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     chunks: Mapped[list["ChunkModel"]] = relationship(back_populates="document", cascade="all, delete-orphan")

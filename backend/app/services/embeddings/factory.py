@@ -12,6 +12,8 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
             api_key=settings.gemini_api_key,
             model=settings.gemini_embedding_model,
             dimension=settings.embedding_dimension,
+            batch_size=settings.embedding_batch_size,
+            max_concurrency=settings.embedding_max_concurrency,
         )
     if provider == "local":
         return LocalEmbedder(model_name=settings.local_embedding_model, dimension=settings.embedding_dimension)

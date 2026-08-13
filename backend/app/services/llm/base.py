@@ -7,6 +7,13 @@ class LLMProvider(ABC):
     goes through this interface, never through a provider SDK directly, so
     swapping Gemini for Groq/OpenRouter/OpenAI is a config change."""
 
+    @property
+    @abstractmethod
+    def model_name(self) -> str:
+        """The chat model in use — surfaced for usage tracking/observability
+        (see UsageService), not part of any call's behavior."""
+        ...
+
     @abstractmethod
     async def complete(
         self,

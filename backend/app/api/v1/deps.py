@@ -32,6 +32,7 @@ from app.repositories.student_answer_repo import SqlAlchemyStudentAnswerReposito
 from app.repositories.study_plan_repo import SqlAlchemyStudyPlanRepository
 from app.repositories.subject_repo import SqlAlchemySubjectRepository
 from app.repositories.summary_repo import SqlAlchemySummaryRepository
+from app.repositories.usage_event_repo import SqlAlchemyUsageEventRepository
 from app.repositories.user_repo import SqlAlchemyUserRepository
 from app.repositories.verification_token_repo import SqlAlchemyVerificationTokenRepository
 from app.repositories.weak_concept_repo import SqlAlchemyWeakConceptRepository
@@ -56,6 +57,7 @@ from app.services.school_service import SchoolService
 from app.services.subject_pack_service import SubjectPackService
 from app.services.subject_service import SubjectService
 from app.services.summary_engine.summary_service import SummaryService
+from app.services.usage_service import UsageService
 
 _bearer_scheme = HTTPBearer()
 _optional_bearer_scheme = HTTPBearer(auto_error=False)
@@ -157,6 +159,21 @@ def get_storage() -> StoragePort:
     return LocalStorage(settings.storage_dir)
 
 
+def get_usage_event_repo(session: AsyncSession = Depends(get_db)) -> SqlAlchemyUsageEventRepository:
+    return SqlAlchemyUsageEventRepository(session)
+
+
+def get_usage_service(
+    usage_repo: SqlAlchemyUsageEventRepository = Depends(get_usage_event_repo),
+) -> UsageService:
+    return UsageService(
+        usage_repo=usage_repo,
+        limits_enabled=settings.usage_limits_enabled,
+        daily_ai_requests=settings.free_daily_ai_requests,
+        daily_documents=settings.free_daily_documents,
+    )
+
+
 def get_llm_provider() -> LLMProvider:
     """Overridden in tests with a FakeLLMProvider — no real network call ever
     happens in the test suite. Same reasoning as get_ingestion_runner."""
@@ -212,12 +229,15 @@ def get_document_service(
     document_repo: SqlAlchemyDocumentRepository = Depends(get_document_repo),
     subject_service: SubjectService = Depends(get_subject_service),
     storage: StoragePort = Depends(get_storage),
+    usage_service: UsageService = Depends(get_usage_service),
 ) -> DocumentService:
     return DocumentService(
         document_repo=document_repo,
         subject_service=subject_service,
         storage=storage,
         max_upload_bytes=settings.max_upload_mb * 1024 * 1024,
+        dedup_enabled=settings.document_dedup_enabled,
+        usage_service=usage_service,
     )
 
 
@@ -230,6 +250,7 @@ def get_chat_service(
     embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
     llm_provider: LLMProvider = Depends(get_llm_provider),
     subject_service: SubjectService = Depends(get_subject_service),
+    usage_service: UsageService = Depends(get_usage_service),
 ) -> ChatService:
     return ChatService(
         conversation_repo=conversation_repo,
@@ -247,6 +268,7 @@ def get_chat_service(
         retrieval_top_k=settings.rag_retrieval_top_k,
         final_context_chunks=settings.rag_final_context_chunks,
         history_messages=settings.rag_history_messages,
+        usage_service=usage_service,
     )
 
 

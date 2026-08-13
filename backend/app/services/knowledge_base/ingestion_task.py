@@ -36,6 +36,40 @@ logger = logging.getLogger(__name__)
 SessionFactory = Callable[[], AsyncSession]
 
 
+def _build_pipeline(
+    session: AsyncSession, *, storage: StoragePort, llm_provider: LLMProvider, embedding_provider: EmbeddingProvider
+) -> IngestionPipeline:
+    document_repo = SqlAlchemyDocumentRepository(session)
+    return IngestionPipeline(
+        document_repo=document_repo,
+        chunk_repo=SqlAlchemyChunkRepository(session),
+        concept_chunk_repo=SqlAlchemyConceptChunkRepository(session),
+        embedding_repo=SqlAlchemyEmbeddingRepository(session),
+        subject_repo=SqlAlchemySubjectRepository(session),
+        storage=storage,
+        embedding_provider=embedding_provider,
+        llm_provider=llm_provider,
+        concept_tagger=ConceptTagger(
+            llm_provider=llm_provider,
+            concept_repo=SqlAlchemyConceptRepository(session),
+            concept_chunk_repo=SqlAlchemyConceptChunkRepository(session),
+            relevance_threshold=settings.concept_tag_relevance_threshold,
+            max_new_concepts=settings.max_new_concepts_per_chunk,
+        ),
+        document_classifier=DocumentClassifier(
+            llm_provider=llm_provider,
+            curriculum_repo=SqlAlchemyCurriculumRepository(session),
+            document_repo=document_repo,
+            confidence_threshold=settings.classification_confidence_threshold,
+        ),
+        chunk_parent_chars=settings.chunk_parent_chars,
+        chunk_child_chars=settings.chunk_child_chars,
+        chunk_overlap_chars=settings.chunk_overlap_chars,
+        classification_max_source_chars=settings.classification_max_source_chars,
+        concept_tag_batch_size=settings.concept_tag_batch_size,
+    )
+
+
 async def ingest_document_task(
     document_id: str,
     *,
@@ -49,33 +83,8 @@ async def ingest_document_task(
     resolved_embedder = embedding_provider or build_embedding_provider(settings)
 
     async with session_factory() as session:
-        document_repo = SqlAlchemyDocumentRepository(session)
-        pipeline = IngestionPipeline(
-            document_repo=document_repo,
-            chunk_repo=SqlAlchemyChunkRepository(session),
-            concept_chunk_repo=SqlAlchemyConceptChunkRepository(session),
-            embedding_repo=SqlAlchemyEmbeddingRepository(session),
-            subject_repo=SqlAlchemySubjectRepository(session),
-            storage=resolved_storage,
-            embedding_provider=resolved_embedder,
-            llm_provider=resolved_llm,
-            concept_tagger=ConceptTagger(
-                llm_provider=resolved_llm,
-                concept_repo=SqlAlchemyConceptRepository(session),
-                concept_chunk_repo=SqlAlchemyConceptChunkRepository(session),
-                relevance_threshold=settings.concept_tag_relevance_threshold,
-                max_new_concepts=settings.max_new_concepts_per_chunk,
-            ),
-            document_classifier=DocumentClassifier(
-                llm_provider=resolved_llm,
-                curriculum_repo=SqlAlchemyCurriculumRepository(session),
-                document_repo=document_repo,
-                confidence_threshold=settings.classification_confidence_threshold,
-            ),
-            chunk_parent_chars=settings.chunk_parent_chars,
-            chunk_child_chars=settings.chunk_child_chars,
-            chunk_overlap_chars=settings.chunk_overlap_chars,
-            classification_max_source_chars=settings.classification_max_source_chars,
+        pipeline = _build_pipeline(
+            session, storage=resolved_storage, llm_provider=resolved_llm, embedding_provider=resolved_embedder
         )
         try:
             await pipeline.run(document_id)
@@ -84,6 +93,29 @@ async def ingest_document_task(
             await session.rollback()
             logger.exception("Ingestion failed for document %s", document_id)
             await _mark_failed(document_id, session_factory)
+            return
+
+    # The document is committed as "ready" and already usable for RAG chat at
+    # this point — concept tagging (the knowledge-graph enrichment powering
+    # progress/planning) runs afterward, in its own transaction, so a failure
+    # here never rolls back or un-readies a document whose RAG index is
+    # already complete. Errors are logged, not re-raised: this step is a
+    # best-effort background enhancement, not something a student is waiting
+    # on to start chatting with their material.
+    async with session_factory() as session:
+        pipeline = _build_pipeline(
+            session, storage=resolved_storage, llm_provider=resolved_llm, embedding_provider=resolved_embedder
+        )
+        try:
+            await pipeline.tag_concepts(document_id)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "Concept tagging failed for document %s — document remains ready, "
+                "knowledge graph just wasn't enriched with it.",
+                document_id,
+            )
 
 
 async def _mark_failed(document_id: str, session_factory: SessionFactory) -> None:

@@ -56,8 +56,8 @@ async def test_upload_document_ingests_synchronously_in_tests(client):
 
 async def test_upload_image_ingests_via_vision_fallback(client):
     """Standalone images have no extractable text at all — the entire
-    pipeline (upload -> ingestion -> extraction -> chunking -> concept
-    tagging) has to go through the vision-model path end to end."""
+    pipeline (upload -> ingestion -> extraction -> chunking -> embedding)
+    has to go through the vision-model path end to end."""
     headers = await _register_and_login(client, "alice@example.com")
     subject_id = await _create_subject(client, headers)
 

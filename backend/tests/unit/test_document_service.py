@@ -1,17 +1,25 @@
 import pytest
 
-from app.core.exceptions import DocumentNotFoundError, FileTooLargeError, SubjectNotFoundError, UnsupportedFileTypeError
+from app.core.exceptions import (
+    DocumentNotFoundError,
+    FileTooLargeError,
+    SubjectNotFoundError,
+    UnsupportedFileTypeError,
+    UsageLimitExceededError,
+)
 from app.services.document_service import DocumentService
 from app.services.subject_service import SubjectService
-from tests.unit.fakes import FakeDocumentRepository, FakeStorage, FakeSubjectRepository
+from app.services.usage_service import UsageService
+from tests.unit.fakes import FakeDocumentRepository, FakeStorage, FakeSubjectRepository, FakeUsageEventRepository
 
 
-async def _service(max_upload_bytes=1_000_000):
+async def _service(max_upload_bytes=1_000_000, dedup_enabled=True, usage_service=None):
     subject_service = SubjectService(FakeSubjectRepository())
     document_repo = FakeDocumentRepository()
     storage = FakeStorage()
     service = DocumentService(
-        document_repo=document_repo, subject_service=subject_service, storage=storage, max_upload_bytes=max_upload_bytes
+        document_repo=document_repo, subject_service=subject_service, storage=storage,
+        max_upload_bytes=max_upload_bytes, dedup_enabled=dedup_enabled, usage_service=usage_service,
     )
     return service, subject_service, document_repo, storage
 
@@ -86,3 +94,62 @@ async def test_list_for_subject_requires_ownership():
 
     with pytest.raises(SubjectNotFoundError):
         await service.list_for_subject("user-2", subject.id)
+
+
+async def test_upload_returns_existing_document_for_duplicate_content():
+    service, subject_service, document_repo, _storage = await _service()
+    subject = await subject_service.create("user-1", name="Physics")
+    first = await service.upload(user_id="user-1", subject_id=subject.id, filename="notes.txt", content=b"same bytes")
+
+    second = await service.upload(user_id="user-1", subject_id=subject.id, filename="notes-copy.txt", content=b"same bytes")
+
+    assert second.id == first.id
+    assert len(await document_repo.list_by_subject(subject.id)) == 1
+
+
+async def test_upload_does_not_dedupe_across_different_subjects():
+    service, subject_service, document_repo, _storage = await _service()
+    physics = await subject_service.create("user-1", name="Physics")
+    chemistry = await subject_service.create("user-1", name="Chemistry")
+    await service.upload(user_id="user-1", subject_id=physics.id, filename="notes.txt", content=b"same bytes")
+
+    second = await service.upload(user_id="user-1", subject_id=chemistry.id, filename="notes.txt", content=b"same bytes")
+
+    assert second.subject_id == chemistry.id
+    assert len(await document_repo.list_by_subject(chemistry.id)) == 1
+
+
+async def test_upload_reprocesses_duplicate_content_when_dedup_disabled():
+    service, subject_service, document_repo, _storage = await _service(dedup_enabled=False)
+    subject = await subject_service.create("user-1", name="Physics")
+    first = await service.upload(user_id="user-1", subject_id=subject.id, filename="notes.txt", content=b"same bytes")
+
+    second = await service.upload(user_id="user-1", subject_id=subject.id, filename="notes.txt", content=b"same bytes")
+
+    assert second.id != first.id
+    assert len(await document_repo.list_by_subject(subject.id)) == 2
+
+
+async def test_upload_enforces_daily_document_limit_when_usage_limits_enabled():
+    usage_repo = FakeUsageEventRepository()
+    usage = UsageService(usage_repo=usage_repo, limits_enabled=True, daily_ai_requests=100, daily_documents=1)
+    service, subject_service, *_ = await _service(usage_service=usage)
+    subject = await subject_service.create("user-1", name="Physics")
+    await service.upload(user_id="user-1", subject_id=subject.id, filename="a.txt", content=b"aaa")
+
+    with pytest.raises(UsageLimitExceededError):
+        await service.upload(user_id="user-1", subject_id=subject.id, filename="b.txt", content=b"bbb")
+
+
+async def test_upload_does_not_enforce_document_limit_by_default():
+    usage_repo = FakeUsageEventRepository()
+    usage = UsageService(usage_repo=usage_repo, limits_enabled=False, daily_ai_requests=100, daily_documents=1)
+    service, subject_service, document_repo, _storage = await _service(usage_service=usage)
+    subject = await subject_service.create("user-1", name="Physics")
+    await service.upload(user_id="user-1", subject_id=subject.id, filename="a.txt", content=b"aaa")
+
+    # Second upload succeeds even though daily_documents=1 — limits_enabled=False.
+    await service.upload(user_id="user-1", subject_id=subject.id, filename="b.txt", content=b"bbb")
+
+    assert len(await document_repo.list_by_subject(subject.id)) == 2
+    assert len(usage_repo.events) == 2  # still recorded for observability, just not enforced

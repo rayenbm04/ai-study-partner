@@ -37,10 +37,17 @@ async def upload_document(
     document = await service.upload(
         user_id=current_user.id, subject_id=subject_id, filename=file.filename or "upload", content=content
     )
-    # Ingestion runs after the response is sent — the student sees the upload
-    # succeed immediately with status "pending" and can poll GET /documents/{id}
-    # (or Phase 4's chat UI can just show "still processing this document").
-    background_tasks.add_task(run_ingestion, document.id)
+    # A byte-identical file already uploaded to this subject comes back as
+    # that existing (non-"pending") document instead of a new one — see
+    # DocumentService.upload's dedup check — so only schedule ingestion for
+    # documents actually new to storage. Re-running it on an already-ready
+    # document would duplicate its chunks/embeddings, not just waste quota.
+    if document.status == "pending":
+        # Ingestion runs after the response is sent — the student sees the
+        # upload succeed immediately with status "pending" and can poll
+        # GET /documents/{id} (or the chat UI can just show "still
+        # processing this document").
+        background_tasks.add_task(run_ingestion, document.id)
     return DocumentResponse.from_entity(document)
 
 

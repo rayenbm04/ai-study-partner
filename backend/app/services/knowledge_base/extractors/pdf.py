@@ -1,9 +1,11 @@
+import asyncio
 import io
 import logging
 import re
 
 import pdfplumber
 
+from app.core.config import settings
 from app.core.exceptions import ExtractionError
 from app.services.knowledge_base.extractors.base import ExtractedSegment
 from app.services.llm.base import LLMProvider
@@ -54,16 +56,43 @@ async def extract_pdf(
     try:
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             total_pages = len(pdf.pages)
+            texts: dict[int, str] = {}
+            vision_pages: list[tuple[int, object]] = []
+
             for page_number, page in enumerate(pdf.pages, start=1):
                 text = _fix_pdf_text(page.extract_text() or "").strip()
-
+                texts[page_number] = text
                 if len(text) < _MIN_TEXT_CHARS_BEFORE_VISION_FALLBACK and llm_provider is not None:
                     # Scanned/image-only page — no meaningful text layer, so
                     # ask the vision model to transcribe it instead of
                     # silently dropping the page's content.
-                    vision_text = await _vision_fallback(page, page_number, total_pages, llm_provider)
-                    text = vision_text or text
+                    vision_pages.append((page_number, page))
 
+            if vision_pages:
+                # Most documents are normal digital PDFs where this list is
+                # empty — a scanned/handwritten document is the case this
+                # exists for, and it's the one place PDF extraction fans out
+                # to more than a couple of LLM calls. Bounded concurrency
+                # (LLM_MAX_CONCURRENCY) speeds that up without firing dozens
+                # of simultaneous vision requests.
+                semaphore = asyncio.Semaphore(max(1, settings.llm_max_concurrency))
+
+                async def _bounded_vision(page_number: int, page) -> tuple[int, str]:
+                    async with semaphore:
+                        vision_text = await _vision_fallback(page, page_number, total_pages, llm_provider)
+                        return page_number, vision_text
+
+                # _vision_fallback never raises (it catches and logs
+                # internally, returning "" on failure) — gather() here never
+                # sees an exception from an individual page.
+                for page_number, vision_text in await asyncio.gather(
+                    *(_bounded_vision(pn, p) for pn, p in vision_pages)
+                ):
+                    if vision_text:
+                        texts[page_number] = vision_text
+
+            for page_number in range(1, total_pages + 1):
+                text = texts.get(page_number, "")
                 if text:
                     segments.append(ExtractedSegment(text=text, page=page_number, section_title=None))
     except Exception as exc:  # pdfplumber/pdfminer raise a variety of exception types
