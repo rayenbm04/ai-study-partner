@@ -37,8 +37,19 @@ class Settings(BaseSettings):
     password_reset_token_expire_minutes: int = 60
 
     # LLM providers. See docs/LLM_PROVIDERS.md.
-    llm_provider: str = "gemini"          # gemini | groq | openrouter | openai
+    llm_provider: str = "gemini"          # gemini | groq | cerebras | openrouter | openai
     embedding_provider: str = "gemini"    # gemini | local — see docs/LLM_PROVIDERS.md
+
+    # Optional automatic fallback: when the LLM_PROVIDER above is rate-limited
+    # (or, for a text-only provider like Cerebras, asked to do a vision call
+    # it can't), retry the same request against this second provider instead
+    # of failing — see FallbackLLMProvider and docs/LLM_PROVIDERS.md's
+    # "Cerebras + Groq" combination. Empty (the default) disables this
+    # entirely: build_llm_provider/build_simple_llm_provider return the plain
+    # LLM_PROVIDER with no wrapping, same behavior as before this existed.
+    # Only meaningful between two OpenAI-compatible providers (groq, cerebras,
+    # openrouter, openai) — see fallback_provider.py for why.
+    llm_fallback_provider: str = ""       # "" | gemini | groq | cerebras | openrouter | openai
 
     gemini_api_key: str = ""
     gemini_chat_model: str = "gemini-2.5-flash"
@@ -75,6 +86,19 @@ class Settings(BaseSettings):
     # Tutoring answers, exam-question grading, and other reasoning-heavy work
     # keep using groq_chat_model above.
     groq_simple_chat_model: str = "llama-3.1-8b-instant"
+
+    # Cerebras' free tier is unusually generous for a text-only provider:
+    # gpt-oss-120b at 30 req/min, 14.4K req/day, 1M tokens/day, with similarly
+    # loose limits on its 8B model — see docs/LLM_PROVIDERS.md. No card
+    # required. No vision model in its current lineup (see
+    # llm/factory.py's _NO_VISION_PROVIDERS), so pair it with
+    # LLM_FALLBACK_PROVIDER=groq if this app will ever see scanned PDFs or
+    # image uploads.
+    cerebras_api_key: str = ""
+    cerebras_chat_model: str = "gpt-oss-120b"
+    # Smaller/cheaper Cerebras model for mechanical tasks — same split as
+    # groq_simple_chat_model above.
+    cerebras_simple_chat_model: str = "llama3.1-8b"
 
     openrouter_api_key: str = ""
     openrouter_chat_model: str = "google/gemini-2.0-flash-exp:free"

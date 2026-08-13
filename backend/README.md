@@ -105,13 +105,16 @@ pytest
 
 Every LLM/embedding call goes through a provider interface (`services/llm/base.py`, `services/embeddings/base.py`) — swapping providers is a `.env` change, never a code change. See [`../docs/LLM_PROVIDERS.md`](../docs/LLM_PROVIDERS.md) for the free-tier comparison.
 
-Each provider is actually two model tiers behind the same interface (`services/llm/factory.py`): `build_llm_provider` (the main/"complex" model — tutoring answers, exam-question grading, anything needing real reasoning) and `build_simple_llm_provider` (a cheaper/faster model for mechanical, high-volume calls — concept tagging, document classification, summaries, flashcard/quiz generation, RAG query rewriting). The `*_simple_chat_model` settings below default to `""`, which falls back to that provider's main chat model — Groq ships a safe default (`llama-3.1-8b-instant`); Gemini/OpenRouter/OpenAI are left blank since guessing a stable "lite" model name isn't safe (model names on the cheap tiers churn fastest).
+Each provider is actually two model tiers behind the same interface (`services/llm/factory.py`): `build_llm_provider` (the main/"complex" model — tutoring answers, exam-question grading, anything needing real reasoning) and `build_simple_llm_provider` (a cheaper/faster model for mechanical, high-volume calls — concept tagging, document classification, summaries, flashcard/quiz generation, RAG query rewriting). The `*_simple_chat_model` settings below default to `""`, which falls back to that provider's main chat model — Groq and Cerebras both ship a safe default (`llama-3.1-8b-instant`, `llama3.1-8b`); Gemini/OpenRouter/OpenAI are left blank since guessing a stable "lite" model name isn't safe (model names on the cheap tiers churn fastest).
+
+**Cerebras + automatic fallback**: `LLM_FALLBACK_PROVIDER` (empty by default — no behavior change until set) wraps `LLM_PROVIDER` in a `FallbackLLMProvider` (`services/llm/fallback_provider.py`) that retries against a second provider whenever the first is rate-limited, or — Cerebras-specific, since its current lineup has no vision-capable model — whenever a vision call would fail outright. `LLM_PROVIDER=cerebras` + `LLM_FALLBACK_PROVIDER=groq` is the combination this was built for: Cerebras' free tier (30 req/min, 14.4K req/day, 1M tokens/day on `gpt-oss-120b`, no card) is generous enough to be the primary, with Groq catching both 429s and every vision call. See [`../docs/LLM_PROVIDERS.md`](../docs/LLM_PROVIDERS.md) for the full comparison and routing diagram.
 
 | Setting | Purpose |
 |---|---|
-| `LLM_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `openai` |
+| `LLM_PROVIDER` | `gemini` \| `groq` \| `cerebras` \| `openrouter` \| `openai` |
+| `LLM_FALLBACK_PROVIDER` | second provider to retry against on a rate limit or missing vision support; empty (default) = no fallback |
 | `EMBEDDING_PROVIDER` | `gemini` \| `local` (CPU `sentence-transformers`, no key/card — see `docs/LLM_PROVIDERS.md`) |
-| `GEMINI_SIMPLE_CHAT_MODEL` / `GROQ_SIMPLE_CHAT_MODEL` / `OPENROUTER_SIMPLE_CHAT_MODEL` / `OPENAI_SIMPLE_CHAT_MODEL` | cheap-tier model for mechanical calls; empty = reuse that provider's main chat model |
+| `GEMINI_SIMPLE_CHAT_MODEL` / `GROQ_SIMPLE_CHAT_MODEL` / `CEREBRAS_SIMPLE_CHAT_MODEL` / `OPENROUTER_SIMPLE_CHAT_MODEL` / `OPENAI_SIMPLE_CHAT_MODEL` | cheap-tier model for mechanical calls; empty = reuse that provider's main chat model |
 | `DOCUMENT_DEDUP_ENABLED` | skip reprocessing a byte-identical re-upload to the same subject (default `True`) |
 | `USAGE_LIMITS_ENABLED` | enforce the daily limits below instead of just logging usage (default `False`, no tiers exist yet) |
 | `FREE_DAILY_AI_REQUESTS` / `FREE_DAILY_DOCUMENTS` | daily per-user caps once `USAGE_LIMITS_ENABLED=True` |
