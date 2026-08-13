@@ -66,12 +66,19 @@ class ChatService:
         final_context_chunks: int,
         history_messages: int,
         usage_service: UsageService | None = None,
+        retrieval_llm_provider: LLMProvider | None = None,
     ):
         self._conversations = conversation_repo
         self._messages = message_repo
         self._chunks = chunk_repo
         self._documents = document_repo
         self._llm = llm_provider
+        # Question condensing, HyDE/multi-query expansion, and reranking are
+        # all retrieval-support work, not the actual tutoring answer — cheaper
+        # to run on a smaller model. Defaults to the main model when no
+        # separate one is given, so existing single-provider callers/tests
+        # don't need to change.
+        self._retrieval_llm = retrieval_llm_provider or llm_provider
         self._subjects = subject_service
         self._usage = usage_service
         self._retriever = VectorRetriever(
@@ -110,10 +117,10 @@ class ChatService:
         recent_history = history[-self._history_messages :] if self._history_messages else []
 
         standalone_question = await condense_question(
-            llm_provider=self._llm, question=question, history=recent_history
+            llm_provider=self._retrieval_llm, question=question, history=recent_history
         )
         expansion = await expand_query(
-            llm_provider=self._llm,
+            llm_provider=self._retrieval_llm,
             question=standalone_question,
             enable_hyde=self._enable_hyde,
             enable_multi_query=self._enable_multi_query,
@@ -135,7 +142,7 @@ class ChatService:
 
         if self._enable_rerank and candidates:
             candidates = await rerank(
-                llm_provider=self._llm,
+                llm_provider=self._retrieval_llm,
                 question=standalone_question,
                 candidates=candidates,
                 keep_k=self._final_context_chunks,

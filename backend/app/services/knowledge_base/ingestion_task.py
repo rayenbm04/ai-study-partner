@@ -29,7 +29,7 @@ from app.services.knowledge_base.concept_tagger import ConceptTagger
 from app.services.knowledge_base.document_classifier import DocumentClassifier
 from app.services.knowledge_base.ingestion_pipeline import IngestionPipeline
 from app.services.llm.base import LLMProvider
-from app.services.llm.factory import build_llm_provider
+from app.services.llm.factory import build_llm_provider, build_simple_llm_provider
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,12 @@ SessionFactory = Callable[[], AsyncSession]
 
 
 def _build_pipeline(
-    session: AsyncSession, *, storage: StoragePort, llm_provider: LLMProvider, embedding_provider: EmbeddingProvider
+    session: AsyncSession,
+    *,
+    storage: StoragePort,
+    llm_provider: LLMProvider,
+    simple_llm_provider: LLMProvider,
+    embedding_provider: EmbeddingProvider,
 ) -> IngestionPipeline:
     document_repo = SqlAlchemyDocumentRepository(session)
     return IngestionPipeline(
@@ -48,16 +53,24 @@ def _build_pipeline(
         subject_repo=SqlAlchemySubjectRepository(session),
         storage=storage,
         embedding_provider=embedding_provider,
+        # Extraction (PDF vision fallback for scanned/image pages) stays on
+        # the main model — image transcription quality matters and vision
+        # calls are already infrequent by design (see extractors/pdf.py).
         llm_provider=llm_provider,
+        # Concept tagging and document classification are both mechanical
+        # classification/extraction tasks, not reasoning-heavy — and concept
+        # tagging in particular is the highest-volume LLM call in ingestion
+        # (one batch per handful of chunks), so this is where the cheaper
+        # model matters most.
         concept_tagger=ConceptTagger(
-            llm_provider=llm_provider,
+            llm_provider=simple_llm_provider,
             concept_repo=SqlAlchemyConceptRepository(session),
             concept_chunk_repo=SqlAlchemyConceptChunkRepository(session),
             relevance_threshold=settings.concept_tag_relevance_threshold,
             max_new_concepts=settings.max_new_concepts_per_chunk,
         ),
         document_classifier=DocumentClassifier(
-            llm_provider=llm_provider,
+            llm_provider=simple_llm_provider,
             curriculum_repo=SqlAlchemyCurriculumRepository(session),
             document_repo=document_repo,
             confidence_threshold=settings.classification_confidence_threshold,
@@ -76,15 +89,18 @@ async def ingest_document_task(
     session_factory: SessionFactory = AsyncSessionLocal,
     storage: StoragePort | None = None,
     llm_provider: LLMProvider | None = None,
+    simple_llm_provider: LLMProvider | None = None,
     embedding_provider: EmbeddingProvider | None = None,
 ) -> None:
     resolved_storage = storage or LocalStorage(settings.storage_dir)
     resolved_llm = llm_provider or build_llm_provider(settings)
+    resolved_simple_llm = simple_llm_provider or build_simple_llm_provider(settings)
     resolved_embedder = embedding_provider or build_embedding_provider(settings)
 
     async with session_factory() as session:
         pipeline = _build_pipeline(
-            session, storage=resolved_storage, llm_provider=resolved_llm, embedding_provider=resolved_embedder
+            session, storage=resolved_storage, llm_provider=resolved_llm,
+            simple_llm_provider=resolved_simple_llm, embedding_provider=resolved_embedder,
         )
         try:
             await pipeline.run(document_id)
@@ -104,7 +120,8 @@ async def ingest_document_task(
     # on to start chatting with their material.
     async with session_factory() as session:
         pipeline = _build_pipeline(
-            session, storage=resolved_storage, llm_provider=resolved_llm, embedding_provider=resolved_embedder
+            session, storage=resolved_storage, llm_provider=resolved_llm,
+            simple_llm_provider=resolved_simple_llm, embedding_provider=resolved_embedder,
         )
         try:
             await pipeline.tag_concepts(document_id)

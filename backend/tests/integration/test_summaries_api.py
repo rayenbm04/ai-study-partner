@@ -44,7 +44,12 @@ async def _upload_and_ingest(client, headers, subject_id):
 
 
 def _override_summary_llm(client, *, response):
-    client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(response=response)
+    # SummaryService now runs on get_simple_llm_provider (summaries are a
+    # "simple" task — see app/api/v1/deps.py) — get_llm_provider is
+    # overridden too since nothing here cares which one summaries use.
+    fake = FakeLLMProvider(response=response)
+    client.app.dependency_overrides[deps.get_llm_provider] = lambda: fake
+    client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: fake
 
 
 async def test_generate_and_fetch_short_summary(client):

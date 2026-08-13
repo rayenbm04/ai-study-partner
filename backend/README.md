@@ -27,7 +27,7 @@ Routes depend on services, services depend on repository *interfaces* (never on 
 
 **Email** — every verification/reset email goes through an `EmailSender` interface (`app/services/email/base.py`), same "interface first, swap the implementation" pattern as `LLMProvider`. Only implementation today is `LoggingEmailSender` (`EMAIL_SENDER=logging`, the default) — it logs the full email body (including the token) to the server console instead of sending it, so registering or requesting a password reset locally means checking the terminal output for the code rather than an inbox. Wiring up a real provider (Resend, SendGrid, SES, ...) later is a new `EmailSender` implementation registered in `app/services/email/factory.py`, not a change to `AuthService`.
 
-**Knowledge Base** — upload PDF/DOCX/PPTX/XLS(X)/images, extract text (with a vision-model fallback for scanned pages/images), hierarchical parent/child chunking, embed with a cloud embedder, store in pgvector, and LLM-tag chunks against a per-subject concept graph. Ingestion runs as a background task; `GET /documents/{id}` polls status (`pending → processing → ready|failed`).
+**Knowledge Base** — upload PDF/DOCX/PPTX/XLS(X)/images, extract text (with a vision-model fallback for scanned pages/images), hierarchical parent/child chunking, embed with a cloud embedder, store in pgvector, and LLM-tag chunks against a per-subject concept graph. Ingestion runs as a background task; `GET /documents/{id}` polls status (`pending → processing → ready|failed`), and while `processing` the response also carries `processing_step` (`extracting` → `chunking` → `embedding` → `classifying`) and a `processing_progress` percentage for a granular upload UI. A byte-identical re-upload to the same subject (sha256 of the raw content, `documents.content_hash`) returns the existing document instead of reprocessing it (`document_dedup_enabled`, on by default) — no extra embedding/LLM spend on accidental duplicate uploads. `IngestionPipeline.run()` commits the document as `ready` (and usable for RAG chat) as soon as extraction/chunking/embedding/classification are done; concept tagging (`tag_concepts()`, the knowledge-graph enrichment behind progress/planning) runs afterward as a best-effort follow-up in its own transaction, so a tagging failure never un-readies an already-indexed document.
 
 **RAG Chat** — condense-question (using conversation history) → HyDE + multi-query expansion → per-variant vector search + Reciprocal Rank Fusion → LLM rerank → cited answer generation. Each technique is its own feature flag (see `.env.example`) so a slower/free-tier model can have some switched off without a code change. An optional `document_id` on the chat request narrows retrieval to one document instead of the whole subject, for "ask about this upload" style questions.
 
@@ -42,6 +42,8 @@ Routes depend on services, services depend on repository *interfaces* (never on 
 **Planning engine** — generates a day-by-day study plan across one or more subjects: ranks concepts by urgency (weak-flagged and never-touched concepts first, then ascending mastery score, reusing the progress engine's own scoring), then distributes sessions across days based on `daily_minutes_available` and an optional `exam_date` (defaulting to a 14-day plan if no exam date is given), reserving the final day before an exam date for a full-subject review session. No LLM calls, no new tracking tables — a plan item's status (pending/done/skipped) is set explicitly by the student rather than auto-logged from activity elsewhere.
 
 **Analytics engine** — read-side aggregation only, per the architecture doc's "no new tables" directive: per-subject and cross-subject overview stats (documents, flashcards + due count, quizzes/exams + average score, conversations, average mastery, weak-concept count, concepts practiced vs. total) computed on request from data the other five engines already store.
+
+**Usage tracking** — `UsageService` logs a `usage_events` row (`app/domain/entities/usage_event.py`) for every document upload and every AI request (chat, summary, flashcard, quiz generation), per user — this is architecture for a future free/premium tier, not a paywall today: the backend runs on one shared provider API key, so `usage_events` is currently the only place per-user consumption is visible at all. Limit *enforcement* is gated behind `usage_limits_enabled` (default `False`), so nothing is rate-limited yet; flipping it on (once tiers actually exist) makes `UsageService.check_ai_request_limit`/`check_document_limit` start raising `UsageLimitExceededError` against `free_daily_ai_requests`/`free_daily_documents`, no code change needed. Nothing surfaces this via an API endpoint yet — same "logged, not read by anything" state as `security_events` (see Auth above).
 
 ## Setup
 
@@ -74,6 +76,7 @@ alembic upgrade head
 | `0010` | scopes `subjects`' `(user_id, name)` uniqueness to active (non-archived) subjects only, via a partial unique index |
 | `0011` | `users`: `date_of_birth`, `pseudo` (unique), `school_name`, `academic_level_id`/`section_id` (a student's own classe), `is_verified`/`email_verified_at` |
 | `0012` | `schools`, `school_classes`, `verification_tokens` (email verification / password reset), `security_events`; `users`: `school_name` → `school_id` (FK to `schools`), `status`, `last_login_at`, `failed_login_attempts`, `locked_until` (login-attempt limiting) |
+| `0013` | `documents`: `content_hash` (upload dedup, indexed), `processing_step`/`processing_progress` (granular ingestion status); `usage_events` (per-user AI/document usage log — see Usage tracking above) |
 
 ## Run the API
 
@@ -102,10 +105,16 @@ pytest
 
 Every LLM/embedding call goes through a provider interface (`services/llm/base.py`, `services/embeddings/base.py`) — swapping providers is a `.env` change, never a code change. See [`../docs/LLM_PROVIDERS.md`](../docs/LLM_PROVIDERS.md) for the free-tier comparison.
 
+Each provider is actually two model tiers behind the same interface (`services/llm/factory.py`): `build_llm_provider` (the main/"complex" model — tutoring answers, exam-question grading, anything needing real reasoning) and `build_simple_llm_provider` (a cheaper/faster model for mechanical, high-volume calls — concept tagging, document classification, summaries, flashcard/quiz generation, RAG query rewriting). The `*_simple_chat_model` settings below default to `""`, which falls back to that provider's main chat model — Groq ships a safe default (`llama-3.1-8b-instant`); Gemini/OpenRouter/OpenAI are left blank since guessing a stable "lite" model name isn't safe (model names on the cheap tiers churn fastest).
+
 | Setting | Purpose |
 |---|---|
 | `LLM_PROVIDER` | `gemini` \| `groq` \| `openrouter` \| `openai` |
-| `EMBEDDING_PROVIDER` | `gemini` (only option for now) |
+| `EMBEDDING_PROVIDER` | `gemini` \| `local` (CPU `sentence-transformers`, no key/card — see `docs/LLM_PROVIDERS.md`) |
+| `GEMINI_SIMPLE_CHAT_MODEL` / `GROQ_SIMPLE_CHAT_MODEL` / `OPENROUTER_SIMPLE_CHAT_MODEL` / `OPENAI_SIMPLE_CHAT_MODEL` | cheap-tier model for mechanical calls; empty = reuse that provider's main chat model |
+| `DOCUMENT_DEDUP_ENABLED` | skip reprocessing a byte-identical re-upload to the same subject (default `True`) |
+| `USAGE_LIMITS_ENABLED` | enforce the daily limits below instead of just logging usage (default `False`, no tiers exist yet) |
+| `FREE_DAILY_AI_REQUESTS` / `FREE_DAILY_DOCUMENTS` | daily per-user caps once `USAGE_LIMITS_ENABLED=True` |
 | `RAG_ENABLE_HYDE` / `RAG_ENABLE_MULTI_QUERY` / `RAG_ENABLE_RERANK` | toggle each RAG technique independently |
 | `RAG_RETRIEVAL_TOP_K` / `RAG_FINAL_CONTEXT_CHUNKS` / `RAG_HISTORY_MESSAGES` | RAG chat tuning |
 | `SUMMARY_MAX_SOURCE_CHARS` | cap on source text fed into a summary call |

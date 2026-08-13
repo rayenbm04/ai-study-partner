@@ -145,9 +145,13 @@ async def test_progress_and_weak_concepts_reflect_real_evidence(pg_client):
         await SqlAlchemyConceptChunkRepository(session).link(concept_id=concept.id, chunk_id=chunks[0].id, relevance=1.0)
         await session.commit()
 
-    pg_client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(
-        response=_ONE_FLASHCARD_RESPONSE
-    )
+    # FlashcardService/QuizService.generate() run on get_simple_llm_provider
+    # (see app/api/v1/deps.py) — get_llm_provider is overridden too since
+    # QuizService still resolves it for grading, even though this test's
+    # mcq questions are graded by exact match, no LLM call.
+    flashcard_llm = FakeLLMProvider(response=_ONE_FLASHCARD_RESPONSE)
+    pg_client.app.dependency_overrides[deps.get_llm_provider] = lambda: flashcard_llm
+    pg_client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: flashcard_llm
     gen_resp = await pg_client.post(
         f"/api/v1/subjects/{subject_id}/flashcards/generate", headers=headers, json={"document_id": document_id}
     )
@@ -160,9 +164,9 @@ async def test_progress_and_weak_concepts_reflect_real_evidence(pg_client):
     )
     assert review_resp.status_code == 200
 
-    pg_client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(
-        response=_THREE_MCQ_RESPONSE
-    )
+    quiz_llm = FakeLLMProvider(response=_THREE_MCQ_RESPONSE)
+    pg_client.app.dependency_overrides[deps.get_llm_provider] = lambda: quiz_llm
+    pg_client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: quiz_llm
     quiz_resp = await pg_client.post(
         f"/api/v1/subjects/{subject_id}/quizzes/generate", headers=headers, json={"document_id": document_id}
     )

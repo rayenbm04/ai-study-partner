@@ -57,7 +57,12 @@ async def _upload_and_ingest(client, headers, subject_id):
 
 
 def _override_llm(client, *, response):
-    client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(response=response)
+    # Exams go through QuizService, which splits generation
+    # (get_simple_llm_provider) from grading (get_llm_provider) — see
+    # app/api/v1/deps.py. Both overridden with the same fake here.
+    fake = FakeLLMProvider(response=response)
+    client.app.dependency_overrides[deps.get_llm_provider] = lambda: fake
+    client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: fake
 
 
 async def test_generate_exam_sets_kind_and_exam_params(client):

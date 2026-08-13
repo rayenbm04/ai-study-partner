@@ -37,6 +37,41 @@ def test_grade_objective_fill_blank_normalizes_whitespace():
     assert grade_objective(question, "  Mitochondria ") is True
 
 
+def test_grade_objective_true_false_accepts_yes_no_synonyms():
+    """A Yes/No toggle is a reasonable true_false UI even though
+    correct_answer is always literally "true"/"false" — see generator.py's
+    _normalize_true_false."""
+    question = _question(type="true_false", options=None, correct_answer="false")
+    assert grade_objective(question, "no") is True
+    assert grade_objective(question, "No") is True
+    assert grade_objective(question, "yes") is False
+
+    question = _question(type="true_false", options=None, correct_answer="true")
+    assert grade_objective(question, "yes") is True
+    assert grade_objective(question, "Y") is True
+
+
+def test_grade_objective_true_false_rejects_unrecognized_answer():
+    question = _question(type="true_false", options=None, correct_answer="true")
+    assert grade_objective(question, "maybe") is False
+
+
+def test_grade_objective_fill_blank_tolerates_comma_decimal_separator():
+    """A European-locale keyboard typing a numeric fill-in-the-blank answer
+    commonly uses a comma decimal separator ("6,67") — that's the same
+    number as the period-separated reference answer ("6.67"), not a wrong
+    answer."""
+    question = _question(type="fill_blank", options=None, correct_answer="6.67")
+    assert grade_objective(question, "6,67") is True
+    assert grade_objective(question, "6.67") is True
+    assert grade_objective(question, "6,68") is False
+
+
+def test_grade_objective_fill_blank_non_numeric_still_requires_exact_match():
+    question = _question(type="fill_blank", options=None, correct_answer="mitochondria")
+    assert grade_objective(question, "nucleus") is False
+
+
 def test_grade_objective_returns_none_for_short_answer():
     question = _question(type="short_answer", options=None, correct_answer="anything")
     assert grade_objective(question, "anything") is None

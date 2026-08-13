@@ -15,6 +15,7 @@ from pptx import Presentation
 from pptx.util import Inches
 from PIL import Image
 from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from app.core.exceptions import ExtractionError, UnsupportedFileTypeError
@@ -43,6 +44,23 @@ def _make_blank_pdf_page() -> bytes:
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     c.showPage()  # no drawString call at all -> pdfplumber extracts no text
+    c.save()
+    return buffer.getvalue()
+
+
+def _make_pdf_with_text_and_image(text: str) -> bytes:
+    """A page with plenty of extracted text (well over the vision-fallback
+    threshold) that ALSO has a large embedded image — the case
+    _has_significant_image exists for, distinct from the low-text/scanned-page
+    case _MIN_TEXT_CHARS_BEFORE_VISION_FALLBACK covers."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.drawString(72, 700, text)
+    diagram = Image.new("RGB", (100, 100), color="blue")
+    # 300x300pt on a 612x792pt letter page covers ~11.6% of the page area,
+    # comfortably over _MIN_IMAGE_AREA_RATIO (3%).
+    c.drawImage(ImageReader(diagram), 100, 300, width=300, height=300)
+    c.showPage()
     c.save()
     return buffer.getvalue()
 
@@ -88,6 +106,45 @@ async def test_extract_pdf_does_not_call_vision_when_page_has_enough_text():
     await extract_pdf(content, "notes.pdf", llm_provider=llm)
 
     assert llm.vision_calls == []
+
+
+async def test_extract_pdf_describes_significant_image_on_a_text_heavy_page():
+    """A page with plenty of text AND a large embedded diagram should still
+    get a vision call — just to describe the image, not replace the text —
+    otherwise the diagram's content is silently dropped from the RAG index."""
+    content = _make_pdf_with_text_and_image(
+        "This page has plenty of real text content already, well over the fifty character threshold."
+    )
+    llm = FakeLLMProvider(vision_response="A free-body diagram showing forces on a block.")
+
+    segments = await extract_pdf(content, "diagram.pdf", llm_provider=llm)
+
+    assert len(llm.vision_calls) == 1
+    assert len(segments) == 1
+    assert "plenty of real text content" in segments[0].text
+    assert "[Figure]: A free-body diagram" in segments[0].text
+
+
+async def test_extract_pdf_skips_appending_when_vision_reports_no_meaningful_image():
+    content = _make_pdf_with_text_and_image(
+        "This page has plenty of real text content already, well over the fifty character threshold."
+    )
+    llm = FakeLLMProvider(vision_response="NONE")
+
+    segments = await extract_pdf(content, "diagram.pdf", llm_provider=llm)
+
+    assert len(llm.vision_calls) == 1
+    assert "[Figure]" not in segments[0].text
+
+
+async def test_extract_pdf_skips_vision_entirely_without_llm_provider_even_with_image():
+    content = _make_pdf_with_text_and_image(
+        "This page has plenty of real text content already, well over the fifty character threshold."
+    )
+
+    segments = await extract_pdf(content, "diagram.pdf", llm_provider=None)
+
+    assert "[Figure]" not in segments[0].text
 
 
 def test_fix_pdf_text_repairs_ligature_placeholders_and_mac_roman_mismatches():

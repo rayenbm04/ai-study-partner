@@ -48,7 +48,7 @@ from app.services.exam_engine.exam_service import ExamService
 from app.services.flashcard_engine.flashcard_service import FlashcardService
 from app.services.knowledge_base.ingestion_task import ingest_document_task
 from app.services.llm.base import LLMProvider
-from app.services.llm.factory import build_llm_provider
+from app.services.llm.factory import build_llm_provider, build_simple_llm_provider
 from app.services.planning_engine.planning_service import PlanningService
 from app.services.progress_engine.progress_service import ProgressService
 from app.services.quiz_engine.quiz_service import QuizService
@@ -175,9 +175,19 @@ def get_usage_service(
 
 
 def get_llm_provider() -> LLMProvider:
-    """Overridden in tests with a FakeLLMProvider — no real network call ever
-    happens in the test suite. Same reasoning as get_ingestion_runner."""
+    """The main/"complex" model — tutoring answers, exam grading. Overridden
+    in tests with a FakeLLMProvider — no real network call ever happens in
+    the test suite. Same reasoning as get_ingestion_runner."""
     return build_llm_provider(settings)
+
+
+def get_simple_llm_provider() -> LLMProvider:
+    """A cheaper/faster model for mechanical tasks (concept tagging, document
+    classification, summaries, flashcard/quiz generation, RAG query
+    rewriting) — see llm/factory.py's build_simple_llm_provider for the full
+    task list and fallback behavior. Overridden the same way get_llm_provider
+    is in tests."""
+    return build_simple_llm_provider(settings)
 
 
 def get_embedding_provider() -> EmbeddingProvider:
@@ -249,6 +259,7 @@ def get_chat_service(
     embedding_repo: SqlAlchemyEmbeddingRepository = Depends(get_embedding_repo),
     embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
     llm_provider: LLMProvider = Depends(get_llm_provider),
+    simple_llm_provider: LLMProvider = Depends(get_simple_llm_provider),
     subject_service: SubjectService = Depends(get_subject_service),
     usage_service: UsageService = Depends(get_usage_service),
 ) -> ChatService:
@@ -260,6 +271,7 @@ def get_chat_service(
         embedding_repo=embedding_repo,
         embedding_provider=embedding_provider,
         llm_provider=llm_provider,
+        retrieval_llm_provider=simple_llm_provider,
         subject_service=subject_service,
         enable_hyde=settings.rag_enable_hyde,
         enable_multi_query=settings.rag_enable_multi_query,
@@ -277,7 +289,7 @@ def get_summary_service(
     document_service: DocumentService = Depends(get_document_service),
     chunk_repo: SqlAlchemyChunkRepository = Depends(get_chunk_repo),
     concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
-    llm_provider: LLMProvider = Depends(get_llm_provider),
+    llm_provider: LLMProvider = Depends(get_simple_llm_provider),
 ) -> SummaryService:
     return SummaryService(
         summary_repo=summary_repo,
@@ -296,7 +308,7 @@ def get_flashcard_service(
     subject_service: SubjectService = Depends(get_subject_service),
     chunk_repo: SqlAlchemyChunkRepository = Depends(get_chunk_repo),
     concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
-    llm_provider: LLMProvider = Depends(get_llm_provider),
+    llm_provider: LLMProvider = Depends(get_simple_llm_provider),
 ) -> FlashcardService:
     return FlashcardService(
         flashcard_repo=flashcard_repo,
@@ -321,6 +333,7 @@ def get_quiz_service(
     chunk_repo: SqlAlchemyChunkRepository = Depends(get_chunk_repo),
     concept_repo: SqlAlchemyConceptRepository = Depends(get_concept_repo),
     llm_provider: LLMProvider = Depends(get_llm_provider),
+    simple_llm_provider: LLMProvider = Depends(get_simple_llm_provider),
 ) -> QuizService:
     return QuizService(
         quiz_repo=quiz_repo,
@@ -330,7 +343,8 @@ def get_quiz_service(
         subject_service=subject_service,
         chunk_repo=chunk_repo,
         concept_repo=concept_repo,
-        llm_provider=llm_provider,
+        llm_provider=simple_llm_provider,  # quiz generation — mechanical, not reasoning-heavy
+        grading_llm_provider=llm_provider,  # open-ended grading — "exam correction" needs the main model
         max_source_chars=settings.quiz_source_max_chars,
         default_generate_count=settings.quiz_default_generate_count,
         max_generate_count=settings.quiz_max_generate_count,

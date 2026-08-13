@@ -63,6 +63,7 @@ async def client(test_engine, tmp_path):
         session_factory=test_sessionmaker,
         storage=test_storage,
         llm_provider=FakeLLMProvider(response='{"matched": [], "new_concepts": []}'),
+        simple_llm_provider=FakeLLMProvider(response='{"matched": [], "new_concepts": []}'),
         embedding_provider=FakeEmbeddingProvider(dimension=settings.embedding_dimension),
     )
 
@@ -136,6 +137,7 @@ async def pg_client(pg_engine, tmp_path):
         session_factory=test_sessionmaker,
         storage=test_storage,
         llm_provider=FakeLLMProvider(response='{"matched": [], "new_concepts": []}'),
+        simple_llm_provider=FakeLLMProvider(response='{"matched": [], "new_concepts": []}'),
         embedding_provider=FakeEmbeddingProvider(dimension=settings.embedding_dimension),
     )
 

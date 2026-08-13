@@ -4,17 +4,21 @@ every case here (no pgvector search involved).
 
 get_analytics_service's DI chain pulls in get_flashcard_service (analytics
 reuses FlashcardService.list_due for the due-card count), which in turn
-depends on get_llm_provider — FastAPI resolves the whole chain even for
-routes that never call generate(), so every test here needs the same
+depends on get_simple_llm_provider — FastAPI resolves the whole chain even
+for routes that never call generate(), so every test here needs the same
 FakeLLMProvider override the flashcard/quiz API tests use, or building the
-real Gemini provider blows up on a missing API key.
+real Gemini provider blows up on a missing API key. get_llm_provider is
+overridden too since it's cheap insurance against another route in this
+chain picking it up later.
 """
 from app.api.v1 import deps
 from tests.unit.fakes import FakeLLMProvider
 
 
 async def _register_and_login(client, email):
-    client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider()
+    fake = FakeLLMProvider()
+    client.app.dependency_overrides[deps.get_llm_provider] = lambda: fake
+    client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: fake
     pseudo = email.split("@")[0]
     await client.post(
         "/api/v1/auth/register",

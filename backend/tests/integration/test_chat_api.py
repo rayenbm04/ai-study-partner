@@ -58,11 +58,17 @@ async def _create_subject(client, headers, name="Physics"):
 
 
 def _override_chat_llm(client, *, responses):
-    """Chat's answer-generation LLM (and query expansion / rerank) go through
-    deps.get_llm_provider, separate from the fake wired into ingestion by the
+    """Chat's answer-generation LLM goes through deps.get_llm_provider;
+    condense/expand/rerank go through deps.get_simple_llm_provider (see
+    app/api/v1/deps.py) — both point at the same FakeLLMProvider instance so
+    its single ordered `responses` queue is consumed in actual call order
+    regardless of which one issues each call, matching every test below that
+    asserts on that order. Separate from the fake wired into ingestion by the
     pg_client fixture — override it per-test so each test controls exactly
     what the "model" says back."""
-    client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(responses=list(responses))
+    fake = FakeLLMProvider(responses=list(responses))
+    client.app.dependency_overrides[deps.get_llm_provider] = lambda: fake
+    client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: fake
     client.app.dependency_overrides[deps.get_embedding_provider] = lambda: FakeEmbeddingProvider(
         dimension=settings.embedding_dimension
     )

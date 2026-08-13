@@ -43,6 +43,7 @@ class QuizService:
         max_source_chars: int,
         default_generate_count: int,
         max_generate_count: int,
+        grading_llm_provider: LLMProvider | None = None,
     ):
         self._quizzes = quiz_repo
         self._attempts = attempt_repo
@@ -51,7 +52,14 @@ class QuizService:
         self._subjects = subject_service
         self._chunks = chunk_repo
         self._concepts = concept_repo
+        # Generation is mechanical (extract questions from source material) —
+        # cheaper model. Open-ended grading ("exam correction") needs real
+        # judgment, so it defaults to the same model as generation only when
+        # no separate grading model is given (keeps single-provider
+        # callers/tests working unchanged), but deps.py wires these to two
+        # different models in production.
         self._llm = llm_provider
+        self._grading_llm = grading_llm_provider or llm_provider
         self._max_source_chars = max_source_chars
         self._default_generate_count = default_generate_count
         self._max_generate_count = max_generate_count
@@ -143,7 +151,7 @@ class QuizService:
 
         is_correct = grade_objective(question, answer)
         if is_correct is None:
-            is_correct = await grade_open_ended(llm_provider=self._llm, question=question, answer=answer)
+            is_correct = await grade_open_ended(llm_provider=self._grading_llm, question=question, answer=answer)
 
         return await self._answers.upsert(
             quiz_attempt_id=attempt.id,

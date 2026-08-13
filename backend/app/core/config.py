@@ -42,6 +42,11 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_chat_model: str = "gemini-2.5-flash"
+    # Empty means "reuse gemini_chat_model for simple tasks too" — Gemini's
+    # lite tier naming has churned (see the groq_vision_model comment below
+    # for how fast these move), so no default is guessed here; set to
+    # something like "gemini-2.5-flash-lite" once you've confirmed it's live.
+    gemini_simple_chat_model: str = ""
     gemini_embedding_model: str = "gemini-embedding-001"
     # gemini-embedding-001 supports Matryoshka truncation up to 3072 dims; 768 is
     # Google's recommended quality/storage balance. Must match the pgvector
@@ -64,6 +69,12 @@ class Settings(BaseSettings):
     # whatever replaced it. Used only for complete_vision() (scanned PDF
     # pages, standalone images), never for text chat.
     groq_vision_model: str = "qwen/qwen3.6-27b"
+    # Smaller/cheaper text model for mechanical tasks (concept tagging,
+    # document classification, summaries, flashcard/quiz generation, RAG
+    # query rewriting) — see llm/factory.py's build_simple_llm_provider.
+    # Tutoring answers, exam-question grading, and other reasoning-heavy work
+    # keep using groq_chat_model above.
+    groq_simple_chat_model: str = "llama-3.1-8b-instant"
 
     openrouter_api_key: str = ""
     openrouter_chat_model: str = "google/gemini-2.0-flash-exp:free"
@@ -71,12 +82,19 @@ class Settings(BaseSettings):
     # OpenRouter models, including the default above, are already
     # multimodal) — only set this if that model stops supporting images.
     openrouter_vision_model: str = ""
+    # Empty means "reuse openrouter_chat_model for simple tasks too" — unlike
+    # Groq, OpenRouter's free-tier model roster changes too often to pick a
+    # safe default; set this once you've settled on one.
+    openrouter_simple_chat_model: str = ""
 
     openai_api_key: str = ""
     openai_chat_model: str = "gpt-4o-mini"
     # Empty means "reuse openai_chat_model for vision too" — gpt-4o-mini is
     # natively multimodal, so this only needs setting if that changes.
     openai_vision_model: str = ""
+    # Empty means "reuse openai_chat_model for simple tasks too" — gpt-4o-mini
+    # is already the cheap tier, so there's less to gain here than on Groq.
+    openai_simple_chat_model: str = ""
 
     anthropic_api_key: str = ""
 

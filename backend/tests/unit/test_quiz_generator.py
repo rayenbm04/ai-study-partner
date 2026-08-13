@@ -51,6 +51,41 @@ async def test_generate_quiz_questions_rejects_mcq_with_correct_answer_not_in_op
     assert drafts == []
 
 
+async def test_generate_quiz_questions_rejects_mcq_with_all_of_the_above_answer():
+    """"All of the above" is a poor auto-generated mcq answer — some client
+    UIs render mcq as single-select, so it's ambiguous whether the student
+    should pick the literal option or somehow indicate every option applies.
+    The system prompt discourages this; this is the code-level backstop for
+    when the model does it anyway."""
+    bad = _question(
+        options=["Mass of the object", "Distance from center", "Altitude", "All of the above"],
+        correct_answer="All of the above",
+    )
+    llm = FakeLLMProvider(response=json.dumps({"questions": [bad]}))
+
+    drafts = await generate_quiz_questions(
+        llm_provider=llm, document_filename="doc.pdf", source_text="text", concepts=[], count=1,
+        question_types=["mcq"], difficulty="easy",
+    )
+
+    assert drafts == []
+
+
+async def test_generate_quiz_questions_rejects_mcq_with_none_of_the_above_answer():
+    bad = _question(
+        options=["V = I * R", "V = I + R", "V = I / R", "None of the above"],
+        correct_answer="None of the above",
+    )
+    llm = FakeLLMProvider(response=json.dumps({"questions": [bad]}))
+
+    drafts = await generate_quiz_questions(
+        llm_provider=llm, document_filename="doc.pdf", source_text="text", concepts=[], count=1,
+        question_types=["mcq"], difficulty="easy",
+    )
+
+    assert drafts == []
+
+
 async def test_generate_quiz_questions_rejects_mcq_with_too_few_options():
     bad = _question(options=["only one"])
     llm = FakeLLMProvider(response=json.dumps({"questions": [bad]}))

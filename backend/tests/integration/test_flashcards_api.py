@@ -57,7 +57,12 @@ async def _upload_and_ingest(client, headers, subject_id):
 
 
 def _override_flashcard_llm(client, *, response):
-    client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(response=response)
+    # FlashcardService now runs on get_simple_llm_provider (mechanical
+    # extraction — see app/api/v1/deps.py) — get_llm_provider is overridden
+    # too since nothing here cares which one flashcard generation uses.
+    fake = FakeLLMProvider(response=response)
+    client.app.dependency_overrides[deps.get_llm_provider] = lambda: fake
+    client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: fake
 
 
 async def test_generate_and_list_flashcards(client):

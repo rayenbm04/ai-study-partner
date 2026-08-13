@@ -57,9 +57,13 @@ async def _upload_and_ingest(client, headers, subject_id):
 
 
 def _override_llm(client, *, response=None, responses=None):
-    client.app.dependency_overrides[deps.get_llm_provider] = lambda: FakeLLMProvider(
-        response=response, responses=responses
-    )
+    # QuizService splits generation (get_simple_llm_provider) from open-ended
+    # grading (get_llm_provider) — see app/api/v1/deps.py. Overriding both
+    # with the same fake keeps this helper usable for either path without
+    # every call site needing to know which one it's exercising.
+    fake = FakeLLMProvider(response=response, responses=responses)
+    client.app.dependency_overrides[deps.get_llm_provider] = lambda: fake
+    client.app.dependency_overrides[deps.get_simple_llm_provider] = lambda: fake
 
 
 async def test_generate_and_get_quiz(client):

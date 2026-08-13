@@ -34,7 +34,11 @@ _SYSTEM_PROMPT = (
     '"concept_name": "<name from the provided concept list this question tests, or null>"}, ...]}. '
     "Generate exactly __COUNT__ questions, using only these question types: __TYPES__. For 'mcq', "
     "options must contain 3-5 plausible choices with exactly one correct, and correct_answer must be "
-    "the exact text of one of those options. For 'true_false', options must be null and correct_answer "
+    "the exact text of one of those options. Never use 'All of the above', 'None of the above', or "
+    "any other option that refers to the other options collectively — write one specific, "
+    "self-contained correct option instead; if several factors are all correct, ask about one of "
+    "them specifically or combine them into a single specific option's text rather than bundling "
+    "them behind a referential choice. For 'true_false', options must be null and correct_answer "
     "must be exactly 'true' or 'false'. For 'short_answer', 'calculation', and 'fill_blank', options "
     "must be null and correct_answer is the expected answer written out in full. Target difficulty: "
     "__DIFFICULTY__, but vary individual questions around it. Only set concept_name to a name that "
@@ -47,6 +51,22 @@ def _format_concepts(concepts: list[Concept]) -> str:
     if not concepts:
         return "(No concepts have been tagged to this document yet.)"
     return "\n".join(f"- {c.name}" for c in concepts)
+
+
+# Referential options ("All of the above") are a poor fit for these
+# auto-generated, non-reviewed quizzes: some client UIs render mcq as
+# single-select, and the option text alone often isn't enough to tell a
+# student which of the *other* options it's referring to once options are
+# reordered/rephrased. The system prompt already discourages this; dropping
+# any question that slips through anyway (rather than silently persisting
+# it) is the same "broken question -> drop, don't persist" policy this
+# module already applies to malformed mcq/true_false questions.
+_REFERENTIAL_ANSWER_MARKERS = ("all of the above", "none of the above", "both a and b", "all the above")
+
+
+def _is_referential_answer(text: str) -> bool:
+    lowered = text.strip().lower()
+    return any(marker in lowered for marker in _REFERENTIAL_ANSWER_MARKERS)
 
 
 def _normalize_true_false(value: str) -> str | None:
@@ -66,6 +86,8 @@ def _validate_and_build(raw: dict, allowed_types: set[str], concepts_by_name: di
     if question_type not in QUESTION_TYPES or question_type not in allowed_types:
         return None
     if not question_text or not correct_answer:
+        return None
+    if question_type == "mcq" and _is_referential_answer(correct_answer):
         return None
 
     raw_options = raw.get("options")
