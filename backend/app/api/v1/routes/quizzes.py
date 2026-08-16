@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 
-from app.api.v1.deps import get_current_user, get_quiz_service
+from app.api.v1.deps import get_current_user, get_language, get_quiz_service
 from app.api.v1.schemas.quiz import (
     AnswerAckResponse,
     AnswerSubmitRequest,
@@ -36,6 +36,7 @@ async def generate_quiz(
     body: QuizGenerateRequest,
     current_user: User = Depends(get_current_user),
     service: QuizService = Depends(get_quiz_service),
+    language: str = Depends(get_language),
 ) -> QuizResponse:
     quiz = await service.generate(
         user_id=current_user.id,
@@ -45,6 +46,7 @@ async def generate_quiz(
         difficulty=body.difficulty,
         question_types=body.question_types,
         title=body.title,
+        language=language,
     )
     questions = await service.get_questions(quiz.id)
     return QuizResponse.from_entity(quiz, questions)
@@ -59,6 +61,15 @@ async def get_quiz(
     quiz = await service.get_owned(user_id=current_user.id, quiz_id=quiz_id)
     questions = await service.get_questions(quiz.id)
     return QuizResponse.from_entity(quiz, questions)
+
+
+@router.delete("/quizzes/{quiz_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_quiz(
+    quiz_id: str,
+    current_user: User = Depends(get_current_user),
+    service: QuizService = Depends(get_quiz_service),
+) -> None:
+    await service.delete(user_id=current_user.id, quiz_id=quiz_id)
 
 
 @router.post("/quizzes/{quiz_id}/attempts", response_model=AttemptResponse, status_code=status.HTTP_201_CREATED)

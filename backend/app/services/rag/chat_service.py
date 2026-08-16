@@ -21,6 +21,7 @@ from app.domain.repositories.embedding_repository import EmbeddingRepository
 from app.domain.repositories.message_repository import MessageRepository
 from app.services.embeddings.base import EmbeddingProvider
 from app.services.llm.base import LLMProvider
+from app.services.llm.language import language_instruction
 from app.services.rag.query_rewrite import condense_question, expand_query
 from app.services.rag.rerank import rerank
 from app.services.rag.retriever import RetrievedChunk, VectorRetriever
@@ -29,14 +30,38 @@ from app.services.usage_service import UsageService
 
 logger = logging.getLogger(__name__)
 
-_ANSWER_SYSTEM_PROMPT = (
-    "You are a study coach helping a student understand their course material. Answer the "
-    "student's question using ONLY the numbered excerpts below — if the excerpts don't contain "
-    "the answer, say so plainly rather than guessing from general knowledge. Reference excerpts "
-    "inline using their number in square brackets, e.g. [1], right after the claim they support. "
-    "Be clear and pedagogical: explain the reasoning, not just the conclusion. Keep the tone "
-    "encouraging but don't pad the answer with filler."
-)
+# Retrieval came back empty — no excerpts to hand the LLM at all, so this is
+# returned directly rather than generated, and needs its own translations
+# since there's no model call to instruct into the right language.
+_NO_RESULTS_SCOPED = {
+    "en": "I couldn't find anything in this document that addresses that question. Try rephrasing, or upload material that covers it.",
+    "fr": "Je n'ai rien trouvé dans ce document qui réponde à cette question. Essaie de reformuler, ou importe un document qui couvre ce sujet.",
+    "ar": "لم أجد في هذا المستند ما يجيب عن هذا السؤال. حاول إعادة صياغته، أو أضف مستندًا يغطي هذا الموضوع.",
+}
+_NO_RESULTS_UNSCOPED = {
+    "en": "I couldn't find anything in your uploaded material for this subject that addresses that question. Try rephrasing, or upload material that covers it.",
+    "fr": "Je n'ai rien trouvé dans tes documents importés pour cette matière qui réponde à cette question. Essaie de reformuler, ou importe un document qui couvre ce sujet.",
+    "ar": "لم أجد في المستندات التي أضفتها لهذه المادة ما يجيب عن هذا السؤال. حاول إعادة صياغته، أو أضف مستندًا يغطي هذا الموضوع.",
+}
+
+
+def _answer_system_prompt(language: str) -> str:
+    return (
+        "You are a study coach helping a student understand their course material. Answer the "
+        "student's question using ONLY the numbered excerpts below — if the excerpts don't contain "
+        "the answer, say so plainly rather than guessing from general knowledge. Reference excerpts "
+        "inline using their number in square brackets, e.g. [1], right after the claim they support. "
+        "Be clear and pedagogical: explain the reasoning, not just the conclusion. Keep the tone "
+        "encouraging but don't pad the answer with filler. Only include what actually answers the "
+        "question — an excerpt may contain unrelated glossary entries, abbreviation expansions, or "
+        "other stray material near the relevant part; leave that out rather than repeating it "
+        "verbatim.\n\n"
+        "Format the answer in Markdown: **bold** for key terms, bullet/numbered lists where they "
+        "aid clarity, short paragraphs. Write every mathematical expression, formula, or equation in "
+        "LaTeX — inline math wrapped in single $...$, and any standalone/display equation on its own "
+        "line wrapped in $$...$$ so it renders as a distinct block instead of being crammed into a "
+        f"sentence.\n\n{language_instruction(language)}"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +127,7 @@ class ChatService:
         conversation_id: str | None,
         question: str,
         document_id: str | None = None,
+        language: str = "en",
     ) -> ChatTurnResult:
         """`document_id`, when given, scopes retrieval to that one document —
         used when a student opens the coach from a specific upload rather
@@ -151,7 +177,7 @@ class ChatService:
             candidates = candidates[: self._final_context_chunks]
 
         answer_text, citations = await self._generate_answer(
-            question=standalone_question, candidates=candidates, document_id=document_id
+            question=standalone_question, candidates=candidates, document_id=document_id, language=language
         )
 
         user_message = await self._messages.create(
@@ -197,15 +223,16 @@ class ChatService:
         return await self._conversations.create(user_id=user_id, subject_id=subject_id, title=title)
 
     async def _generate_answer(
-        self, *, question: str, candidates: list[RetrievedChunk], document_id: str | None = None
+        self,
+        *,
+        question: str,
+        candidates: list[RetrievedChunk],
+        document_id: str | None = None,
+        language: str = "en",
     ) -> tuple[str, list[Citation]]:
         if not candidates:
-            scope = "this document" if document_id else "your uploaded material for this subject"
-            return (
-                f"I couldn't find anything in {scope} that addresses that question. Try "
-                "rephrasing, or upload material that covers it.",
-                [],
-            )
+            messages = _NO_RESULTS_SCOPED if document_id is not None else _NO_RESULTS_UNSCOPED
+            return messages.get(language, messages["en"]), []
 
         document_ids = {c.chunk.document_id for c in candidates}
         documents_by_id = {}
@@ -220,19 +247,28 @@ class ChatService:
         prompt = f"Excerpts:\n{excerpts}\n\nStudent's question: {question}"
 
         answer_text = await self._llm.complete(
-            system=_ANSWER_SYSTEM_PROMPT, prompt=prompt, temperature=0.3, max_output_tokens=1500
+            system=_answer_system_prompt(language), prompt=prompt, temperature=0.3, max_output_tokens=1500
         )
 
-        citations = [
-            Citation(
-                document_id=c.chunk.document_id,
-                document_filename=documents_by_id[c.chunk.document_id].original_filename
-                if c.chunk.document_id in documents_by_id
-                else "unknown",
-                chunk_id=c.chunk.id,
-                page=c.chunk.page,
-                section_title=c.chunk.section_title,
+        # One citation per document, not per matching chunk — several
+        # candidate chunks routinely come from the same document, and citing
+        # it once per chunk showed the same filename repeated in the footer
+        # instead of once.
+        seen_document_ids: set[str] = set()
+        citations: list[Citation] = []
+        for c in candidates:
+            if c.chunk.document_id in seen_document_ids:
+                continue
+            seen_document_ids.add(c.chunk.document_id)
+            citations.append(
+                Citation(
+                    document_id=c.chunk.document_id,
+                    document_filename=documents_by_id[c.chunk.document_id].original_filename
+                    if c.chunk.document_id in documents_by_id
+                    else "unknown",
+                    chunk_id=c.chunk.id,
+                    page=c.chunk.page,
+                    section_title=c.chunk.section_title,
+                )
             )
-            for c in candidates
-        ]
         return answer_text, citations

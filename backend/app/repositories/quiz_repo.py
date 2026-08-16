@@ -97,3 +97,10 @@ class SqlAlchemyQuizRepository(QuizRepository):
     async def get_question_by_id(self, question_id: str) -> QuizQuestion | None:
         model = await self._session.get(QuizQuestionModel, question_id)
         return _question_to_entity(model) if model else None
+
+    async def delete(self, quiz_id: str) -> None:
+        model = await self._session.get(QuizModel, quiz_id)
+        if model is None:
+            return
+        await self._session.delete(model)
+        await self._session.flush()

@@ -24,6 +24,7 @@ type AuthState = {
     school_id?: string | null;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -78,9 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // Re-fetches /auth/me — used after an in-app profile edit so the rest of
+  // the app (this context is the single source of truth for `user`) picks
+  // up the change without requiring a full re-login.
+  const refreshUser = useCallback(async () => {
+    setUser(await authApi.me());
+  }, []);
+
   const value = useMemo(
-    () => ({ user, isLoading, login, register, logout }),
-    [user, isLoading, login, register, logout]
+    () => ({ user, isLoading, login, register, logout, refreshUser }),
+    [user, isLoading, login, register, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

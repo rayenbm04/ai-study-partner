@@ -10,7 +10,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, View } from "react-native";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
@@ -101,57 +101,59 @@ export default function StudyPlanScreen() {
 
   return (
     <Screen>
-      <View className="mt-6 mb-6">
-        <Text className="text-3xl font-bold">{t("studyPlan.title")}</Text>
-        <Text className="mt-1 text-muted-foreground">{t("studyPlan.subtitle")}</Text>
-      </View>
+      <ScrollView contentContainerClassName="pt-2 pb-32" keyboardShouldPersistTaps="handled">
+        <View className="mt-6 mb-6">
+          <Text className="text-3xl font-bold">{t("studyPlan.title")}</Text>
+          <Text className="mt-1 text-muted-foreground">{t("studyPlan.subtitle")}</Text>
+        </View>
 
-      <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("common.subjects")}</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {subjects.map((subject) => {
-          const selected = selectedSubjectIds.includes(subject.id);
-          return (
-            <Pressable
-              key={subject.id}
-              onPress={() => toggleSubject(subject.id)}
-              className={cn(
-                "rounded-full px-5 py-3 shadow-sm shadow-black/5",
-                selected ? "bg-primary" : "bg-card"
-              )}
-            >
-              <Text className={selected ? "text-primary-foreground" : "text-foreground"}>{subject.name}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+        <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("common.subjects")}</Text>
+        <View className="flex-row flex-wrap gap-2">
+          {subjects.map((subject) => {
+            const selected = selectedSubjectIds.includes(subject.id);
+            return (
+              <Pressable
+                key={subject.id}
+                onPress={() => toggleSubject(subject.id)}
+                className={cn(
+                  "rounded-full px-5 py-3 shadow-sm shadow-black/5",
+                  selected ? "bg-primary" : "bg-card"
+                )}
+              >
+                <Text className={selected ? "text-primary-foreground" : "text-foreground"}>{subject.name}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("studyPlan.dailyStudyTime")}</Text>
-      <View className="flex-row flex-wrap gap-2">
-        {MINUTE_OPTIONS.map((minutes) => {
-          const selected = dailyMinutes === minutes;
-          return (
-            <Pressable
-              key={minutes}
-              onPress={() => setDailyMinutes(minutes)}
-              className={cn(
-                "rounded-full px-5 py-3 shadow-sm shadow-black/5",
-                selected ? "bg-primary" : "bg-card"
-              )}
-            >
-              <Text className={selected ? "text-primary-foreground" : "text-foreground"}>
-                {t("common.minutes", { minutes })}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+        <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("studyPlan.dailyStudyTime")}</Text>
+        <View className="flex-row flex-wrap gap-2">
+          {MINUTE_OPTIONS.map((minutes) => {
+            const selected = dailyMinutes === minutes;
+            return (
+              <Pressable
+                key={minutes}
+                onPress={() => setDailyMinutes(minutes)}
+                className={cn(
+                  "rounded-full px-5 py-3 shadow-sm shadow-black/5",
+                  selected ? "bg-primary" : "bg-card"
+                )}
+              >
+                <Text className={selected ? "text-primary-foreground" : "text-foreground"}>
+                  {t("common.minutes", { minutes })}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      {error ? <Text className="mt-6 text-sm text-destructive">{error}</Text> : null}
+        {error ? <Text className="mt-6 text-sm text-destructive">{error}</Text> : null}
 
-      <Button onPress={handleGenerate} disabled={selectedSubjectIds.length === 0 || isGenerating} className="mt-8 mb-28">
-        {isGenerating ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
-        <Text>{t("studyPlan.generatePlan")}</Text>
-      </Button>
+        <Button onPress={handleGenerate} disabled={selectedSubjectIds.length === 0 || isGenerating} className="mt-8">
+          {isGenerating ? <ActivityIndicator color={scheme.primaryForeground} /> : null}
+          <Text>{t("studyPlan.generatePlan")}</Text>
+        </Button>
+      </ScrollView>
     </Screen>
   );
 }

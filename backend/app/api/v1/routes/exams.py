@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.deps import get_current_user, get_exam_service, get_quiz_service
+from app.api.v1.deps import get_current_user, get_exam_service, get_language, get_quiz_service
 from app.api.v1.schemas.exam import ExamGenerateRequest
 from app.api.v1.schemas.quiz import AttemptResponse, QuizResponse
 from app.domain.entities.user import User
@@ -17,6 +17,7 @@ async def generate_exam(
     current_user: User = Depends(get_current_user),
     exam_service: ExamService = Depends(get_exam_service),
     quiz_service: QuizService = Depends(get_quiz_service),
+    language: str = Depends(get_language),
 ) -> QuizResponse:
     exam = await exam_service.generate(
         user_id=current_user.id,
@@ -28,6 +29,7 @@ async def generate_exam(
         duration_minutes=body.duration_minutes,
         style=body.style,
         title=body.title,
+        language=language,
     )
     questions = await quiz_service.get_questions(exam.id)
     return QuizResponse.from_entity(exam, questions)

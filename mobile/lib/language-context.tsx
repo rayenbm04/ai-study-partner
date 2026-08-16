@@ -10,7 +10,7 @@
  * RTL flip — callers should prompt the user to restart when
  * `restartRequired` comes back true.
  */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { I18nManager } from "react-native";
 
 import { storage } from "./storage";
@@ -18,7 +18,11 @@ import { translations, type Language } from "./i18n/translations";
 
 export type { Language };
 
-const LANGUAGE_PREFERENCE_KEY = "language_preference";
+// Exported so lib/api/client.ts can read the current language without a
+// React import cycle — every request attaches it as X-App-Language so the
+// backend can generate content (chat, quizzes, flashcards, summaries) in
+// whatever language the UI is set to.
+export const LANGUAGE_PREFERENCE_KEY = "language_preference";
 const RTL_LANGUAGES: Language[] = ["ar"];
 
 type TranslationVars = Record<string, string | number>;
@@ -51,22 +55,30 @@ function lookup(language: Language, key: string): unknown {
   return node;
 }
 
-function syncNativeDirection(language: Language): boolean {
+// I18nManager.isRTL is captured once at module load and never updates for
+// the rest of the session, even after forceRTL() — comparing against it on
+// every switch means a second switch (e.g. ar -> fr) sees the same stale
+// "true" it saw on the first switch and wrongly reports RTL changed again on
+// every subsequent switch, including between two LTR languages like fr <->
+// en. Track the RTL-ness we've actually applied this session instead.
+function syncNativeDirection(language: Language, appliedRTLRef: { current: boolean }): boolean {
   const wantsRTL = RTL_LANGUAGES.includes(language);
-  if (I18nManager.isRTL === wantsRTL) return false;
+  if (appliedRTLRef.current === wantsRTL) return false;
   I18nManager.allowRTL(wantsRTL);
   I18nManager.forceRTL(wantsRTL);
+  appliedRTLRef.current = wantsRTL;
   return true;
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("en");
+  const appliedRTLRef = useRef(I18nManager.isRTL);
 
   useEffect(() => {
     storage.getItem(LANGUAGE_PREFERENCE_KEY).then((stored) => {
       if (stored === "en" || stored === "fr" || stored === "ar") {
         setLanguageState(stored);
-        syncNativeDirection(stored);
+        syncNativeDirection(stored, appliedRTLRef);
       }
     });
   }, []);
@@ -91,7 +103,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setLanguage: (next: Language) => {
         setLanguageState(next);
         storage.setItem(LANGUAGE_PREFERENCE_KEY, next);
-        return syncNativeDirection(next);
+        return syncNativeDirection(next, appliedRTLRef);
       },
       t,
       tn,

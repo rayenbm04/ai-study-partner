@@ -9,7 +9,8 @@ Limit *enforcement* (check_*) is a config flag away from being live
 product and existing tests are unaffected — flip it on once free/premium
 tiers actually exist, no code change needed.
 """
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from app.core.exceptions import UsageLimitExceededError
 from app.domain.repositories.usage_event_repository import UsageEventRepository
@@ -18,6 +19,21 @@ from app.domain.repositories.usage_event_repository import UsageEventRepository
 # uploads have their own separate limit (see check_document_limit), and
 # concept tagging isn't user-facing so it isn't rate-limited at all.
 _AI_REQUEST_EVENT_TYPES = ["chat_message", "summary_generation", "flashcard_generation", "quiz_generation"]
+
+
+@dataclass(frozen=True, slots=True)
+class UsageSummary:
+    ai_requests_used_today: int
+    # The configured daily_ai_requests/daily_documents values, always
+    # present — a UI can show a "used X of Y" bar against them regardless of
+    # enforcement. `limits_enforced` says whether going over them actually
+    # raises UsageLimitExceededError (settings.usage_limits_enabled, off by
+    # default) or is just informational today.
+    ai_requests_daily_limit: int
+    documents_used_today: int
+    documents_daily_limit: int
+    limits_enforced: bool
+    resets_at: datetime
 
 
 class UsageService:
@@ -69,6 +85,23 @@ class UsageService:
         )
         if count >= self._daily_documents:
             raise UsageLimitExceededError("document uploads", self._daily_documents)
+
+    async def get_usage_summary(self, user_id: str) -> UsageSummary:
+        since = _today_start_utc()
+        ai_requests_used = await self._usage.count_since(
+            user_id=user_id, event_types=_AI_REQUEST_EVENT_TYPES, since=since
+        )
+        documents_used = await self._usage.count_since(
+            user_id=user_id, event_types=["document_uploaded"], since=since
+        )
+        return UsageSummary(
+            ai_requests_used_today=ai_requests_used,
+            ai_requests_daily_limit=self._daily_ai_requests,
+            documents_used_today=documents_used,
+            documents_daily_limit=self._daily_documents,
+            limits_enforced=self._limits_enabled,
+            resets_at=since + timedelta(days=1),
+        )
 
 
 def _today_start_utc() -> datetime:

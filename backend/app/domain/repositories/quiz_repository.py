@@ -37,3 +37,10 @@ class QuizRepository(ABC):
 
     @abstractmethod
     async def get_question_by_id(self, question_id: str) -> QuizQuestion | None: ...
+
+    @abstractmethod
+    async def delete(self, quiz_id: str) -> None:
+        """Cascades to quiz_questions, quiz_attempts, and student_answers at
+        the DB level (all FK'd with ondelete=CASCADE) — nothing else to
+        clean up here."""
+        ...

@@ -3,8 +3,7 @@ import type { TextStyle } from "react-native";
 
 import { Text } from "./text";
 
-/** Counts up from 0 to `value` on mount/change — same easeOutQuart timing
- * used by RingProgress and RadarChart's reveal, kept in sync visually. */
+/** Counts up from 0 to `value` on mount/change with an easeOutQuart timing. */
 export function AnimatedNumber({
   value,
   duration = 900,

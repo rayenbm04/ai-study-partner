@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { CheckCircleIcon, TimerIcon, XCircleIcon, XIcon } from "phosphor-react-native";
 
+import { MarkdownContent } from "../../components/markdown/MarkdownContent";
 import { Button } from "../../components/ui/button";
 import { IconButton } from "../../components/ui/IconButton";
 import { Screen } from "../../components/ui/Screen";
@@ -149,7 +150,18 @@ export default function QuizAttemptScreen() {
     );
   }
 
-  if (!currentQuestion) return null;
+  if (!currentQuestion) {
+    return (
+      <Screen>
+        <View className="flex-1 items-center justify-center gap-4 px-6">
+          <Text className="text-center text-muted-foreground">{t("quiz.noQuestions")}</Text>
+          <Button variant="secondary" onPress={() => router.back()}>
+            <Text>{t("common.goBack")}</Text>
+          </Button>
+        </View>
+      </Screen>
+    );
+  }
 
   const showsOptions = currentQuestion.options && currentQuestion.options.length > 0;
 
@@ -169,7 +181,9 @@ export default function QuizAttemptScreen() {
         <Text className="text-sm font-medium text-primary">
           {t("quiz.questionOf", { current: currentIndex + 1, total: quiz.questions.length })}
         </Text>
-        <Text className="mt-3 text-3xl font-bold">{currentQuestion.question}</Text>
+        <View className="mt-3">
+          <MarkdownContent content={currentQuestion.question} textColor={scheme.foreground} baseClassName="text-3xl font-bold" />
+        </View>
 
         {showsOptions ? (
           <View className="mt-8 gap-3">
@@ -184,7 +198,11 @@ export default function QuizAttemptScreen() {
                     selected ? "border-primary bg-card" : "border-transparent bg-card"
                   )}
                 >
-                  <Text className={cn(selected && "font-semibold")}>{option}</Text>
+                  <MarkdownContent
+                    content={option}
+                    textColor={scheme.foreground}
+                    baseClassName={cn("text-[15.5px] leading-6", selected && "font-semibold")}
+                  />
                 </Pressable>
               );
             })}
@@ -254,13 +272,19 @@ function ResultsView({ result, onDone }: { result: QuizAttemptResult; onDone: ()
               ) : (
                 <XCircleIcon size={18} color={scheme.destructive} weight="fill" />
               )}
-              <Text className="flex-1">{answer.question}</Text>
+              <View className="flex-1">
+                <MarkdownContent content={answer.question} textColor={scheme.foreground} />
+              </View>
             </View>
             <Text className="mt-2 text-xs text-muted-foreground">{t("quiz.yourAnswer", { answer: answer.student_answer ?? "—" })}</Text>
             {!answer.is_correct ? (
               <Text className="mt-2 text-xs text-muted-foreground">{t("quiz.correctAnswer", { answer: answer.correct_answer })}</Text>
             ) : null}
-            {answer.explanation ? <Text className="mt-2 text-xs text-muted-foreground italic">{answer.explanation}</Text> : null}
+            {answer.explanation ? (
+              <View className="mt-2">
+                <MarkdownContent content={answer.explanation} textColor={scheme.mutedForeground} baseClassName="text-xs italic text-muted-foreground" />
+              </View>
+            ) : null}
           </View>
         ))}
       </ScrollView>

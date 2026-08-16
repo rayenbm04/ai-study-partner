@@ -23,6 +23,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
+import { MarkdownContent } from "../../components/markdown/MarkdownContent";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { IconButton } from "../../components/ui/IconButton";
@@ -55,11 +56,15 @@ export default function SubjectDetailScreen() {
     other: t("documentType.other"),
   };
 
+  // key_concepts ("Notions clés") isn't offered here anymore — its output
+  // was near-indistinguishable from bullet ("Points clés"), just a
+  // differently-formatted list of the same material. Existing already-
+  // generated key_concepts summaries still display fine in
+  // materials/[subjectId].tsx, which keeps its own label for that type.
   const SUMMARY_TYPES: { type: SummaryType; label: string }[] = [
     { type: "short", label: t("summaryType.short") },
     { type: "detailed", label: t("summaryType.detailed") },
     { type: "bullet", label: t("summaryType.bullet") },
-    { type: "key_concepts", label: t("summaryType.keyConcepts") },
     { type: "formula_sheet", label: t("summaryType.formulaSheet") },
     { type: "definitions", label: t("summaryType.definitions") },
   ];
@@ -153,10 +158,13 @@ export default function SubjectDetailScreen() {
   }
 
   async function handleGenerateQuiz(documentId: string) {
+    setDocumentError(null);
     setGeneratingFor(documentId);
     try {
       const quiz = await quizzesApi.generateQuiz(id, { document_id: documentId });
       router.push(`/quiz/${quiz.id}`);
+    } catch (err) {
+      setDocumentError(err instanceof ApiError ? err.message : t("subjectDetail.quizGenerationError"));
     } finally {
       setGeneratingFor(null);
     }
@@ -164,11 +172,14 @@ export default function SubjectDetailScreen() {
 
   async function handleGenerateExam(durationMinutes: number) {
     if (!examSheetDocId) return;
+    setDocumentError(null);
     setIsGeneratingExam(true);
     try {
       const exam = await examsApi.generateExam(id, { document_id: examSheetDocId, duration_minutes: durationMinutes });
       setExamSheetDocId(null);
       router.push(`/quiz/${exam.id}`);
+    } catch (err) {
+      setDocumentError(err instanceof ApiError ? err.message : t("subjectDetail.examGenerationError"));
     } finally {
       setIsGeneratingExam(false);
     }
@@ -176,10 +187,13 @@ export default function SubjectDetailScreen() {
 
   async function handleGenerateSummary(type: SummaryType) {
     if (!summarySheetDocId) return;
+    setDocumentError(null);
     setIsSummaryLoading(true);
     try {
       const summary = await summariesApi.generateSummary(id, { document_id: summarySheetDocId, summary_type: type });
       setSummaryResult(summary);
+    } catch (err) {
+      setDocumentError(err instanceof ApiError ? err.message : t("subjectDetail.summaryGenerationError"));
     } finally {
       setIsSummaryLoading(false);
     }
@@ -342,7 +356,7 @@ export default function SubjectDetailScreen() {
                 {SUMMARY_TYPES.find((s) => s.type === summaryResult.summary_type)?.label ?? t("subjectDetail.summary")}
               </Text>
               <ScrollView className="max-h-90">
-                <Text className="text-muted-foreground">{summaryResult.content}</Text>
+                <MarkdownContent content={summaryResult.content} textColor={scheme.foreground} />
               </ScrollView>
               <Button variant="secondary" onPress={() => setSummaryResult(null)} className="mt-6">
                 <Text>{t("subjectDetail.chooseAnotherType")}</Text>

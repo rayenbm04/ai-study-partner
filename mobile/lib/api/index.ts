@@ -15,3 +15,4 @@ export * as analyticsApi from "./analytics";
 export * as chatApi from "./chat";
 export * as examsApi from "./exams";
 export * as summariesApi from "./summaries";
+export * as usageApi from "./usage";

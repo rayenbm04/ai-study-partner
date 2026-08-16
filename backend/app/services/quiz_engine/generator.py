@@ -22,6 +22,7 @@ import logging
 from app.domain.entities.concept import Concept
 from app.domain.entities.quiz import DIFFICULTIES, QUESTION_TYPES, QuizQuestionDraft
 from app.services.llm.base import LLMProvider
+from app.services.llm.language import language_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,9 @@ _SYSTEM_PROMPT = (
     "must be null and correct_answer is the expected answer written out in full. Target difficulty: "
     "__DIFFICULTY__, but vary individual questions around it. Only set concept_name to a name that "
     "appears verbatim in the provided concept list; use null if no concept in that list fits, or if "
-    "the list is empty."
+    "the list is empty. Write any mathematical expression, chemical equation, or formula appearing in "
+    "the question, an option, or the explanation in LaTeX — inline in single $...$, or on its own line "
+    "wrapped in $$...$$ for a standalone equation — rather than as plain unformatted text. __LANGUAGE__"
 )
 
 
@@ -142,6 +145,7 @@ async def generate_quiz_questions(
     count: int,
     question_types: list[str],
     difficulty: str,
+    language: str = "en",
 ) -> list[QuizQuestionDraft]:
     allowed_types = set(question_types) & set(QUESTION_TYPES)
     if not allowed_types:
@@ -151,6 +155,7 @@ async def generate_quiz_questions(
         _SYSTEM_PROMPT.replace("__COUNT__", str(count))
         .replace("__TYPES__", ", ".join(sorted(allowed_types)))
         .replace("__DIFFICULTY__", difficulty)
+        .replace("__LANGUAGE__", language_instruction(language))
     )
     concepts_by_name = {c.name: c for c in concepts}
     prompt = (

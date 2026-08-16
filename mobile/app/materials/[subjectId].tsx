@@ -5,12 +5,13 @@
  * is generated on this screen; it's purely a browsing view for material that
  * would otherwise be lost once its generation sheet/screen was closed.
  */
-import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, CaretUpIcon } from "phosphor-react-native";
+import { CaretDownIcon, CaretLeftIcon, CaretRightIcon, CaretUpIcon, TrashIcon } from "phosphor-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
+import { MarkdownContent } from "../../components/markdown/MarkdownContent";
 import { Card, CardContent } from "../../components/ui/card";
 import { IconButton } from "../../components/ui/IconButton";
 import { Screen } from "../../components/ui/Screen";
@@ -18,6 +19,7 @@ import { Tag } from "../../components/ui/Tag";
 import { Text } from "../../components/ui/text";
 import { documentsApi, quizzesApi, subjectsApi, summariesApi } from "../../lib/api";
 import type { Document, QuizListItem, Subject, Summary } from "../../lib/api";
+import { confirmDestructiveAction } from "../../lib/confirm";
 import { localeTags } from "../../lib/i18n/translations";
 import { useLanguage } from "../../lib/language-context";
 import { THEME } from "../../lib/theme";
@@ -46,6 +48,7 @@ export default function SavedMaterialsScreen() {
   const [documentSummaries, setDocumentSummaries] = useState<DocumentSummaries[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedSummaryId, setExpandedSummaryId] = useState<string | null>(null);
+  const [deletingQuizId, setDeletingQuizId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,6 +80,23 @@ export default function SavedMaterialsScreen() {
     }, [subjectId])
   );
 
+  async function handleDeleteQuiz(quiz: QuizListItem) {
+    const confirmed = await confirmDestructiveAction(
+      t("materials.deleteQuizTitle"),
+      t(quiz.kind === "exam" ? "materials.deleteExamBody" : "materials.deleteQuizBody", { title: quiz.title }),
+      t("common.delete"),
+      t("common.cancel")
+    );
+    if (!confirmed) return;
+    setDeletingQuizId(quiz.id);
+    try {
+      await quizzesApi.deleteQuiz(quiz.id);
+      setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
+    } finally {
+      setDeletingQuizId(null);
+    }
+  }
+
   if (isLoading || !subject) {
     return (
       <Screen>
@@ -105,8 +125,8 @@ export default function SavedMaterialsScreen() {
           </Card>
         ) : (
           quizzes.map((quiz) => (
-            <Pressable key={quiz.id} onPress={() => router.push(`/quiz/${quiz.id}`)} className="mb-3">
-              <Card>
+            <Card key={quiz.id} className="mb-3">
+              <Pressable onPress={() => router.push(`/quiz/${quiz.id}`)}>
                 <CardContent className="flex-row items-center gap-2">
                   <View className="flex-1">
                     <Text>{quiz.title}</Text>
@@ -118,8 +138,18 @@ export default function SavedMaterialsScreen() {
                   <Tag label={quiz.kind === "exam" ? t("subjectDetail.exam") : t("subjectDetail.quiz")} tone={quiz.kind === "exam" ? "accent" : "neutral"} />
                   <CaretRightIcon size={16} color={scheme.mutedForeground} />
                 </CardContent>
-              </Card>
-            </Pressable>
+              </Pressable>
+              <View className="flex-row justify-end px-6 pb-4">
+                {deletingQuizId === quiz.id ? (
+                  <ActivityIndicator color={scheme.destructive} size="small" />
+                ) : (
+                  <Pressable onPress={() => handleDeleteQuiz(quiz)} className="flex-row items-center gap-1.5 py-1">
+                    <TrashIcon size={14} color={scheme.destructive} />
+                    <Text className="text-xs text-destructive">{t("common.delete")}</Text>
+                  </Pressable>
+                )}
+              </View>
+            </Card>
           ))
         )}
 
@@ -149,7 +179,9 @@ export default function SavedMaterialsScreen() {
                       )}
                     </Pressable>
                     {expandedSummaryId === summary.id ? (
-                      <Text className="pb-2 text-muted-foreground">{summary.content}</Text>
+                      <View className="pb-2">
+                        <MarkdownContent content={summary.content} textColor={scheme.foreground} />
+                      </View>
                     ) : null}
                   </View>
                 ))}

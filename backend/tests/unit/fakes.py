@@ -100,6 +100,14 @@ class FakeUserRepository(UserRepository):
         self._by_id[user_id] = updated
         return updated
 
+    async def update_profile(self, user_id, *, firstname, lastname):
+        user = self._by_id.get(user_id)
+        if user is None:
+            raise UserNotFoundError(user_id)
+        updated = replace(user, firstname=firstname, lastname=lastname)
+        self._by_id[user_id] = updated
+        return updated
+
     async def update_login_state(self, user_id, *, failed_login_attempts, locked_until, last_login_at):
         user = self._by_id.get(user_id)
         if user is None:
@@ -904,6 +912,11 @@ class FakeQuizRepository(QuizRepository):
 
     async def get_question_by_id(self, question_id):
         return self._questions_by_id.get(question_id)
+
+    async def delete(self, quiz_id):
+        self._by_id.pop(quiz_id, None)
+        for question_id in [qid for qid, q in self._questions_by_id.items() if q.quiz_id == quiz_id]:
+            del self._questions_by_id[question_id]
 
 
 class FakeQuizAttemptRepository(QuizAttemptRepository):

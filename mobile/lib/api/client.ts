@@ -16,10 +16,19 @@
  *   that into a JS Error with a `.status` so callers can branch on it
  *   (e.g. 404 -> "not found", 409 -> "already exists") without re-parsing.
  */
+import { LANGUAGE_PREFERENCE_KEY } from "../language-context";
 import { storage } from "../storage";
 
 const ACCESS_TOKEN_KEY = "auth_access_token";
 const REFRESH_TOKEN_KEY = "auth_refresh_token";
+
+/** X-App-Language tells the backend which language to generate content in
+ * (chat answers, quizzes, flashcards, summaries) — see
+ * backend/app/services/llm/language.py. Falls back to "en" the same way the
+ * backend does if nothing's been persisted yet. */
+async function getLanguageHeader(): Promise<string> {
+  return (await storage.getItem(LANGUAGE_PREFERENCE_KEY)) ?? "en";
+}
 
 function getApiBaseUrl(): string {
   const url = process.env.EXPO_PUBLIC_API_URL;
@@ -126,7 +135,10 @@ async function refreshAccessToken(): Promise<string | null> {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, auth = true, _isRetry = false } = options;
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-App-Language": await getLanguageHeader(),
+  };
   if (auth) {
     const token = await getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -160,7 +172,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
  * own multipart boundary; everything else (auth header, 401-refresh-retry,
  * error parsing) mirrors apiRequest exactly. */
 export async function apiUpload<T>(path: string, formData: FormData, _isRetry = false): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { "X-App-Language": await getLanguageHeader() };
   const token = await getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 

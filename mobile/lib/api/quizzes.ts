@@ -22,6 +22,12 @@ export async function getQuiz(quizId: string): Promise<Quiz> {
   return apiRequest<Quiz>(`/api/v1/quizzes/${quizId}`);
 }
 
+/** Works for both quizzes and exams — an exam is just a Quiz row with
+ * kind="exam" (see backend/app/services/exam_engine/exam_service.py). */
+export async function deleteQuiz(quizId: string): Promise<void> {
+  return apiRequest<void>(`/api/v1/quizzes/${quizId}`, { method: "DELETE" });
+}
+
 export async function startAttempt(quizId: string): Promise<QuizAttempt> {
   return apiRequest<QuizAttempt>(`/api/v1/quizzes/${quizId}/attempts`, { method: "POST" });
 }

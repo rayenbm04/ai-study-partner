@@ -14,6 +14,7 @@ import logging
 from app.domain.entities.concept import Concept
 from app.domain.entities.flashcard import DIFFICULTIES, FlashcardDraft
 from app.services.llm.base import LLMProvider
+from app.services.llm.language import language_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ _SYSTEM_PROMPT = (
     '"tags": ["<short topic tag>", ...]}, ...]}. Generate exactly __COUNT__ flashcards. Each '
     "question should test one specific, checkable fact or idea — not a vague 'explain everything' "
     "prompt. Vary difficulty across the set. Only set concept_name to a name that appears verbatim "
-    "in the provided concept list; use null if no concept in that list fits, or if the list is empty."
+    "in the provided concept list; use null if no concept in that list fits, or if the list is empty. "
+    "Write any mathematical expression or formula appearing in a question or answer in LaTeX — inline "
+    "in single $...$, or on its own line wrapped in $$...$$ for a standalone equation. __LANGUAGE__"
 )
 
 
@@ -36,9 +39,15 @@ def _format_concepts(concepts: list[Concept]) -> str:
 
 
 async def generate_flashcards(
-    *, llm_provider: LLMProvider, document_filename: str, source_text: str, concepts: list[Concept], count: int
+    *,
+    llm_provider: LLMProvider,
+    document_filename: str,
+    source_text: str,
+    concepts: list[Concept],
+    count: int,
+    language: str = "en",
 ) -> list[FlashcardDraft]:
-    system = _SYSTEM_PROMPT.replace("__COUNT__", str(count))
+    system = _SYSTEM_PROMPT.replace("__COUNT__", str(count)).replace("__LANGUAGE__", language_instruction(language))
     concepts_by_name = {c.name: c for c in concepts}
     prompt = (
         f"Document: {document_filename}\n\n"

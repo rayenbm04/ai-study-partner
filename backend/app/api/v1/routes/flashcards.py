@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.deps import get_current_user, get_flashcard_service
+from app.api.v1.deps import get_current_user, get_flashcard_service, get_language
 from app.api.v1.schemas.flashcard import (
     FlashcardGenerateRequest,
     FlashcardResponse,
@@ -19,9 +19,14 @@ async def generate_flashcards(
     body: FlashcardGenerateRequest,
     current_user: User = Depends(get_current_user),
     service: FlashcardService = Depends(get_flashcard_service),
+    language: str = Depends(get_language),
 ) -> list[FlashcardResponse]:
     flashcards = await service.generate(
-        user_id=current_user.id, subject_id=subject_id, document_id=body.document_id, count=body.count
+        user_id=current_user.id,
+        subject_id=subject_id,
+        document_id=body.document_id,
+        count=body.count,
+        language=language,
     )
     return [FlashcardResponse.from_entity(card) for card in flashcards]
 

@@ -21,3 +21,10 @@ export async function setClasse(input: {
     body: { academic_level_id: input.academicLevelId, section_id: input.sectionId },
   });
 }
+
+export async function updateProfile(input: { firstname: string; lastname: string }): Promise<User> {
+  return apiRequest<User>("/api/v1/account/profile", {
+    method: "PATCH",
+    body: { firstname: input.firstname, lastname: input.lastname },
+  });
+}

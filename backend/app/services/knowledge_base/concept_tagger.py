@@ -26,10 +26,14 @@ _SYSTEM_PROMPT = (
     '{"matched": [{"name": "<existing concept name>", "relevance": <0-1 float>}], '
     '"new_concepts": [{"name": "<short concept name>", "description": "<one sentence>", '
     '"prerequisites": ["<existing or newly proposed concept name>"]}]}. '
-    "Only propose a new concept if the chunk is clearly about something distinct from every "
-    "existing concept. Keep concept names short (2-5 words) and reuse the student's own "
-    "terminology from the material where possible. Return {\"matched\": [], \"new_concepts\": []} "
-    "if the chunk doesn't correspond to any teachable concept (e.g. a cover page)."
+    "Only propose a new concept if the chunk is clearly about something a student would need to "
+    "study and understand, and it's distinct from every existing concept. Never propose a concept "
+    "for a document's own structure or layout — e.g. 'Exam Format', 'Metadata Table', 'Academic "
+    "Header', 'Question Numbering', 'Cover Page', 'Table of Contents' are NOT concepts, no matter "
+    "how prominent they are in the chunk; skip them entirely rather than naming the document "
+    "artifact itself. Keep concept names short (2-5 words) and reuse the student's own terminology "
+    "from the material where possible. Return {\"matched\": [], \"new_concepts\": []} if the chunk "
+    "is header/footer/metadata/formatting boilerplate rather than actual subject-matter content."
 )
 
 # Same task as _SYSTEM_PROMPT, batched: tags several chunks in one call
@@ -47,11 +51,15 @@ _BATCH_SYSTEM_PROMPT = (
     '"new_concepts": [{"name": "<short concept name>", "description": "<one sentence>", '
     '"prerequisites": ["<existing or newly proposed concept name>"]}]}, ...]}. '
     "Include exactly one entry per chunk, using its given index. Only propose a new concept if a "
-    "chunk is clearly about something distinct from every existing concept AND from any new "
-    "concept you're proposing for another chunk in this same batch — reuse the same name across "
-    "chunks instead of proposing near-duplicates. Keep concept names short (2-5 words) and reuse "
-    "the student's own terminology. Use {\"matched\": [], \"new_concepts\": []} for a chunk that "
-    "doesn't correspond to any teachable concept (e.g. a cover page)."
+    "chunk is clearly about something a student would need to study and understand, distinct from "
+    "every existing concept AND from any new concept you're proposing for another chunk in this "
+    "same batch — reuse the same name across chunks instead of proposing near-duplicates. Never "
+    "propose a concept for a document's own structure or layout — e.g. 'Exam Format', 'Metadata "
+    "Table', 'Academic Header', 'Question Numbering', 'Cover Page', 'Table of Contents' are NOT "
+    "concepts, no matter how prominent they are in the chunk; skip them entirely rather than naming "
+    "the document artifact itself. Keep concept names short (2-5 words) and reuse the student's own "
+    "terminology. Use {\"matched\": [], \"new_concepts\": []} for a chunk that's header/footer/"
+    "metadata/formatting boilerplate rather than actual subject-matter content."
 )
 
 

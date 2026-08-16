@@ -11,6 +11,7 @@ from app.core.exceptions import (
     DocumentNotFoundError,
     QuizAttemptAlreadySubmittedError,
     QuizAttemptNotFoundError,
+    QuizGenerationFailedError,
     QuizNotFoundError,
     QuizQuestionNotFoundError,
 )
@@ -77,6 +78,7 @@ class QuizService:
         duration_minutes: int | None = None,
         style: str | None = None,
         title: str | None = None,
+        language: str = "en",
     ) -> Quiz:
         document = await self._documents.get_owned(user_id, document_id)
         if document.subject_id != subject_id:
@@ -95,7 +97,10 @@ class QuizService:
             count=resolved_count,
             question_types=types,
             difficulty=difficulty,
+            language=language,
         )
+        if not drafts:
+            raise QuizGenerationFailedError()
 
         used_concept_ids = {d.concept_id for d in drafts if d.concept_id}
         topics = [c.name for c in concepts if c.id in used_concept_ids]
@@ -110,8 +115,7 @@ class QuizService:
             duration_minutes=duration_minutes,
             style=style,
         )
-        if drafts:
-            await self._quizzes.bulk_create_questions(quiz_id=quiz.id, drafts=drafts)
+        await self._quizzes.bulk_create_questions(quiz_id=quiz.id, drafts=drafts)
         return quiz
 
     async def get_owned(self, *, user_id: str, quiz_id: str) -> Quiz:
@@ -123,6 +127,10 @@ class QuizService:
 
     async def get_questions(self, quiz_id: str) -> list[QuizQuestion]:
         return await self._quizzes.list_questions(quiz_id)
+
+    async def delete(self, *, user_id: str, quiz_id: str) -> None:
+        await self.get_owned(user_id=user_id, quiz_id=quiz_id)  # 404s if not owned
+        await self._quizzes.delete(quiz_id)
 
     async def list_for_subject(self, *, user_id: str, subject_id: str) -> list[Quiz]:
         await self._subjects.get_owned(user_id, subject_id)  # 404s if not owned

@@ -52,11 +52,20 @@ class Settings(BaseSettings):
     llm_fallback_provider: str = ""       # "" | gemini | groq | cerebras | openrouter | openai
 
     gemini_api_key: str = ""
-    gemini_chat_model: str = "gemini-2.5-flash"
+    # gemini-2.5-flash was pulled from new-user access ahead of its official
+    # deprecation date (confirmed via a live 404 "no longer available to new
+    # users" — Google has done this before, see the groq_vision_model
+    # comment below for a similar case on a different provider).
+    # gemini-flash-latest is Google's own always-current alias for the
+    # recommended flash model, which sidesteps this specific failure mode
+    # (an alias can't itself become "no longer available") — if it ever
+    # starts erroring, check https://ai.google.dev/gemini-api/docs/models
+    # for whatever replaced it.
+    gemini_chat_model: str = "gemini-flash-latest"
     # Empty means "reuse gemini_chat_model for simple tasks too" — Gemini's
     # lite tier naming has churned (see the groq_vision_model comment below
     # for how fast these move), so no default is guessed here; set to
-    # something like "gemini-2.5-flash-lite" once you've confirmed it's live.
+    # something like "gemini-flash-lite-latest" once you've confirmed it's live.
     gemini_simple_chat_model: str = ""
     gemini_embedding_model: str = "gemini-embedding-001"
     # gemini-embedding-001 supports Matryoshka truncation up to 3072 dims; 768 is

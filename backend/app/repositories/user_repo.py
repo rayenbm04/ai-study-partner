@@ -87,6 +87,16 @@ class SqlAlchemyUserRepository(UserRepository):
         await self._session.refresh(model)
         return _to_entity(model)
 
+    async def update_profile(self, user_id: str, *, firstname: str, lastname: str) -> User:
+        model = await self._session.get(UserModel, user_id)
+        if model is None:
+            raise UserNotFoundError(user_id)
+        model.firstname = firstname
+        model.lastname = lastname
+        await self._session.flush()
+        await self._session.refresh(model)
+        return _to_entity(model)
+
     async def update_login_state(
         self,
         user_id: str,

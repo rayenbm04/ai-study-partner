@@ -4,7 +4,7 @@ Free-tier quotas are easy to blow through during ingestion, which fires one
 LLM call per parent chunk (concept tagging) plus one per low-text PDF page
 (vision fallback) plus one classification call — a single multi-page scanned
 document can trigger 20+ calls in quick succession. Gemini's free tier for
-gemini-2.5-flash, for example, allows only 5 requests/minute; Groq's varies
+gemini-flash-latest, for example, allows only 5 requests/minute; Groq's varies
 by model but is similarly tight on some models.
 
 These rate-limit errors are usually transient and the provider tells us

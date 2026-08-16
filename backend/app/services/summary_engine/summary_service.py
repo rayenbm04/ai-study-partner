@@ -31,6 +31,7 @@ from app.domain.repositories.summary_repository import SummaryRepository
 from app.services.document_service import DocumentService
 from app.services.knowledge_base.document_source import build_document_source_text
 from app.services.llm.base import LLMProvider
+from app.services.llm.language import language_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +58,11 @@ _SYSTEM_PROMPTS: dict[str, str] = {
     ),
     "formula_sheet": (
         "Extract every formula, equation, or key quantitative relationship stated in the document "
-        "below into an exam-ready formula sheet. For each: the formula itself (as written, or in "
-        "standard notation) and a one-line note on what it's for and what each symbol means, "
-        "formatted as '**formula** — explanation'. If the document contains no formulas, say so "
-        "plainly instead of inventing any."
+        "below into an exam-ready formula sheet. For each: the formula itself and a one-line note on "
+        "what it's for and what each symbol means, formatted as '**formula** — explanation'. Write "
+        "every formula in LaTeX, wrapped in $$...$$ so it renders as its own block instead of being "
+        "crammed into the explanation line. If the document contains no formulas, say so plainly "
+        "instead of inventing any."
     ),
     "definitions": (
         "Extract every term the document below explicitly defines, or that a student would need to "
@@ -98,7 +100,9 @@ class SummaryService:
         self._llm = llm_provider
         self._max_source_chars = max_source_chars
 
-    async def generate(self, *, user_id: str, subject_id: str, document_id: str, summary_type: str) -> Summary:
+    async def generate(
+        self, *, user_id: str, subject_id: str, document_id: str, summary_type: str, language: str = "en"
+    ) -> Summary:
         self._validate_type(summary_type)
         document = await self._documents.get_owned(user_id, document_id)
         if document.subject_id != subject_id:
@@ -118,8 +122,9 @@ class SummaryService:
             extra_context = self._format_concepts(concepts)
 
         prompt = self._build_prompt(document=document, source_text=source_text, extra_context=extra_context)
+        system = f"{_SYSTEM_PROMPTS[summary_type]}\n\n{language_instruction(language)}"
         content = await self._llm.complete(
-            system=_SYSTEM_PROMPTS[summary_type],
+            system=system,
             prompt=prompt,
             temperature=0.2,
             max_output_tokens=_MAX_OUTPUT_TOKENS[summary_type],

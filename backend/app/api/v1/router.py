@@ -15,6 +15,7 @@ from app.api.v1.routes.study_plans import router as study_plans_router
 from app.api.v1.routes.subject_packs import router as subject_packs_router
 from app.api.v1.routes.subjects import router as subjects_router
 from app.api.v1.routes.summaries import router as summaries_router
+from app.api.v1.routes.usage import router as usage_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -32,3 +33,4 @@ api_router.include_router(progress_router)
 api_router.include_router(study_plans_router)
 api_router.include_router(analytics_router)
 api_router.include_router(account_router)
+api_router.include_router(usage_router)

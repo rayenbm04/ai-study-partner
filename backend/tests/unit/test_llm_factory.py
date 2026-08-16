@@ -25,19 +25,19 @@ def test_build_simple_llm_provider_falls_back_to_main_model_when_unset():
     """Gemini/OpenRouter/OpenAI default their *_simple_chat_model to "" —
     unset means "reuse the main chat model", not "crash" or "use garbage"."""
     provider = build_simple_llm_provider(
-        _settings(llm_provider="gemini", gemini_chat_model="gemini-2.5-flash", gemini_simple_chat_model="")
+        _settings(llm_provider="gemini", gemini_chat_model="gemini-flash-latest", gemini_simple_chat_model="")
     )
-    assert provider.model_name == "gemini-2.5-flash"
+    assert provider.model_name == "gemini-flash-latest"
 
 
 def test_build_simple_llm_provider_uses_configured_gemini_simple_model():
     provider = build_simple_llm_provider(
         _settings(
-            llm_provider="gemini", gemini_chat_model="gemini-2.5-flash",
-            gemini_simple_chat_model="gemini-2.5-flash-lite",
+            llm_provider="gemini", gemini_chat_model="gemini-flash-latest",
+            gemini_simple_chat_model="gemini-flash-lite-latest",
         )
     )
-    assert provider.model_name == "gemini-2.5-flash-lite"
+    assert provider.model_name == "gemini-flash-lite-latest"
 
 
 def test_build_llm_provider_rejects_unknown_provider():

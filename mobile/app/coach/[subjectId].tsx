@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 
+import { MarkdownContent } from "../../components/markdown/MarkdownContent";
 import { IconButton } from "../../components/ui/IconButton";
 import { Screen } from "../../components/ui/Screen";
 import { Text } from "../../components/ui/text";
@@ -173,7 +174,11 @@ export default function CoachScreen() {
                       mine ? "rounded-br-lg bg-primary" : "rounded-bl-lg bg-card shadow-sm shadow-black/5"
                     )}
                   >
-                    <Text className={cn("text-[15.5px] leading-6", mine && "text-primary-foreground")}>{item.content}</Text>
+                    <MarkdownContent
+                      content={item.content}
+                      mine={mine}
+                      textColor={mine ? scheme.primaryForeground : scheme.foreground}
+                    />
                   </View>
                   {item.citations.length > 0 ? (
                     <View className="mt-2 flex-row flex-wrap gap-1">

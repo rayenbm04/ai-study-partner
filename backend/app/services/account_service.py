@@ -72,3 +72,6 @@ class AccountService:
             # A section without its level doesn't mean anything on its own.
             raise AcademicLevelNotFoundError(academic_level_id or "")
         return await self._users.set_classe(user_id, academic_level_id=academic_level_id, section_id=section_id)
+
+    async def update_profile(self, user_id: str, *, firstname: str, lastname: str) -> User:
+        return await self._users.update_profile(user_id, firstname=firstname, lastname=lastname)

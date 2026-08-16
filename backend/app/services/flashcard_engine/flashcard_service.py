@@ -61,7 +61,13 @@ class FlashcardService:
         self._max_generate_count = max_generate_count
 
     async def generate(
-        self, *, user_id: str, subject_id: str, document_id: str, count: int | None = None
+        self,
+        *,
+        user_id: str,
+        subject_id: str,
+        document_id: str,
+        count: int | None = None,
+        language: str = "en",
     ) -> list[Flashcard]:
         document = await self._documents.get_owned(user_id, document_id)
         if document.subject_id != subject_id:
@@ -77,6 +83,7 @@ class FlashcardService:
             source_text=source_text,
             concepts=concepts,
             count=resolved_count,
+            language=language,
         )
         if not drafts:
             return []

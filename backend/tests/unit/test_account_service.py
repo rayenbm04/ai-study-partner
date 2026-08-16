@@ -70,3 +70,22 @@ async def test_reset_deletes_archived_subjects_too():
     await service.reset("user-1")
 
     assert await subject_repo.list_by_user("user-1", include_archived=True) == []
+
+
+async def test_update_profile_changes_firstname_and_lastname():
+    user_repo = FakeUserRepository()
+    service = AccountService(
+        subject_repo=FakeSubjectRepository(),
+        document_repo=FakeDocumentRepository(),
+        study_plan_repo=FakeStudyPlanRepository(),
+        storage=FakeStorage(),
+        user_repo=user_repo,
+        curriculum_repo=FakeCurriculumRepository(),
+    )
+    user = await user_repo.create(email="a@b.com", firstname="Old", lastname="Name", hashed_password="x")
+
+    updated = await service.update_profile(user.id, firstname="New", lastname="Person")
+
+    assert updated.firstname == "New"
+    assert updated.lastname == "Person"
+    assert (await user_repo.get_by_id(user.id)).firstname == "New"

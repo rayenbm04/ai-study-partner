@@ -32,6 +32,9 @@ class UserRepository(ABC):
     async def set_classe(self, user_id: str, *, academic_level_id: str | None, section_id: str | None) -> User: ...
 
     @abstractmethod
+    async def update_profile(self, user_id: str, *, firstname: str, lastname: str) -> User: ...
+
+    @abstractmethod
     async def update_login_state(
         self,
         user_id: str,

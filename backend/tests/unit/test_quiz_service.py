@@ -269,3 +269,32 @@ async def test_generate_respects_max_generate_count_cap():
     await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id, count=50)
 
     assert "1" in llm.calls[0]["system"]
+
+
+async def test_delete_removes_quiz_and_its_questions():
+    llm = FakeLLMProvider(response=_TWO_MCQ_RESPONSE)
+    service, subject_repo, document_repo, chunk_repo, quiz_repo, *_ = await _build(llm=llm)
+    subject, document = await _seed_ready_document(subject_repo, document_repo, chunk_repo)
+    quiz = await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id)
+
+    await service.delete(user_id="user-1", quiz_id=quiz.id)
+
+    assert await quiz_repo.get_by_id(quiz.id) is None
+    assert await quiz_repo.list_questions(quiz.id) == []
+
+
+async def test_delete_raises_when_not_owned():
+    llm = FakeLLMProvider(response=_TWO_MCQ_RESPONSE)
+    service, subject_repo, document_repo, chunk_repo, *_ = await _build(llm=llm)
+    subject, document = await _seed_ready_document(subject_repo, document_repo, chunk_repo)
+    quiz = await service.generate(user_id="user-1", subject_id=subject.id, document_id=document.id)
+
+    with pytest.raises(SubjectNotFoundError):
+        await service.delete(user_id="someone-else", quiz_id=quiz.id)
+
+
+async def test_delete_raises_for_unknown_quiz():
+    service, *_ = await _build(llm=FakeLLMProvider(response="{}"))
+
+    with pytest.raises(QuizNotFoundError):
+        await service.delete(user_id="user-1", quiz_id="nonexistent")

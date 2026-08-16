@@ -255,6 +255,15 @@ export type OverviewAnalytics = {
   subjects: SubjectAnalytics[];
 };
 
+export type UsageSummary = {
+  ai_requests_used_today: number;
+  ai_requests_daily_limit: number;
+  documents_used_today: number;
+  documents_daily_limit: number;
+  limits_enforced: boolean;
+  resets_at: string;
+};
+
 export type Citation = {
   document_id: string;
   document_filename: string;

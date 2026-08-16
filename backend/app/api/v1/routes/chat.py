@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.deps import get_chat_service, get_current_user
+from app.api.v1.deps import get_chat_service, get_current_user, get_language
 from app.api.v1.schemas.chat import ChatRequest, ChatResponse, MessageResponse
 from app.api.v1.schemas.conversation import ConversationResponse
 from app.domain.entities.user import User
@@ -15,6 +15,7 @@ async def send_chat_message(
     body: ChatRequest,
     current_user: User = Depends(get_current_user),
     service: ChatService = Depends(get_chat_service),
+    language: str = Depends(get_language),
 ) -> ChatResponse:
     result = await service.send_message(
         user_id=current_user.id,
@@ -22,6 +23,7 @@ async def send_chat_message(
         conversation_id=body.conversation_id,
         question=body.question,
         document_id=body.document_id,
+        language=language,
     )
     return ChatResponse(
         conversation_id=result.conversation.id,

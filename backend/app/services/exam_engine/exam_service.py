@@ -31,6 +31,7 @@ class ExamService:
         duration_minutes: int | None = None,
         style: str | None = None,
         title: str | None = None,
+        language: str = "en",
     ) -> Quiz:
         return await self._quizzes.generate(
             user_id=user_id,
@@ -43,6 +44,7 @@ class ExamService:
             duration_minutes=duration_minutes,
             style=style,
             title=title,
+            language=language,
         )
 
     async def get_history(self, *, user_id: str, exam_id: str) -> list[QuizAttempt]:

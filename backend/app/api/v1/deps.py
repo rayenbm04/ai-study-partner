@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,6 +49,7 @@ from app.services.flashcard_engine.flashcard_service import FlashcardService
 from app.services.knowledge_base.ingestion_task import ingest_document_task
 from app.services.llm.base import LLMProvider
 from app.services.llm.factory import build_llm_provider, build_simple_llm_provider
+from app.services.llm.language import normalize_language
 from app.services.planning_engine.planning_service import PlanningService
 from app.services.progress_engine.progress_service import ProgressService
 from app.services.quiz_engine.quiz_service import QuizService
@@ -485,3 +486,14 @@ async def get_current_user_from_header_or_query(
     if not bearer_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return await _resolve_user_from_token(bearer_token, user_repo)
+
+
+def get_language(x_app_language: str | None = Header(default=None)) -> str:
+    """The app's current UI language (en/fr/ar), sent as X-App-Language on
+    every request (see mobile/lib/api/client.ts) — routes that generate
+    user-visible content (chat, quizzes, flashcards, summaries) pass this
+    into the relevant service call so the model answers in the student's
+    language instead of always defaulting to English. Unknown/missing values
+    fall back to English rather than erroring — this is a nicety, not
+    something a malformed header should break."""
+    return normalize_language(x_app_language)

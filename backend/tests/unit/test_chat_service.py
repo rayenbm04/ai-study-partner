@@ -129,6 +129,49 @@ async def test_send_message_reuses_existing_conversation_and_condenses_with_hist
     assert "The derivative of x^2 is 2x." in condense_call["prompt"]
 
 
+async def test_send_message_cites_each_document_only_once():
+    """Two different chunks from the same document both matching shouldn't
+    produce two citations for that document — see _generate_answer's
+    seen_document_ids dedup."""
+    llm = FakeLLMProvider(response="The derivative of x^2 is 2x [1][2].")
+    service, subject_repo, chunk_repo, document_repo, embedding_repo, embedding_provider = await _build_chat_service(
+        llm=llm, final_context_chunks=5
+    )
+    subject = await subject_repo.create(user_id="user-1", name="Calculus", description=None, color=None, icon=None)
+    document = await document_repo.create(
+        document_id="doc-1", subject_id=subject.id, original_filename="calc101.pdf",
+        storage_path="x", file_type="pdf",
+    )
+    drafts = [
+        ChunkDraft(
+            content="Derivatives measure the rate of change of a function.", chunk_type="parent",
+            parent_index=None, page=3, section_title="Ch1", chapter=None, token_count=8,
+        ),
+        ChunkDraft(
+            content="The derivative of x^2 is 2x.", chunk_type="child", parent_index=0, page=3,
+            section_title="Ch1", chapter=None, token_count=7,
+        ),
+        ChunkDraft(
+            content="The derivative of x^3 is 3x^2.", chunk_type="child", parent_index=0, page=4,
+            section_title="Ch1", chapter=None, token_count=7,
+        ),
+    ]
+    chunks = await chunk_repo.bulk_create(document_id=document.id, subject_id=subject.id, drafts=drafts)
+    children = [c for c in chunks if c.chunk_type == "child"]
+    vectors = await embedding_provider.embed_documents([c.content for c in children])
+    await embedding_repo.bulk_create(
+        chunk_ids=[c.id for c in children], vectors=vectors, model_name=embedding_provider.model_name
+    )
+
+    result = await service.send_message(
+        user_id="user-1", subject_id=subject.id, conversation_id=None,
+        question="How do you differentiate polynomials?",
+    )
+
+    assert len(result.assistant_message.citations) == 1
+    assert result.assistant_message.citations[0].document_filename == "calc101.pdf"
+
+
 async def test_send_message_no_matching_chunks_returns_fallback_with_no_citations():
     llm = FakeLLMProvider(response="should not be called for the answer")
     service, subject_repo, chunk_repo, document_repo, embedding_repo, embedding_provider = await _build_chat_service(

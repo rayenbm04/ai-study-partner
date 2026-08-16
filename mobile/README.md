@@ -44,7 +44,7 @@ app/                 expo-router routes (file-based)
   quiz/               quiz-taking flow
   onboarding.tsx      first-run setup (create first subject + daily study time)
   _layout.tsx          root layout: font loading, Stack.Protected auth gating, navigation shell
-components/ui/        shared primitives (Button, Card, TextField, DatePickerField, SchoolPickerField, ProgressBar, Text, Screen, Tag, Avatar, RingProgress, AnimatedNumber, IconButton)
+components/ui/        shared primitives (Button, Card, TextField, DatePickerField, SchoolPickerField, ProgressBar, Text, Screen, Tag, Avatar, AnimatedNumber, IconButton)
 constants/theme.ts     design tokens
 lib/api/               typed API client, one module per backend engine
 lib/auth-context.tsx   global auth state (login/register/logout, token refresh)

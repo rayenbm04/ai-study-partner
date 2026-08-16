@@ -9,18 +9,16 @@
  * GET /subjects/{id}/progress, GET /subjects/{id}/weak-concepts) — no
  * streaks/badges/estimated-minutes invented for a card that needs filling.
  */
-import { StackIcon, WarningCircleIcon } from "phosphor-react-native";
+import { StackIcon, TrendUpIcon, WarningCircleIcon } from "phosphor-react-native";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 
-import { RadarChart } from "../../components/RadarChart";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { Avatar, AvatarFallback } from "../../components/ui/avatar";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
-import { RingProgress } from "../../components/ui/RingProgress";
 import { Screen } from "../../components/ui/Screen";
 import { Tag } from "../../components/ui/Tag";
 import { Text } from "../../components/ui/text";
@@ -50,6 +48,8 @@ export default function ProgressScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [overview, setOverview] = useState<OverviewAnalytics | null>(null);
   const [sections, setSections] = useState<SubjectProgress[]>([]);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionOffsets = useRef<Record<string, number>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -97,9 +97,16 @@ export default function ProgressScreen() {
     router.push({ pathname: "/coach/[subjectId]", params: { subjectId, prompt: `Explain ${conceptName}` } });
   }
 
+  function scrollToGaps() {
+    const firstWithGaps = sections.find((s) => s.weakConcepts.length > 0);
+    if (!firstWithGaps) return;
+    const y = sectionOffsets.current[firstWithGaps.subject.id];
+    if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  }
+
   return (
     <Screen>
-      <ScrollView contentContainerClassName="pt-2 pb-32">
+      <ScrollView ref={scrollRef} contentContainerClassName="pt-2 pb-32">
         <Text className="mb-6 text-3xl font-bold">{t("progress.header")}</Text>
 
         {sections.length === 0 ? (
@@ -116,11 +123,12 @@ export default function ProgressScreen() {
             <View className="mb-6 flex-row gap-2">
               <Card className="flex-1">
                 <CardContent className="items-center p-4">
-                  <RingProgress percentage={overallMastery ?? 0} size={64} strokeWidth={7} color={scheme.primary} trackColor={scheme.border}>
-                    <Text className="absolute text-[13px] font-semibold">
-                      {overallMastery !== null ? `${overallMastery}%` : "—"}
-                    </Text>
-                  </RingProgress>
+                  <View className="size-11 items-center justify-center rounded-full bg-primary/15">
+                    <TrendUpIcon size={22} color={scheme.primary} weight="fill" />
+                  </View>
+                  <Text className="mt-2 text-xl font-bold">
+                    {overallMastery !== null ? `${overallMastery}%` : "—"}
+                  </Text>
                   <Text className="mt-2 text-center text-xs text-muted-foreground">{t("progress.overallMastery")}</Text>
                 </CardContent>
               </Card>
@@ -135,26 +143,33 @@ export default function ProgressScreen() {
                   <Text className="mt-2 text-center text-xs text-muted-foreground">{t("progress.dueToday")}</Text>
                 </CardContent>
               </Card>
-              <Card className="flex-1">
-                <CardContent className="items-center p-4">
-                  <View className="size-11 items-center justify-center rounded-full bg-destructive/10">
-                    <WarningCircleIcon size={22} color={scheme.destructive} weight="fill" />
-                  </View>
-                  <Text className="mt-2 text-xl font-bold">
-                    <AnimatedNumber value={weakSpotsTotal} />
-                  </Text>
-                  <Text className="mt-2 text-center text-xs text-muted-foreground">{t("progress.weakSpots")}</Text>
-                </CardContent>
-              </Card>
+              <Pressable className="flex-1" onPress={scrollToGaps} disabled={weakSpotsTotal === 0}>
+                <Card>
+                  <CardContent className="items-center p-4">
+                    <View className="size-11 items-center justify-center rounded-full bg-destructive/10">
+                      <WarningCircleIcon size={22} color={scheme.destructive} weight="fill" />
+                    </View>
+                    <Text className="mt-2 text-xl font-bold">
+                      <AnimatedNumber value={weakSpotsTotal} />
+                    </Text>
+                    <Text className="mt-2 text-center text-xs text-muted-foreground">{t("progress.weakSpots")}</Text>
+                  </CardContent>
+                </Card>
+              </Pressable>
             </View>
 
             {sections.map(({ subject, tree, weakConcepts }) => {
               const stats = subjectStats.find((s) => s.subject_id === subject.id);
               const namesById = flattenConceptNames(tree);
-              const radarData = tree.slice(0, 8).map((c) => ({ label: c.name, value: c.mastery_score ?? 0 }));
 
               return (
-                <Card key={subject.id} className="mb-4">
+                <Card
+                  key={subject.id}
+                  className="mb-4"
+                  onLayout={(e) => {
+                    sectionOffsets.current[subject.id] = e.nativeEvent.layout.y;
+                  }}
+                >
                   <CardContent>
                     <View className="flex-row items-center gap-3">
                       <Avatar alt={subject.name} className="size-10">
@@ -174,12 +189,6 @@ export default function ProgressScreen() {
                       <Text className="mt-3 text-xs text-muted-foreground">{t("progress.notStarted")}</Text>
                     ) : (
                       <>
-                        {radarData.length >= 3 ? (
-                          <View className="mt-6 items-center">
-                            <RadarChart data={radarData} size={220} color={scheme.primary} gridColor={scheme.border} labelColor={scheme.mutedForeground} />
-                          </View>
-                        ) : null}
-
                         <Text className="mt-6 mb-2 text-sm font-medium text-muted-foreground">{t("progress.chapters")}</Text>
                         <View className="gap-3">
                           {tree.map((chapter) => {

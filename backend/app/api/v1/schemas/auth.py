@@ -67,6 +67,11 @@ class ResetPasswordRequest(BaseModel):
     confirm_new_password: str = Field(min_length=8, max_length=128)
 
 
+class UpdateProfileRequest(BaseModel):
+    firstname: str = Field(min_length=1, max_length=100)
+    lastname: str = Field(min_length=1, max_length=100)
+
+
 class UserResponse(BaseModel):
     id: str
     email: str

@@ -238,6 +238,19 @@ class QuizAttemptAlreadySubmittedError(DomainError):
         super().__init__(f"Quiz attempt '{attempt_id}' has already been submitted.")
 
 
+class QuizGenerationFailedError(DomainError):
+    """Raised when generate_quiz_questions() comes back empty — the LLM call
+    failed outright or returned unusable JSON (see generator.py). Without
+    this, QuizService.generate() used to silently create a real Quiz row
+    with zero questions, which the mobile app then rendered as a blank
+    screen with no explanation (see mobile/app/quiz/[quizId].tsx)."""
+
+    status_code = status.HTTP_502_BAD_GATEWAY
+
+    def __init__(self):
+        super().__init__("Couldn't generate any questions from this document. Try again.")
+
+
 class StudyPlanNotFoundError(DomainError):
     status_code = status.HTTP_404_NOT_FOUND
 
