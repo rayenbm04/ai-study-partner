@@ -131,7 +131,7 @@ Every "free" cloud LLM tier has a ceiling — the fix isn't finding one magical 
 | Tutoring / chat answers (reasoning-heavy) | Cerebras `gpt-oss-120b` |
 | Concept tagging, classification, summaries, flashcard/quiz generation, RAG query rewriting | Cerebras `llama3.1-8b` — the same main/simple split every provider uses (`services/llm/factory.py`) |
 | Any vision call (scanned PDF pages, standalone images) | Routed straight to Groq — Cerebras has no vision-capable model at all |
-| Whenever Cerebras returns a 429 or its daily quota is exhausted | Groq (`llama-3.3-70b-versatile` for answers, `llama-3.1-8b-instant` for aux) |
+| Whenever Cerebras returns a 429 or its daily quota is exhausted | Groq (`openai/gpt-oss-120b` for answers, `openai/gpt-oss-20b` for aux) |
 
 Implemented as `FallbackLLMProvider` (`backend/app/services/llm/fallback_provider.py`), built by `build_llm_provider`/`build_simple_llm_provider` whenever `LLM_FALLBACK_PROVIDER` differs from `LLM_PROVIDER` — unset (the default) means no wrapping at all, same single-provider behavior as before this existed. The per-user quota check happens in the backend's own code (`UsageService`), ahead of both RAG retrieval and the AI Gateway — it's a budget on *your* users, separate from (and enforced before you ever hit) whatever rate limit either provider imposes on you.
 

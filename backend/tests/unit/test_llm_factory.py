@@ -10,15 +10,15 @@ def _settings(**overrides) -> Settings:
 
 
 def test_build_llm_provider_uses_main_groq_model():
-    provider = build_llm_provider(_settings(llm_provider="groq", groq_chat_model="llama-3.3-70b-versatile"))
-    assert provider.model_name == "llama-3.3-70b-versatile"
+    provider = build_llm_provider(_settings(llm_provider="groq", groq_chat_model="openai/gpt-oss-120b"))
+    assert provider.model_name == "openai/gpt-oss-120b"
 
 
 def test_build_simple_llm_provider_uses_simple_groq_model():
     provider = build_simple_llm_provider(
-        _settings(llm_provider="groq", groq_simple_chat_model="llama-3.1-8b-instant")
+        _settings(llm_provider="groq", groq_simple_chat_model="openai/gpt-oss-20b")
     )
-    assert provider.model_name == "llama-3.1-8b-instant"
+    assert provider.model_name == "openai/gpt-oss-20b"
 
 
 def test_build_simple_llm_provider_falls_back_to_main_model_when_unset():

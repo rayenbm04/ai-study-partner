@@ -28,7 +28,7 @@ image uploads.
 | Default chat + vision (tutoring, summaries, concept tagging, quiz/exam generation, image/slide extraction) | **Google Gemini** (`gemini-2.5-flash`) | Free tier: ~1,500 requests/day, no credit card, no expiry. Natively multimodal, so it replaces the local vision model the fork used for scanned pages and diagrams — one provider instead of a separate vision pipeline. |
 | Default embeddings | **Google Gemini Embedding** (`gemini-embedding-001`), or **local `sentence-transformers`** (`EMBEDDING_PROVIDER=local`) if you don't want a billing account on file | Gemini: 1,500 requests/day, 10M tokens/min, same account as chat. Local: genuinely free forever, no key, no card, runs on the backend's own CPU — see the update note above. |
 | Card-free chat alternative, primary in a Cerebras + Groq pairing | **Cerebras** (`gpt-oss-120b`, aux tier `llama3.1-8b`) | Free tier: 30 requests/minute, 14.4K requests/day, 1M tokens/day on GPT-OSS-120B, with similarly generous limits on its 8B model — no credit card. See "Multi-provider strategy" below for why this is worth pairing with Groq rather than using alone. |
-| High-volume / bulk generation fallback (flashcard batches, quiz batches, retry queue when Gemini's or Cerebras' daily quota is hit) | **Groq** (`llama-3.3-70b-versatile`) | Free tier, no credit card, and the fastest inference available at any price — 700+ tokens/sec on custom LPU hardware. Good enough quality for flashcard Q&A and MCQ generation where speed matters more than frontier reasoning. Also the natural `LLM_FALLBACK_PROVIDER` for Cerebras, since it's the one provider here with a genuinely separate vision-capable model. |
+| High-volume / bulk generation fallback (flashcard batches, quiz batches, retry queue when Gemini's or Cerebras' daily quota is hit) | **Groq** (`openai/gpt-oss-120b`) | Free tier, no credit card, and the fastest inference available at any price — 700+ tokens/sec on custom LPU hardware. Good enough quality for flashcard Q&A and MCQ generation where speed matters more than frontier reasoning. Also the natural `LLM_FALLBACK_PROVIDER` for Cerebras, since it's the one provider here with a genuinely separate vision-capable model. |
 | Aggregation layer + the paid upgrade path | **OpenRouter** | One API key routes to 28+ models, including a free pool (DeepSeek R1, Llama 3.3 70B, Qwen3, Gemma 3, Gemini Flash) for overflow/failover, and the exact same integration reaches paid Claude or GPT-4o the moment budget allows — just change `OPENROUTER_CHAT_MODEL` in `.env`, nothing else. |
 
 `config.py` already has all five sets of keys/model names scaffolded (`GEMINI_*`,
@@ -82,7 +82,7 @@ AI Gateway (services/llm/factory.py)
 | Tutoring / chat answers (reasoning-heavy) | Cerebras `gpt-oss-120b` |
 | Concept tagging, classification, summaries, flashcard/quiz generation, RAG query rewriting | Cerebras `llama3.1-8b` (the same main/simple split every provider uses, see `llm/factory.py`) |
 | Any vision call (scanned PDF pages, standalone images) | Routed straight to Groq — Cerebras has no vision-capable model at all, see `fallback_provider.py` |
-| Whenever Cerebras returns a 429 or its daily quota is exhausted | Groq (`llama-3.3-70b-versatile` for answers, `llama-3.1-8b-instant` for aux) |
+| Whenever Cerebras returns a 429 or its daily quota is exhausted | Groq (`openai/gpt-oss-120b` for answers, `openai/gpt-oss-20b` for aux) |
 
 This is implemented as `FallbackLLMProvider` (`app/services/llm/fallback_provider.py`), built by
 `build_llm_provider`/`build_simple_llm_provider` whenever `LLM_FALLBACK_PROVIDER` is set to
@@ -99,7 +99,7 @@ before you ever hit) whatever rate limit either provider imposes on you.
 ## Rate limits, current as of this writing (verify before relying on them for capacity planning — free-tier limits change often)
 
 - Gemini API: ~10–15 requests/minute, ~1,500 requests/day on Flash, no credit card, up to 1M token context.
-- Groq: ~30 requests/minute free on Llama 3.3 70B, no credit card.
+- Groq: ~30 requests/minute free on GPT-OSS-120B, no credit card.
 - Cerebras: 30 requests/minute, 14.4K requests/day, 1M tokens/day on GPT-OSS-120B, no credit card; similarly generous limits on its 8B model.
 - OpenRouter free tier: 20 requests/minute, 50–1,000 requests/day across 28+ free models, no credit card.
 - Gemini Embedding: ~1,500 requests/day, 10M tokens/minute, no credit card.

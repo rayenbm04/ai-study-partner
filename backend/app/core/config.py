@@ -70,8 +70,11 @@ class Settings(BaseSettings):
     local_embedding_model: str = "sentence-transformers/all-mpnet-base-v2"
 
     groq_api_key: str = ""
-    groq_chat_model: str = "llama-3.3-70b-versatile"
-    # llama-3.3-70b-versatile is text-only — Groq's vision-capable models are a
+    groq_chat_model: str = "openai/gpt-oss-120b"
+    # Was llama-3.3-70b-versatile until Groq decommissioned it on 2026-08-16;
+    # openai/gpt-oss-120b is Groq's recommended replacement (the other option
+    # they listed, qwen/qwen3.6-27b, is already doing duty as
+    # groq_vision_model below). Text-only — Groq's vision-capable models are a
     # separate, smaller lineup that churns fast: rag-backend/ (this project's
     # predecessor) used meta-llama/llama-4-scout-17b-16e-instruct as of
     # 2026-06, but by 2026-08 Groq had retired it (confirmed via a live 404
@@ -84,8 +87,10 @@ class Settings(BaseSettings):
     # document classification, summaries, flashcard/quiz generation, RAG
     # query rewriting) — see llm/factory.py's build_simple_llm_provider.
     # Tutoring answers, exam-question grading, and other reasoning-heavy work
-    # keep using groq_chat_model above.
-    groq_simple_chat_model: str = "llama-3.1-8b-instant"
+    # keep using groq_chat_model above. Was llama-3.1-8b-instant until Groq
+    # decommissioned it on 2026-08-16; openai/gpt-oss-20b is Groq's
+    # recommended replacement.
+    groq_simple_chat_model: str = "openai/gpt-oss-20b"
 
     # Cerebras' free tier is unusually generous for a text-only provider:
     # gpt-oss-120b at 30 req/min, 14.4K req/day, 1M tokens/day, with similarly
